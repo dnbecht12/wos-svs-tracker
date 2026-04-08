@@ -111,11 +111,20 @@ export function useAuth() {
     return true;
   }, []);
 
+  const signInWithDiscord = useCallback(async () => {
+    setError("");
+    const { error: err } = await supabase.auth.signInWithOAuth({
+      provider: "discord",
+      options: { redirectTo: window.location.origin },
+    });
+    if (err) setError(err.message);
+  }, []);
+
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
   }, []);
 
   const clearError = useCallback(() => setError(""), []);
 
-  return { user, loading, error, signUp, signIn, signOut, clearError };
+  return { user, loading, error, signUp, signIn, signInWithDiscord, signOut, clearError };
 }
