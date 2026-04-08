@@ -307,15 +307,51 @@ function HeroGearPage({ inv }) {
     ));
   };
 
-  // Update a gear slot field
+  // Update a gear slot field with goal-floor enforcement
   const setSlotField = (heroIdx, slotIdx, field, value) => {
     setHeroData(prev => prev.map((h, hi) => {
       if (hi !== heroIdx) return h;
       return {
         ...h,
-        slots: h.slots.map((s, si) =>
-          si !== slotIdx ? s : { ...s, [field]: value }
-        ),
+        slots: h.slots.map((s, si) => {
+          if (si !== slotIdx) return s;
+          const isWidget   = si === 4;
+          const isLegendary = s.status === "Legendary";
+          const locked = isWidget || isLegendary; // goals cannot go below current
+
+          let updated = { ...s, [field]: value };
+
+          // If setting gearCurrent, auto-bump gearGoal up if needed (locked slots)
+          if (field === "gearCurrent" && locked) {
+            if ((updated.gearGoal ?? 0) < value) updated.gearGoal = value;
+          }
+          // If setting masteryCurrent (non-widget, legendary), auto-bump masteryGoal
+          if (field === "masteryCurrent" && isLegendary && !isWidget) {
+            if ((updated.masteryGoal ?? 0) < value) updated.masteryGoal = value;
+          }
+          // If setting widgetCurrent, auto-bump widgetGoal
+          if (field === "widgetCurrent" && isWidget) {
+            if ((updated.widgetGoal ?? 0) < value) updated.widgetGoal = value;
+          }
+          // Prevent goal from being set below current for locked slots
+          if (field === "gearGoal" && locked) {
+            updated.gearGoal = Math.max(value, s.gearCurrent ?? 0);
+          }
+          if (field === "masteryGoal" && isLegendary && !isWidget) {
+            updated.masteryGoal = Math.max(value, s.masteryCurrent ?? 0);
+          }
+          if (field === "widgetGoal" && isWidget) {
+            updated.widgetGoal = Math.max(value, s.widgetCurrent ?? 0);
+          }
+          // If switching from Mythic to Legendary, enforce floor immediately
+          if (field === "status" && value === "Legendary") {
+            if ((updated.gearGoal ?? 0) < (updated.gearCurrent ?? 0))
+              updated.gearGoal = updated.gearCurrent ?? 0;
+            if ((updated.masteryGoal ?? 0) < (updated.masteryCurrent ?? 0))
+              updated.masteryGoal = updated.masteryCurrent ?? 0;
+          }
+          return updated;
+        }),
       };
     }));
   };
@@ -366,9 +402,9 @@ function HeroGearPage({ inv }) {
 
       {/* Summary tiles */}
       <div className="stat-grid" style={{marginBottom:20}}>
-        <StatCard label="Stones needed"  value={totals.stones}  sub={`have ${fmtFull(inv.stones ?? 0)}`}  color={totals.stones  > (inv.stones  ?? 0) ? "red" : undefined} />
-        <StatCard label="Mithril needed" value={totals.mithril} sub={`have ${fmtFull(inv.mithril ?? 0)}`} color={totals.mithril > (inv.mithril ?? 0) ? "red" : undefined} />
-        <StatCard label="Mythic needed"  value={totals.mythic}  sub={`have ${fmtFull(inv.mythicGear ?? 0)}`} color={totals.mythic > (inv.mythicGear ?? 0) ? "red" : undefined} />
+        <StatCard label="Stones needed"  value={totals.stones}  sub={`have ${(inv.stones ?? 0).toLocaleString()}`}  color={totals.stones  > (inv.stones  ?? 0) ? "red" : undefined} />
+        <StatCard label="Mithril needed" value={totals.mithril} sub={`have ${(inv.mithril ?? 0).toLocaleString()}`} color={totals.mithril > (inv.mithril ?? 0) ? "red" : undefined} />
+        <StatCard label="Mythic needed"  value={totals.mythic}  sub={`have ${(inv.mythicGear ?? 0).toLocaleString()}`} color={totals.mythic > (inv.mythicGear ?? 0) ? "red" : undefined} />
       </div>
 
       <div className="card">
@@ -392,9 +428,8 @@ function HeroGearPage({ inv }) {
                 <th style={thStyle}>Hero</th>
                 <th style={thStyle}>Slot</th>
                 <th style={thStyle}>Gear Status</th>
-                {/* Current: two sub-cols for gear slots 1-4 */}
                 <th style={{...thStyle,textAlign:"center"}} colSpan={2}>Current</th>
-                <th style={{...thStyle,textAlign:"center"}}>Goal</th>
+                <th style={{...thStyle,textAlign:"center"}} colSpan={2}>Goal</th>
                 <th style={{...thStyle,textAlign:"right"}}>Stones</th>
                 <th style={{...thStyle,textAlign:"right"}}>Mithril</th>
                 <th style={{...thStyle,textAlign:"right"}}>Mythic Needed</th>
@@ -404,7 +439,9 @@ function HeroGearPage({ inv }) {
                 <th style={{...thStyle,paddingTop:2,paddingBottom:6}} colSpan={4}/>
                 <th style={{...thStyle,paddingTop:2,paddingBottom:6,textAlign:"center",color:C.textDim,fontSize:9}}>Gear Lvl</th>
                 <th style={{...thStyle,paddingTop:2,paddingBottom:6,textAlign:"center",color:C.textDim,fontSize:9}}>Mastery Lvl</th>
-                <th style={{...thStyle,paddingTop:2,paddingBottom:6}} colSpan={5}/>
+                <th style={{...thStyle,paddingTop:2,paddingBottom:6,textAlign:"center",color:C.textDim,fontSize:9}}>Gear Lvl</th>
+                <th style={{...thStyle,paddingTop:2,paddingBottom:6,textAlign:"center",color:C.textDim,fontSize:9}}>Mastery Lvl</th>
+                <th style={{...thStyle,paddingTop:2,paddingBottom:6}} colSpan={4}/>
               </tr>
             </thead>
             <tbody>
@@ -423,8 +460,7 @@ function HeroGearPage({ inv }) {
                   const gc = isWidget ? {mithril:0,mythic:0}
                            : calcGearCosts(s.gearCurrent ?? 0, s.gearGoal ?? 0, isLeg);
                   const mc = isWidget ? {stones:0,mythic:0}
-                           : calcMasteryCosts(s.masteryCurrent ?? 0, s.masteryGoal ?? 0);
-                  const rowStones  = mc.stones;
+                           : calcMasteryCosts(s.masteryCurrent ?? 0, s.masteryGoal ?? 0);                  const rowStones  = mc.stones;
                   const rowMithril = gc.mithril;
                   const rowMythic  = gc.mythic + mc.mythic;
 
@@ -497,39 +533,55 @@ function HeroGearPage({ inv }) {
                         ) : <span style={{color:C.textDim}}>—</span>}
                       </td>
 
-                      {/* Goal */}
+                      {/* Goal: Gear Level */}
                       <td style={{...tdStyle,width:80,textAlign:"center"}}>
                         {isWidget ? (
                           <select value={s.widgetGoal ?? 0}
                             onChange={e => setSlotField(heroIdx, slotIdx, "widgetGoal", Number(e.target.value))}
                             style={sel}>
-                            {widgetOpts.map(v => <option key={v} value={v}>{v}</option>)}
+                            {widgetOpts.filter(v => v >= (s.widgetCurrent ?? 0)).map(v =>
+                              <option key={v} value={v}>{v}</option>)}
                           </select>
                         ) : (
                           <select value={s.gearGoal ?? 0}
                             onChange={e => setSlotField(heroIdx, slotIdx, "gearGoal", Number(e.target.value))}
                             style={sel}>
-                            {gearOpts.map(v => <option key={v} value={v}>{v}</option>)}
+                            {gearOpts
+                              .filter(v => isLeg ? v >= (s.gearCurrent ?? 0) : true)
+                              .map(v => <option key={v} value={v}>{v}</option>)}
                           </select>
                         )}
                       </td>
 
+                      {/* Goal: Mastery Level (slots 1-4 only) */}
+                      <td style={{...tdStyle,width:80,textAlign:"center"}}>
+                        {!isWidget ? (
+                          <select value={s.masteryGoal ?? 0}
+                            onChange={e => setSlotField(heroIdx, slotIdx, "masteryGoal", Number(e.target.value))}
+                            style={sel}>
+                            {masteryOpts
+                              .filter(v => isLeg ? v >= (s.masteryCurrent ?? 0) : true)
+                              .map(v => <option key={v} value={v}>{v}</option>)}
+                          </select>
+                        ) : <span style={{color:C.textDim}}>—</span>}
+                      </td>
+
                       {/* Stones */}
                       <td style={{...tdMono,color: rowStones > 0 ? C.blue : C.textDim}}>
-                        {rowStones > 0 ? fmtFull(rowStones) : "—"}
+                        {rowStones > 0 ? rowStones.toLocaleString() : "—"}
                       </td>
 
                       {/* Mithril */}
                       <td style={{...tdMono,color: rowMithril > 0 ? C.accent : C.textDim}}>
-                        {rowMithril > 0 ? fmtFull(rowMithril) : "—"}
+                        {rowMithril > 0 ? rowMithril.toLocaleString() : "—"}
                       </td>
 
                       {/* Mythic Needed */}
                       <td style={{...tdMono,color: rowMythic > 0 ? C.green : C.textDim}}>
-                        {rowMythic > 0 ? fmtFull(rowMythic) : "—"}
+                        {rowMythic > 0 ? rowMythic.toLocaleString() : "—"}
                       </td>
 
-                      {/* SVS PTS — placeholder, empty for now */}
+                      {/* SVS PTS */}
                       <td style={{...tdMono,color:C.textDim}}>—</td>
                     </tr>
                   );

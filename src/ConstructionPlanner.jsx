@@ -488,7 +488,7 @@ function saveState(key, val) {
   try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
 }
 
-export default function ConstructionPlanner() {
+export default function ConstructionPlanner({ inv, setInv }) {
   // Cycle selector linked to SvS Calendar
   const currentCycle = useMemo(() => getCurrentCycleNum(), []);
   const cycleOpts    = useMemo(() => buildCycles(Math.max(1, currentCycle - 1), 16), [currentCycle]);
@@ -509,9 +509,11 @@ export default function ConstructionPlanner() {
     loadState("cp-buildings", DEFAULT_BUILDINGS)
   );
 
-  // Shared settings
-  const [fc, setFC] = useState(() => loadState("cp-fc", 2982));
-  const [rfc, setRFC] = useState(() => loadState("cp-rfc", 34));
+  // FC and RFC come from shared inv prop — changes sync back via setInv
+  const fc  = inv?.fireCrystals ?? 0;
+  const rfc = inv?.refinedFC    ?? 0;
+  const setFC  = (val) => setInv(p => ({ ...p, fireCrystals: val }));
+  const setRFC = (val) => setInv(p => ({ ...p, refinedFC:    val }));
   const [refCount, setRefCount] = useState(() => loadState("cp-refcount", 22)); // current weekly refine count
   const [dailyFCIncome, setDailyFCIncome] = useState(() => loadState("cp-dailyfc", 48));
   const [dailyRFCIntel, setDailyRFCIntel] = useState(() => loadState("cp-dailyrfc", 2));
@@ -699,12 +701,12 @@ export default function ConstructionPlanner() {
               <div className="inp-group">
                 <label className="inp-label">Current FC</label>
                 <input className="inp-field" type="number" value={fc} min={0}
-                  onChange={e => persist(setFC,"cp-fc")(Number(e.target.value))} />
+                  onChange={e => setFC(Number(e.target.value))} />
               </div>
               <div className="inp-group">
                 <label className="inp-label">Current Refined FC</label>
                 <input className="inp-field" type="number" value={rfc} min={0}
-                  onChange={e => persist(setRFC,"cp-rfc")(Number(e.target.value))} />
+                  onChange={e => setRFC(Number(e.target.value))} />
               </div>
               <div className="inp-group">
                 <label className="inp-label">Daily FC income</label>
