@@ -562,6 +562,8 @@ function cascadePrereqs(buildings) {
   }
   return result;
 }
+
+const BUILDINGS_LIST = [
   "Furnace","Embassy","Infantry","Marksman","Lancer","Command","Infirmary","War Academy"
 ];
 
