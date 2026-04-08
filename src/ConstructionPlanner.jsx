@@ -461,7 +461,107 @@ function fmtMins(totalMins) {
   return parts.join(" ");
 }
 
-const BUILDINGS_LIST = [
+// ─── Prerequisite map (from Misc. Data Tables AR:AS) ─────────────────────────
+// PREREQS[building][FCn] = [ [reqBuilding, reqFCn], ... ]
+// Only major FC levels listed — sub-levels inherit the same prereqs.
+// "War Academy" prereqs use matching FC level (no dash notation in source).
+const PREREQS = {
+  Embassy: {
+    FC1:"Furnace",FC2:"Furnace",FC3:"Furnace",FC4:"Furnace",FC5:"Furnace",
+    FC6:"Furnace",FC7:"Furnace",FC8:"Furnace",FC9:"Furnace",FC10:"Furnace",
+  },
+  Furnace: {
+    FC2:[["Embassy","FC1"],["Lancer","FC1"]],
+    FC3:[["Embassy","FC2"],["Infantry","FC2"]],
+    FC4:[["Embassy","FC3"],["Marksman","FC3"]],
+    FC5:[["Embassy","FC4"],["Lancer","FC4"]],
+    FC6:[["Embassy","FC5"],["Infantry","FC5"]],
+    FC7:[["Embassy","FC6"],["Marksman","FC6"]],
+    FC8:[["Embassy","FC7"],["Lancer","FC7"]],
+    FC9:[["Embassy","FC8"],["Infantry","FC8"]],
+    FC10:[["Embassy","FC9"],["Marksman","FC9"]],
+  },
+  Infantry: {
+    FC1:"Furnace",FC2:"Furnace",FC3:"Furnace",FC4:"Furnace",FC5:"Furnace",
+    FC6:"Furnace",FC7:"Furnace",FC8:"Furnace",FC9:"Furnace",FC10:"Furnace",
+  },
+  Marksman: {
+    FC1:"Furnace",FC2:"Furnace",FC3:"Furnace",FC4:"Furnace",FC5:"Furnace",
+    FC6:"Furnace",FC7:"Furnace",FC8:"Furnace",FC9:"Furnace",FC10:"Furnace",
+  },
+  Lancer: {
+    FC1:"Furnace",FC2:"Furnace",FC3:"Furnace",FC4:"Furnace",FC5:"Furnace",
+    FC6:"Furnace",FC7:"Furnace",FC8:"Furnace",FC9:"Furnace",FC10:"Furnace",
+  },
+  Command: {
+    FC1:[["Furnace","FC1"],["Embassy","FC1"]],
+    FC2:[["Furnace","FC2"],["Embassy","FC2"]],
+    FC3:[["Furnace","FC3"],["Embassy","FC3"]],
+    FC4:[["Furnace","FC3"],["Embassy","FC4"]],
+    FC5:[["Furnace","FC5"],["Embassy","FC5"]],
+    FC6:[["Furnace","FC6"],["Embassy","FC6"]],
+    FC7:[["Furnace","FC7"],["Embassy","FC7"]],
+    FC8:[["Furnace","FC8"],["Embassy","FC8"]],
+    FC9:[["Furnace","FC9"],["Embassy","FC9"]],
+    FC10:[["Furnace","FC10"],["Embassy","FC10"]],
+  },
+  Infirmary: {
+    FC1:"Furnace",FC2:"Furnace",FC3:"Furnace",FC4:"Furnace",FC5:"Furnace",
+    FC6:"Furnace",FC7:"Furnace",FC8:"Furnace",FC9:"Furnace",FC10:"Furnace",
+  },
+  "War Academy": {
+    FC1:"Furnace",FC2:"Furnace",FC3:"Furnace",FC4:"Furnace",FC5:"Furnace",
+    FC6:"Furnace",FC7:"Furnace",FC8:"Furnace",FC9:"Furnace",FC10:"Furnace",
+  },
+};
+
+// Given an array of buildings, cascade prerequisite goal levels so that
+// all buildings meet the minimum required for each other's goals.
+// Returns a new buildings array with goals bumped up where needed.
+function cascadePrereqs(buildings) {
+  // Work on a mutable copy using name→index map
+  const byName = {};
+  const result = buildings.map((b, i) => { byName[b.name] = i; return { ...b }; });
+
+  // Run multiple passes in case cascades chain (e.g. goal bump triggers another)
+  let changed = true;
+  let passes = 0;
+  while (changed && passes < 10) {
+    changed = false;
+    passes++;
+    result.forEach(b => {
+      const goalIdx = FC_LEVELS.indexOf(b.goal);
+      if (goalIdx < 0) return;
+
+      // Collect all prereqs for every FC level up to and including the goal
+      for (let lvlIdx = 0; lvlIdx <= goalIdx; lvlIdx++) {
+        const fcLevel = FC_LEVELS[lvlIdx];
+        const prereqEntry = PREREQS[b.name]?.[fcLevel];
+        if (!prereqEntry) continue;
+
+        // Normalize to array of [buildingName, requiredLevel]
+        const reqs = Array.isArray(prereqEntry[0])
+          ? prereqEntry                           // already [[name, lvl], ...]
+          : [[prereqEntry, fcLevel]];             // single building, same level
+
+        reqs.forEach(([reqName, reqLevel]) => {
+          const reqIdx = byName[reqName];
+          if (reqIdx === undefined) return;
+          const reqFCIdx    = FC_LEVELS.indexOf(reqLevel);
+          const currentGoal = FC_LEVELS.indexOf(result[reqIdx].goal);
+          if (reqFCIdx > currentGoal) {
+            result[reqIdx].goal = reqLevel;
+            // Also clamp current if goal is now below current
+            const currentCur = FC_LEVELS.indexOf(result[reqIdx].current);
+            if (reqFCIdx < currentCur) result[reqIdx].goal = result[reqIdx].current;
+            changed = true;
+          }
+        });
+      }
+    });
+  }
+  return result;
+}
   "Furnace","Embassy","Infantry","Marksman","Lancer","Command","Infirmary","War Academy"
 ];
 
@@ -601,8 +701,10 @@ export default function ConstructionPlanner({ inv, setInv }) {
       }
       return updated;
     });
-    setBuildings(next);
-    saveState("cp-buildings", next);
+    // Cascade prerequisite goal levels across all buildings
+    const cascaded = cascadePrereqs(next);
+    setBuildings(cascaded);
+    saveState("cp-buildings", cascaded);
   }
 
   const persist = (setter, key) => (val) => { setter(val); saveState(key, val); };
