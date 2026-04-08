@@ -514,10 +514,7 @@ export default function ConstructionPlanner({ inv, setInv }) {
   const rfc = inv?.refinedFC    ?? 0;
   const setFC  = (val) => setInv(p => ({ ...p, fireCrystals: val }));
   const setRFC = (val) => setInv(p => ({ ...p, refinedFC:    val }));
-  const [refCount, setRefCount] = useState(() => loadState("cp-refcount", 22)); // current weekly refine count
   const [dailyFCIncome, setDailyFCIncome] = useState(() => loadState("cp-dailyfc", 48));
-  const [dailyRFCIntel, setDailyRFCIntel] = useState(() => loadState("cp-dailyrfc", 2));
-  const [zinmanLevel, setZinmanLevel] = useState(() => loadState("cp-zinman", 5));
   const [agnesLevel, setAgnesLevel] = useState(() => loadState("cp-agnes", 8));
   const [valeriaMult, setValeriaMult] = useState(() => loadState("cp-valeria", 0.18));
 
@@ -534,30 +531,27 @@ export default function ConstructionPlanner({ inv, setInv }) {
     setBuffs(next); saveState("cp-buffs", next);
   }
 
-  // buffTotal = speedBuff% + zinman + remaining toggles
+  // buffTotal = speedBuff% + remaining toggles
   const buffTotal = useMemo(() => {
-    let t = speedBuff / 100; // user-entered overview total as fraction
-    const zinBonus = [0,0.03,0.06,0.09,0.12,0.15][zinmanLevel] || 0;
-    t += zinBonus;
+    let t = speedBuff / 100;
     if (buffs.pet)        t += 0.15;
     if (buffs.chiefOrder) t += 0.2;
     if (buffs.presSkill)  t += 0.1;
     if (buffs.presPos)    t += 0.1;
     return t;
-  }, [speedBuff, zinmanLevel, buffs]);
+  }, [speedBuff, buffs]);
 
-  // Accumulation of RFC over daysToSVS at current tier
+  // Accumulation of RFC over daysToSVS based on daily FC income and refine tiers
   const rfcAccumulated = useMemo(() => {
-    let total = 0, rc = refCount;
+    let total = 0, rc = 1;
     for (let d = 0; d < daysToSVS; d++) {
       const tier = getRFCTier(rc);
       const refinesPerDay = Math.floor(dailyFCIncome / tier.fcPer);
       total += refinesPerDay * tier.rfcPer;
-      total += dailyRFCIntel;
       rc = Math.min(rc + refinesPerDay, 100);
     }
     return Math.round(total);
-  }, [refCount, daysToSVS, dailyFCIncome, dailyRFCIntel]);
+  }, [daysToSVS, dailyFCIncome]);
 
   // FC accumulated over daysToSVS from daily income
   const fcAccumulated = useMemo(() => Math.round(dailyFCIncome * daysToSVS), [dailyFCIncome, daysToSVS]);
@@ -712,23 +706,6 @@ export default function ConstructionPlanner({ inv, setInv }) {
                 <label className="inp-label">Daily FC income</label>
                 <input className="inp-field" type="number" value={dailyFCIncome} min={0}
                   onChange={e => persist(setDailyFCIncome,"cp-dailyfc")(Number(e.target.value))} />
-              </div>
-              <div className="inp-group">
-                <label className="inp-label">Daily RFC (intel/events)</label>
-                <input className="inp-field" type="number" value={dailyRFCIntel} min={0}
-                  onChange={e => persist(setDailyRFCIntel,"cp-dailyrfc")(Number(e.target.value))} />
-              </div>
-              <div className="inp-group">
-                <label className="inp-label">Current weekly refine # (1–100)</label>
-                <input className="inp-field" type="number" value={refCount} min={1} max={100}
-                  onChange={e => persist(setRefCount,"cp-refcount")(Number(e.target.value))} />
-              </div>
-              <div className="inp-group">
-                <label className="inp-label">Zinman skill level (1–5)</label>
-                <select className="inp-field" value={zinmanLevel}
-                  onChange={e => persist(setZinmanLevel,"cp-zinman")(Number(e.target.value))}>
-                  {[1,2,3,4,5].map(l => <option key={l} value={l}>Level {l} (+{[3,6,9,12,15][l-1]}%)</option>)}
-                </select>
               </div>
               <div className="inp-group">
                 <label className="inp-label">Agnes skill level (1–8)</label>
@@ -943,35 +920,19 @@ export default function ConstructionPlanner({ inv, setInv }) {
             <div>
               <div className="sec-head">Refine tier status</div>
               <div className="accum-card">
-                <div style={{marginBottom:12}}>
-                  <div style={{fontSize:11,color:C.textSec,marginBottom:6}}>Current weekly refine count: <span style={{color:C.accent,fontFamily:"Space Mono,monospace",fontWeight:700}}>{refCount}</span></div>
-                  <div style={{fontSize:11,color:C.textSec,marginBottom:4}}>Current tier: <span style={{color:C.blue,fontFamily:"Space Mono,monospace",fontWeight:700}}>{getRFCTier(refCount).tier}</span></div>
-                  <div style={{fontSize:11,color:C.textSec}}>
-                    {getRFCTier(refCount).fcPer} FC per refine → {getRFCTier(refCount).rfcPer} RFC per refine
-                  </div>
-                </div>
-                <div className="accum-row" style={{paddingTop:12,borderTop:`1px solid ${C.border}`}}>
+                <div className="accum-row" style={{paddingBottom:12,borderBottom:`1px solid ${C.border}`}}>
                   <span className="accum-label">RFC/day from refining</span>
-                  <span className="accum-val">{Math.round((dailyFCIncome / getRFCTier(refCount).fcPer) * getRFCTier(refCount).rfcPer)}</span>
-                </div>
-                <div className="accum-row">
-                  <span className="accum-label">RFC/day from intel</span>
-                  <span className="accum-val">{dailyRFCIntel}</span>
-                </div>
-                <div className="accum-row">
-                  <span className="accum-label">Total RFC/day</span>
-                  <span className="accum-val pos">{Math.round((dailyFCIncome / getRFCTier(refCount).fcPer) * getRFCTier(refCount).rfcPer) + dailyRFCIntel}</span>
+                  <span className="accum-val">{Math.round((dailyFCIncome / getRFCTier(1).fcPer) * getRFCTier(1).rfcPer)}</span>
                 </div>
                 <div style={{marginTop:14}}>
                   <div style={{fontSize:10,color:C.textDim,marginBottom:8,fontFamily:"Space Mono,monospace",letterSpacing:1}}>REFINE TIER TABLE</div>
                   {RFC_TIERS.map(t => (
                     <div key={t.tier} style={{display:"flex",alignItems:"center",gap:10,padding:"5px 0",borderBottom:`1px solid ${C.border}`,fontSize:12}}>
-                      <span style={{width:24,fontFamily:"Space Mono,monospace",fontWeight:700,color:refCount >= t.min && refCount <= t.max ? C.accent : C.textDim}}>{t.tier}</span>
+                      <span style={{width:24,fontFamily:"Space Mono,monospace",fontWeight:700,color:C.textDim}}>{t.tier}</span>
                       <span style={{color:C.textDim,fontSize:10,fontFamily:"Space Mono,monospace",width:60}}>#{t.min}–{t.max}</span>
                       <span style={{color:C.accent,fontFamily:"Space Mono,monospace"}}>{t.fcPer} FC</span>
                       <span style={{color:C.textDim,fontSize:10}}>→</span>
                       <span style={{color:C.amber,fontFamily:"Space Mono,monospace"}}>{t.rfcPer} RFC</span>
-                      {refCount >= t.min && refCount <= t.max && <span className="badge badge-accent" style={{marginLeft:"auto",fontSize:9}}>CURRENT</span>}
                     </div>
                   ))}
                 </div>
