@@ -17,8 +17,8 @@ BLDG_DB["Marksman"] = BLDG_DB["Infantry"];
 BLDG_DB["Lancer"]   = BLDG_DB["Infantry"];
 BLDG_DB["War Academy"] = BLDG_DB["WA"];
 
-// Sub-level order within each FC major level (the 5 entries in order)
-const SUB_LEVEL_KEYS = {
+// Sub-level key sets per major FC level (5 entries each: base + .1 .2 .3 .4)
+const SUB_KEYS = {
   FC1: ["FC1","FC1.1","FC1.2","FC1.3","FC1.4"],
   FC2: ["FC2","FC2.1","FC2.2","FC2.3","FC2.4"],
   FC3: ["FC3","FC3.1","FC3.2","FC3.3","FC3.4"],
@@ -28,19 +28,44 @@ const SUB_LEVEL_KEYS = {
   FC7: ["FC7","FC7.1","FC7.2","FC7.3","FC7.4"],
   FC8: ["FC8","FC8.1","FC8.2","FC8.3","FC8.4"],
   FC9: ["FC9","FC9.1","FC9.2","FC9.3","FC9.4"],
-  FC10:["FC10","FC10","FC10","FC10","FC10"],
+  FC10:["FC10"],
 };
 
-// Compute totals (FC, RFC, materials, mins) from fromLevel to toLevel
+// Compute totals from fromLevel to toLevel (exclusive of fromLevel base row).
+// Algorithm verified against spreadsheet: Furnace FC5→FC8 = 3060 FC, 270 RFC.
+//   fromLevel (e.g. FC5): include only .1–.4 rows (skip base — already at this level)
+//   intermediate levels  : include all 5 rows (base + .1–.4)
+//   toLevel (e.g. FC8)   : include only the base row (just arriving at this level)
 function computeUpgradeFull(building, fromLevel, toLevel) {
   const db = BLDG_DB[building] || BLDG_DB["Infantry"];
   const fromIdx = FC_LEVELS.indexOf(fromLevel);
   const toIdx   = FC_LEVELS.indexOf(toLevel);
-  if (fromIdx < 0 || toIdx < 0 || fromIdx >= toIdx) return {fc:0,rfc:0,meat:0,wood:0,coal:0,iron:0,mins:0,subLevels:0};
+  if (fromIdx < 0 || toIdx < 0 || fromIdx >= toIdx)
+    return {fc:0,rfc:0,meat:0,wood:0,coal:0,iron:0,mins:0,subLevels:0};
+
   let fc=0,rfc=0,meat=0,wood=0,coal=0,iron=0,mins=0,subLevels=0;
+
   for (let i = fromIdx; i < toIdx; i++) {
-    const majorLevel = FC_LEVELS[i+1]; // e.g. "FC2"
-    const keys = SUB_LEVEL_KEYS[majorLevel] || [];
+    const level = FC_LEVELS[i];     // the level we are currently upgrading FROM
+    const next  = FC_LEVELS[i + 1]; // the level we are stepping TOWARDS
+    const allKeys = SUB_KEYS[level] || [];
+
+    let keys;
+    if (i === fromIdx) {
+      // At the starting level: skip the base row (index 0), include only .1–.4
+      keys = allKeys.slice(1);
+    } else {
+      // Intermediate level: include all 5 rows (base + .1–.4)
+      keys = allKeys;
+    }
+
+    // Also include the base row of the NEXT level when it is the final destination
+    // (this represents "arriving at" toLevel)
+    if (i + 1 === toIdx) {
+      const nextBase = (SUB_KEYS[next] || [])[0];
+      if (nextBase) keys = [...keys, nextBase];
+    }
+
     keys.forEach(k => {
       const row = db[k];
       if (!row) return;
@@ -827,17 +852,15 @@ export default function ConstructionPlanner() {
                       const actualMins = Math.round(b.baseMins / (1 + buffTotal));
                       return (
                         <div className="time-row">
-                          <div style={{display:"flex",alignItems:"center",gap:12}}>
+                          <div style={{display:"flex",alignItems:"center",gap:10}}>
                             <span className="time-lbl">Original build time</span>
                             <span className="time-val time-orig">{fmtMins(b.baseMins)}</span>
                           </div>
-                          <div style={{display:"flex",alignItems:"center",gap:12}}>
+                          <div style={{width:1,height:28,background:C.borderHi,flexShrink:0}}/>
+                          <div style={{display:"flex",alignItems:"center",gap:10}}>
                             <span className="time-lbl">Actual build time</span>
                             <span className="time-val time-actual">{fmtMins(actualMins)}</span>
                           </div>
-                          <span style={{fontSize:10,color:C.textDim,fontFamily:"Space Mono,monospace"}}>
-                            ÷ (1 + {(buffTotal*100).toFixed(1)}% bonus)
-                          </span>
                         </div>
                       );
                     })()}

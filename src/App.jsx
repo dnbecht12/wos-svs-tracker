@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import ConstructionPlanner from "./ConstructionPlanner.jsx";
 import RFCPlanner from "./RFCPlanner.jsx";
 import SvSCalendar from "./SvSCalendar.jsx";
+import { useAuth, cloudLoadInventory, cloudSaveInventory, cloudLoadPlans, cloudSavePlan, cloudDeletePlan } from "./useAuth.js";
 
 // ─── Theme & Design System ────────────────────────────────────────────────────
 const COLORS = {
@@ -264,7 +265,107 @@ const GLOBAL_STYLE = `
   /* Animations */
   @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
   .fade-in { animation: fadeIn 0.25s ease forwards; }
+
+  /* Auth panel */
+  .auth-panel { padding: 14px 12px; border-top: 1px solid ${COLORS.border}; }
+  .auth-user-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 6px; background: ${COLORS.card}; border: 1px solid ${COLORS.border}; margin-bottom: 8px; }
+  .auth-avatar { width: 28px; height: 28px; border-radius: 50%; background: ${COLORS.accentBg}; border: 1px solid ${COLORS.accentDim}; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: ${COLORS.accent}; flex-shrink: 0; font-family: 'Space Mono', monospace; }
+  .auth-email { font-size: 11px; color: ${COLORS.textSec}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  .auth-signout { font-size: 10px; color: ${COLORS.textDim}; cursor: pointer; padding: 2px 6px; border-radius: 4px; border: 1px solid ${COLORS.border}; background: transparent; font-family: 'Space Mono', monospace; transition: all 0.15s; }
+  .auth-signout:hover { color: ${COLORS.red}; border-color: ${COLORS.redDim}; }
+  .auth-sync-badge { display: flex; align-items: center; gap: 5px; font-size: 10px; color: ${COLORS.green}; font-family: 'Space Mono', monospace; padding: 2px 0; margin-bottom: 4px; }
+  .auth-sync-dot { width: 6px; height: 6px; border-radius: 50%; background: ${COLORS.green}; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+  .auth-form { display: flex; flex-direction: column; gap: 7px; }
+  .auth-inp { background: ${COLORS.card}; border: 1px solid ${COLORS.border}; border-radius: 6px; padding: 7px 10px; font-family: 'Space Mono', monospace; font-size: 12px; color: ${COLORS.textPri}; outline: none; width: 100%; transition: border-color 0.15s; }
+  .auth-inp:focus { border-color: ${COLORS.accent}; }
+  .auth-inp::placeholder { color: ${COLORS.textDim}; font-size: 11px; }
+  .auth-btn { padding: 8px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: 'Syne', sans-serif; border: none; transition: all 0.15s; width: 100%; }
+  .auth-btn-primary { background: ${COLORS.accent}; color: #0a0c10; }
+  .auth-btn-primary:hover { opacity: 0.9; }
+  .auth-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .auth-btn-ghost { background: transparent; color: ${COLORS.textDim}; border: 1px solid ${COLORS.border}; font-size: 11px; padding: 5px; }
+  .auth-btn-ghost:hover { color: ${COLORS.textSec}; border-color: ${COLORS.borderHi}; }
+  .auth-error { font-size: 10px; color: ${COLORS.red}; font-family: 'Space Mono', monospace; padding: 5px 8px; background: ${COLORS.redBg}; border-radius: 4px; border: 1px solid ${COLORS.redDim}; line-height: 1.4; }
+  .auth-toggle { font-size: 11px; color: ${COLORS.textDim}; text-align: center; }
+  .auth-toggle span { color: ${COLORS.accent}; text-decoration: underline; cursor: pointer; }
+  .auth-title { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: ${COLORS.textDim}; margin-bottom: 8px; font-family: 'Space Mono', monospace; }
 `;
+
+// ─── Auth Panel Component ─────────────────────────────────────────────────────
+
+function AuthPanel({ user, loading, error, signUp, signIn, signOut, clearError, syncing }) {
+  const [mode,     setMode]     = useState("login"); // "login" | "signup"
+  const [email,    setEmail]    = useState("");
+  const [password, setPassword] = useState("");
+  const [name,     setName]     = useState("");
+  const [busy,     setBusy]     = useState(false);
+
+  const switchMode = (m) => { setMode(m); clearError(); setEmail(""); setPassword(""); setName(""); };
+
+  const handleSubmit = async () => {
+    if (!email || !password) return;
+    setBusy(true);
+    if (mode === "signup") {
+      await signUp(email, password, name || email.split("@")[0]);
+    } else {
+      await signIn(email, password);
+    }
+    setBusy(false);
+  };
+
+  const handleKey = (e) => { if (e.key === "Enter") handleSubmit(); };
+
+  if (loading) return (
+    <div className="auth-panel">
+      <div style={{fontSize:11,color:COLORS.textDim,fontFamily:"Space Mono,monospace",textAlign:"center",padding:"8px 0"}}>
+        Loading…
+      </div>
+    </div>
+  );
+
+  if (user) return (
+    <div className="auth-panel">
+      {syncing && (
+        <div className="auth-sync-badge">
+          <div className="auth-sync-dot"/>
+          Cloud sync active
+        </div>
+      )}
+      <div className="auth-user-row">
+        <div className="auth-avatar">{(user.email?.[0] ?? "?").toUpperCase()}</div>
+        <div className="auth-email">{user.email}</div>
+        <button className="auth-signout" onClick={signOut}>Sign out</button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="auth-panel">
+      <div className="auth-title">{mode === "login" ? "Sign in to sync data" : "Create account"}</div>
+      <div className="auth-form">
+        {mode === "signup" && (
+          <input className="auth-inp" placeholder="Display name (optional)"
+            value={name} onChange={e => setName(e.target.value)} onKeyDown={handleKey} />
+        )}
+        <input className="auth-inp" type="email" placeholder="Email"
+          value={email} onChange={e => setEmail(e.target.value)} onKeyDown={handleKey} autoComplete="email" />
+        <input className="auth-inp" type="password" placeholder="Password"
+          value={password} onChange={e => setPassword(e.target.value)} onKeyDown={handleKey} autoComplete={mode === "signup" ? "new-password" : "current-password"} />
+        {error && <div className="auth-error">{error}</div>}
+        <button className="auth-btn auth-btn-primary" onClick={handleSubmit} disabled={busy || !email || !password}>
+          {busy ? "…" : mode === "login" ? "Sign in" : "Create account"}
+        </button>
+        <div className="auth-toggle">
+          {mode === "login"
+            ? <>No account? <span onClick={() => switchMode("signup")}>Sign up</span></>
+            : <>Have an account? <span onClick={() => switchMode("login")}>Sign in</span></>
+          }
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -734,35 +835,73 @@ const PAGE_TITLES = {
   alliance:     { title: "Alliance Scores", sub: "SvS prep scores and historical results" },};
 
 export default function App() {
+  const { user, loading: authLoading, error: authError, signUp, signIn, signOut, clearError } = useAuth();
   const [page, setPage] = useState("inventory");
-  const [inv, setInv] = useLocalStorage("wos-svs-inventory", INITIAL_INVENTORY);
-  const [savedAt, setSavedAt] = useState(null);
-  const [savedPlans, setSavedPlans] = useLocalStorage("wos-rfc-saved-plans", {});
-  const [loadedPlanKey, setLoadedPlanKey] = useState(null);
+  const [inv, setInvRaw] = useLocalStorage("wos-svs-inventory", INITIAL_INVENTORY);
+  const [savedAt,      setSavedAt]      = useState(null);
+  const [savedPlans,   setSavedPlans]   = useLocalStorage("wos-rfc-saved-plans", {});
+  const [loadedPlanKey,setLoadedPlanKey]= useState(null);
+  const [syncing,      setSyncing]      = useState(false);
+  const syncTimer = useRef(null);
+  const prevUser  = useRef(null);
+
+  // ── On sign-in: pull cloud data down and merge ──────────────────────────────
+  useEffect(() => {
+    if (user && user.id !== prevUser.current) {
+      prevUser.current = user.id;
+      (async () => {
+        setSyncing(true);
+        const [cloudInv, cloudPlans] = await Promise.all([
+          cloudLoadInventory(),
+          cloudLoadPlans(),
+        ]);
+        if (cloudInv)    setInvRaw(cloudInv);
+        if (cloudPlans && Object.keys(cloudPlans).length > 0) setSavedPlans(cloudPlans);
+        setSyncing(false);
+      })();
+    }
+    if (!user) prevUser.current = null;
+  }, [user]);
+
+  // ── Debounced cloud save whenever inv changes (if logged in) ────────────────
+  const setInv = useCallback((valOrFn) => {
+    setInvRaw(prev => {
+      const next = typeof valOrFn === "function" ? valOrFn(prev) : valOrFn;
+      if (user) {
+        clearTimeout(syncTimer.current);
+        syncTimer.current = setTimeout(() => cloudSaveInventory(next), 1500);
+      }
+      setSavedAt(new Date().toLocaleTimeString());
+      return next;
+    });
+  }, [user]);
 
   useEffect(() => {
     setSavedAt(new Date().toLocaleTimeString());
-  }, [inv]);
+  }, []);
 
+  // ── Plan save: localStorage + cloud ─────────────────────────────────────────
   const handleSavePlan = useCallback((key, plan) => {
-    setSavedPlans(prev => ({ ...prev, [key]: plan }));
-  }, [setSavedPlans]);
+    setSavedPlans(prev => {
+      const next = { ...prev, [key]: plan };
+      if (user) cloudSavePlan(key, plan);
+      return next;
+    });
+  }, [user]);
 
   const handleLoadPlan = useCallback((key) => {
     const plan = savedPlans[key];
     if (!plan) return;
-    // Restore plan state into localStorage keys that RFCPlanner reads on mount
     try {
-      if (plan.selectedCycle !== undefined) localStorage.setItem("rfc-cycle",    JSON.stringify(plan.selectedCycle));
-      if (plan.monRefines  !== undefined) localStorage.setItem("rfc-monref",     JSON.stringify(plan.monRefines));
-      if (plan.weekdayMode !== undefined) localStorage.setItem("rfc-wdmode",     JSON.stringify(plan.weekdayMode));
-      if (plan.actuals     !== undefined) localStorage.setItem("rfc-actuals2",   JSON.stringify(plan.actuals));
-      if (plan.fireCrystals!== undefined) setInv(p => ({ ...p, fireCrystals: plan.fireCrystals }));
-      if (plan.refinedFC   !== undefined) setInv(p => ({ ...p, refinedFC:    plan.refinedFC    }));
+      if (plan.selectedCycle !== undefined) localStorage.setItem("rfc-cycle",  JSON.stringify(plan.selectedCycle));
+      if (plan.monRefines    !== undefined) localStorage.setItem("rfc-monref", JSON.stringify(plan.monRefines));
+      if (plan.weekdayMode   !== undefined) localStorage.setItem("rfc-wdmode", JSON.stringify(plan.weekdayMode));
+      if (plan.actuals       !== undefined) localStorage.setItem("rfc-actuals2",JSON.stringify(plan.actuals));
+      if (plan.fireCrystals  !== undefined) setInv(p => ({ ...p, fireCrystals: plan.fireCrystals }));
+      if (plan.refinedFC     !== undefined) setInv(p => ({ ...p, refinedFC:    plan.refinedFC    }));
     } catch {}
     setLoadedPlanKey(key);
     setPage("rfc-planner");
-    // Force RFCPlanner to re-read from localStorage by navigating away and back
     setTimeout(() => setPage("rfc-planner"), 10);
   }, [savedPlans, setInv]);
 
@@ -770,14 +909,15 @@ export default function App() {
     setSavedPlans(prev => {
       const next = { ...prev };
       delete next[key];
+      if (user) cloudDeletePlan(key);
       return next;
     });
-  }, [setSavedPlans]);
+  }, [user]);
 
-  const sections = [...new Set(PAGES.map(p => p.section))];
-  const pageTitle = PAGE_TITLES[page] || { title: "RFC Planner", sub: "" };
+  const sections    = [...new Set(PAGES.map(p => p.section))];
+  const pageTitle   = PAGE_TITLES[page] || { title: "Planner", sub: "" };
   const { title, sub } = pageTitle;
-  const planKeys = Object.keys(savedPlans).sort();
+  const planKeys    = Object.keys(savedPlans).sort();
 
   return (
     <>
@@ -788,6 +928,7 @@ export default function App() {
             <div className="wos">WoS · SvS</div>
             <h1>Planning<br /><span>Tracker</span></h1>
           </div>
+
           <nav className="sidebar-nav">
             {sections.map(sec => (
               <div key={sec}>
@@ -806,7 +947,7 @@ export default function App() {
               </div>
             ))}
 
-            {/* Saved Plans section */}
+            {/* Saved Plans */}
             {planKeys.length > 0 && (
               <div>
                 <div className="nav-section">Saved Plans</div>
@@ -830,19 +971,43 @@ export default function App() {
               </div>
             )}
           </nav>
-          <div className="sidebar-footer">
-            v1.0 · Auto-saves
-          </div>
+
+          {/* Auth panel at bottom of sidebar */}
+          <AuthPanel
+            user={user}
+            loading={authLoading}
+            error={authError}
+            signUp={signUp}
+            signIn={signIn}
+            signOut={signOut}
+            clearError={clearError}
+            syncing={syncing || !!user}
+          />
         </aside>
 
         <main className="main">
           <div className="page-header">
             <div className="page-header-row">
               <div>
-                <div className="page-title">{title.split(" ").map((w,i) => i===0 ? <span key={i}>{w} </span> : <span key={i} style={{color:COLORS.accent}}>{w} </span>)}</div>
-                <div className="page-sub">{loadedPlanKey ? `Editing saved plan: ${loadedPlanKey}` : sub}</div>
+                <div className="page-title">
+                  {title.split(" ").map((w,i) => i===0
+                    ? <span key={i}>{w} </span>
+                    : <span key={i} style={{color:COLORS.accent}}>{w} </span>
+                  )}
+                </div>
+                <div className="page-sub">
+                  {loadedPlanKey ? `Editing saved plan: ${loadedPlanKey}` : sub}
+                </div>
               </div>
-              {savedAt && <div className="last-saved">auto-saved {savedAt}</div>}
+              <div style={{display:"flex",alignItems:"center",gap:12}}>
+                {user && (
+                  <div style={{fontSize:11,fontFamily:"Space Mono,monospace",color:COLORS.green,display:"flex",alignItems:"center",gap:5}}>
+                    <div style={{width:6,height:6,borderRadius:"50%",background:COLORS.green}}/>
+                    Cloud sync
+                  </div>
+                )}
+                {savedAt && <div className="last-saved">saved {savedAt}</div>}
+              </div>
             </div>
           </div>
 
