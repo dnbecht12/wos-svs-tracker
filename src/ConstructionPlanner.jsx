@@ -382,11 +382,11 @@ const STYLE = `
 .inp-field option{background:${C.card};color:${C.textPri}}
 /* Building table */
 .bld-table{background:${C.card};border:1px solid ${C.border};border-radius:12px;overflow:hidden}
-.bld-thead{display:grid;grid-template-columns:140px 100px 100px 80px 80px 70px 1fr 1fr;gap:0;border-bottom:1px solid ${C.border};background:${C.surface}}
+.bld-thead{display:grid;grid-template-columns:140px 100px 100px 80px 80px 80px minmax(140px,1fr) minmax(140px,1fr);gap:0;border-bottom:1px solid ${C.border};background:${C.surface}}
 .bld-thead .th{padding:9px 12px;font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:${C.textDim};font-family:'Space Mono',monospace;white-space:nowrap}
 .bld-row-wrap{border-bottom:1px solid ${C.border}}
 .bld-row-wrap:last-child{border-bottom:none}
-.bld-row{display:grid;grid-template-columns:140px 100px 100px 80px 80px 70px 1fr 1fr;gap:0;align-items:center;transition:background 0.1s}
+.bld-row{display:grid;grid-template-columns:140px 100px 100px 80px 80px 80px minmax(140px,1fr) minmax(140px,1fr);gap:0;align-items:center;transition:background 0.1s}
 .bld-row:hover{background:rgba(255,255,255,0.02)}
 .bld-cell{padding:11px 12px;font-size:13px;color:${C.textSec};vertical-align:middle}
 .bld-cell.name{font-weight:700;color:${C.textPri};font-size:13px}
@@ -437,7 +437,7 @@ const STYLE = `
 .note-box strong{color:${C.accent}}
 /* Responsive */
 @media(max-width:900px){
-  .bld-thead,.bld-row{grid-template-columns:120px 80px 80px 70px 70px 60px 1fr 1fr}
+  .bld-thead,.bld-row{grid-template-columns:120px 80px 80px 70px 70px 70px minmax(120px,1fr) minmax(120px,1fr)}
   .bld-cell,.th{padding:8px 8px}
 }
 @media(max-width:640px){
@@ -516,7 +516,6 @@ export default function ConstructionPlanner({ inv, setInv }) {
   const setRFC = (val) => setInv(p => ({ ...p, refinedFC:    val }));
   const [dailyFCIncome, setDailyFCIncome] = useState(() => loadState("cp-dailyfc", 48));
   const [agnesLevel, setAgnesLevel] = useState(() => loadState("cp-agnes", 8));
-  const [valeriaMult, setValeriaMult] = useState(() => loadState("cp-valeria", 0.18));
 
   // Single construction speed bonus — user enters e.g. "91.5" meaning 91.5%
   const [speedBuff, setSpeedBuff] = useState(() => loadState("cp-speedbuff", 91.5));
@@ -586,8 +585,8 @@ export default function ConstructionPlanner({ inv, setInv }) {
   const rfcBalance     = projectedRFC - totalRFCNeeded;
 
   // SVS point estimates (Monday FC burn is biggest)
-  const svsMonPts  = Math.round((totalFCNeeded > 0 ? Math.min(projectedFC, totalFCNeeded) : 0) * SvS_FC_POINTS_PER_FC * (1 + valeriaMult));
-  const svsRfcPts  = Math.round(Math.min(projectedRFC, totalRFCNeeded) * SVS_RFC_POINTS_PER_RFC * (1 + valeriaMult));
+  const svsMonPts  = Math.round((totalFCNeeded > 0 ? Math.min(projectedFC, totalFCNeeded) : 0) * SvS_FC_POINTS_PER_FC);
+  const svsRfcPts  = Math.round(Math.min(projectedRFC, totalRFCNeeded) * SVS_RFC_POINTS_PER_RFC);
   const svsTotalPts = svsMonPts + svsRfcPts;
 
   function updateBuilding(idx, field, val) {
@@ -714,13 +713,6 @@ export default function ConstructionPlanner({ inv, setInv }) {
                   {[1,2,3,4,5,6,7,8].map(l => <option key={l} value={l}>Level {l} ({l} hrs off/build)</option>)}
                 </select>
               </div>
-              <div className="inp-group">
-                <label className="inp-label">Valeria point skill</label>
-                <select className="inp-field" value={valeriaMult}
-                  onChange={e => persist(setValeriaMult,"cp-valeria")(Number(e.target.value))}>
-                  {[0,0.06,0.12,0.18,0.24,0.30].map(v => <option key={v} value={v}>{v===0?"Off":"+"+Math.round(v*100)+"%"}</option>)}
-                </select>
-              </div>
             </div>
           </div>
 
@@ -773,7 +765,7 @@ export default function ConstructionPlanner({ inv, setInv }) {
           <div>
             <div className="sec-head">Building upgrade planner</div>
             <div className="bld-table">
-              <div className="bld-thead" style={{gridTemplateColumns:"140px 100px 100px 80px 80px 70px 1fr 1fr"}}>
+              <div className="bld-thead" style={{gridTemplateColumns:"140px 100px 100px 80px 80px 80px minmax(140px,1fr) minmax(140px,1fr)"}}>
                 <div className="th">Building</div>
                 <div className="th">Current level</div>
                 <div className="th">Goal level</div>
@@ -791,7 +783,7 @@ export default function ConstructionPlanner({ inv, setInv }) {
 
                 return (
                   <div className="bld-row-wrap" key={b.name}>
-                    <div className="bld-row" style={{gridTemplateColumns:"140px 100px 100px 80px 80px 70px 1fr 1fr"}}>
+                    <div className="bld-row" style={{gridTemplateColumns:"140px 100px 100px 80px 80px 80px minmax(140px,1fr) minmax(140px,1fr)"}}>
                       <div className="bld-cell name">{b.name}</div>
 
                       {/* Current dropdown */}
@@ -831,7 +823,7 @@ export default function ConstructionPlanner({ inv, setInv }) {
               })}
 
               {/* Totals footer */}
-              <div style={{background:C.surface,borderTop:`2px solid ${C.borderHi}`,padding:"11px 12px",display:"grid",gridTemplateColumns:"140px 100px 100px 80px 80px 70px 1fr 1fr",gap:0,alignItems:"center"}}>
+              <div style={{background:C.surface,borderTop:`2px solid ${C.borderHi}`,padding:"11px 12px",display:"grid",gridTemplateColumns:"140px 100px 100px 80px 80px 80px minmax(140px,1fr) minmax(140px,1fr)",gap:0,alignItems:"center"}}>
                 <div style={{fontSize:12,fontWeight:800,color:C.textPri}}>TOTAL</div>
                 <div /><div />
                 <div style={{fontFamily:"Space Mono,monospace",fontSize:12,color:C.accent,fontWeight:700}}>{fmtFull(totalFCNeeded)}</div>
@@ -957,11 +949,11 @@ export default function ConstructionPlanner({ inv, setInv }) {
               <div className="svs-day-card">
                 <div className="svs-day-name">Total construction</div>
                 <div className="svs-pts-val">{fmt(svsTotalPts)}</div>
-                <div className="svs-pts-sub">Valeria +{Math.round(valeriaMult*100)}% applied</div>
+                <div className="svs-pts-sub">construction pts</div>
               </div>
               <div className="svs-day-card">
                 <div className="svs-day-name">FC burn rate</div>
-                <div className="svs-pts-val" style={{color:C.blue}}>{fmt(Math.round(SvS_FC_POINTS_PER_FC*(1+valeriaMult)))}</div>
+                <div className="svs-pts-val" style={{color:C.blue}}>{fmt(Math.round(SvS_FC_POINTS_PER_FC))}</div>
                 <div className="svs-pts-sub">pts per FC burned</div>
               </div>
               <div className="svs-day-card">
@@ -973,7 +965,6 @@ export default function ConstructionPlanner({ inv, setInv }) {
             <div className="note-box" style={{marginTop:12}}>
               <strong>Note:</strong> Points shown are for construction FC burns only. Add Expert Sigils (~25,700 pts Tue/Wed),
               Hero Gear upgrades, and WA upgrades to get your full SvS total.
-              Valeria's point skill ({Math.round(valeriaMult*100)}%) is applied to all construction points above.
             </div>
           </div>
 
