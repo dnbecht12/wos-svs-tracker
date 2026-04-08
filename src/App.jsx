@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import ConstructionPlanner from "./ConstructionPlanner.jsx";
 import RFCPlanner from "./RFCPlanner.jsx";
 import SvSCalendar from "./SvSCalendar.jsx";
@@ -149,12 +149,399 @@ function getInventoryBuildingTotals() {
   }
 }
 
-const HEROES = [
-  { type: "Infantry1", name: "Hector",  pieces: [{slot:"Goggles",stones:0,mithril:0,mythic:0},{slot:"Gloves",stones:0,mithril:0,mythic:0},{slot:"Belt",stones:0,mithril:0,mythic:0},{slot:"Boots",stones:0,mithril:0,mythic:0}], svsPoints: 0 },
-  { type: "Lancer1",   name: "Norah",   pieces: [{slot:"Goggles",stones:0,mithril:30,mythic:5},{slot:"Gloves",stones:0,mithril:0,mythic:0},{slot:"Belt",stones:0,mithril:0,mythic:0},{slot:"Boots",stones:0,mithril:30,mythic:5}], svsPoints: 8640000 },
-  { type: "Marksman1", name: "Gwen",    pieces: [{slot:"Goggles",stones:0,mithril:0,mythic:0},{slot:"Gloves",stones:0,mithril:0,mythic:0},{slot:"Belt",stones:0,mithril:0,mythic:0},{slot:"Boots",stones:0,mithril:0,mythic:0}], svsPoints: 0 },
+// ─── Hero Gear Data ───────────────────────────────────────────────────────────
+
+const HERO_ROSTER = [
+  { name:"Jeronimo",   type:"Infantry", gen:"Gen 1" },
+  { name:"Natalia",    type:"Infantry", gen:"Gen 1" },
+  { name:"Flint",      type:"Infantry", gen:"Gen 2" },
+  { name:"Logan",      type:"Infantry", gen:"Gen 3" },
+  { name:"Ahmose",     type:"Infantry", gen:"Gen 4" },
+  { name:"Hector",     type:"Infantry", gen:"Gen 5" },
+  { name:"Wu Ming",    type:"Infantry", gen:"Gen 6" },
+  { name:"Edith",      type:"Infantry", gen:"Gen 7" },
+  { name:"Gatot",      type:"Infantry", gen:"Gen 8" },
+  { name:"Magnus",     type:"Infantry", gen:"Gen 9" },
+  { name:"Sergey",     type:"Infantry", gen:"Base"  },
+  { name:"Eugene",     type:"Infantry", gen:"Base"  },
+  { name:"Smith",      type:"Infantry", gen:"Base"  },
+  { name:"Molly",      type:"Lancer",   gen:"Gen 1" },
+  { name:"Philly",     type:"Lancer",   gen:"Gen 2" },
+  { name:"Mia",        type:"Lancer",   gen:"Gen 3" },
+  { name:"Reina",      type:"Lancer",   gen:"Gen 4" },
+  { name:"Norah",      type:"Lancer",   gen:"Gen 5" },
+  { name:"Renee",      type:"Lancer",   gen:"Gen 6" },
+  { name:"Gordon",     type:"Lancer",   gen:"Gen 7" },
+  { name:"Sonya",      type:"Lancer",   gen:"Gen 8" },
+  { name:"Fred",       type:"Lancer",   gen:"Gen 9" },
+  { name:"Jessie",     type:"Lancer",   gen:"Base"  },
+  { name:"Ling Shuang",type:"Lancer",   gen:"Base"  },
+  { name:"Walis Bokan",type:"Lancer",   gen:"Base"  },
+  { name:"Patrick",    type:"Lancer",   gen:"Base"  },
+  { name:"Charlie",    type:"Lancer",   gen:"Base"  },
+  { name:"Zinman",     type:"Marksman", gen:"Gen 1" },
+  { name:"Alonso",     type:"Marksman", gen:"Gen 2" },
+  { name:"Greg",       type:"Marksman", gen:"Gen 3" },
+  { name:"Lynn",       type:"Marksman", gen:"Gen 4" },
+  { name:"Gwen",       type:"Marksman", gen:"Gen 5" },
+  { name:"Wayne",      type:"Marksman", gen:"Gen 6" },
+  { name:"Bradley",    type:"Marksman", gen:"Gen 7" },
+  { name:"Hendrik",    type:"Marksman", gen:"Gen 8" },
+  { name:"Xura",       type:"Marksman", gen:"Gen 9" },
+  { name:"Bahiti",     type:"Marksman", gen:"Base"  },
+  { name:"Jasser",     type:"Marksman", gen:"Base"  },
+  { name:"Seo-yoon",   type:"Marksman", gen:"Base"  },
+  { name:"Gina",       type:"Marksman", gen:"Base"  },
+  { name:"Cloris",     type:"Marksman", gen:"Base"  },
 ];
 
+// Generation order for cumulative filtering (Base = lowest, Gen 9 = highest)
+const GEN_ORDER = ["Base","Gen 1","Gen 2","Gen 3","Gen 4","Gen 5","Gen 6","Gen 7","Gen 8","Gen 9"];
+
+// Mithril & Mythic milestone costs for Legendary gear (from AG4:AJ104)
+// Only paid when crossing or landing on these levels
+const GEAR_MILESTONES = [
+  { level:1,   mithril:0,  mythic:2  },
+  { level:20,  mithril:10, mythic:3  },
+  { level:40,  mithril:20, mythic:5  },
+  { level:60,  mithril:30, mythic:5  },
+  { level:80,  mithril:40, mythic:10 },
+  { level:100, mithril:50, mythic:10 },
+];
+
+// Stones & Mythic per Mastery level (from AA69:AC90)
+const MASTERY_COSTS = [
+  { level:1,  stones:10,  mythic:0  },
+  { level:2,  stones:20,  mythic:0  },
+  { level:3,  stones:30,  mythic:0  },
+  { level:4,  stones:40,  mythic:0  },
+  { level:5,  stones:50,  mythic:0  },
+  { level:6,  stones:60,  mythic:0  },
+  { level:7,  stones:70,  mythic:0  },
+  { level:8,  stones:80,  mythic:0  },
+  { level:9,  stones:90,  mythic:0  },
+  { level:10, stones:100, mythic:0  },
+  { level:11, stones:110, mythic:1  },
+  { level:12, stones:120, mythic:2  },
+  { level:13, stones:130, mythic:3  },
+  { level:14, stones:140, mythic:4  },
+  { level:15, stones:150, mythic:5  },
+  { level:16, stones:160, mythic:6  },
+  { level:17, stones:170, mythic:7  },
+  { level:18, stones:180, mythic:8  },
+  { level:19, stones:190, mythic:9  },
+  { level:20, stones:200, mythic:10 },
+];
+
+// Compute Mithril + Mythic needed for Legendary gear (currentLevel → goalLevel)
+// Sum milestones strictly > current and <= goal
+function calcGearCosts(currentLevel, goalLevel, isLegendary) {
+  if (goalLevel <= currentLevel) return { mithril:0, mythic:0 };
+  if (!isLegendary) return { mithril:0, mythic:0 };
+  let mithril = 0, mythic = 0;
+  GEAR_MILESTONES.forEach(m => {
+    if (m.level > currentLevel && m.level <= goalLevel) {
+      mithril += m.mithril;
+      mythic  += m.mythic;
+    }
+  });
+  return { mithril, mythic };
+}
+
+// Compute Stones + Mythic needed for Mastery levels (currentMastery → goalMastery)
+// Sum costs for each mastery level strictly > current and <= goal
+function calcMasteryCosts(currentMastery, goalMastery) {
+  if (goalMastery <= currentMastery) return { stones:0, mythic:0 };
+  let stones = 0, mythic = 0;
+  MASTERY_COSTS.forEach(m => {
+    if (m.level > currentMastery && m.level <= goalMastery) {
+      stones += m.stones;
+      mythic += m.mythic;
+    }
+  });
+  return { stones, mythic };
+}
+
+// 6 fixed hero slots in requested order
+const HERO_SLOTS = [
+  { slotId:"Infantry1",  type:"Infantry",  label:"Infantry 1"  },
+  { slotId:"Marksman1",  type:"Marksman",  label:"Marksman 1"  },
+  { slotId:"Lancer1",    type:"Lancer",    label:"Lancer 1"    },
+  { slotId:"Infantry2",  type:"Infantry",  label:"Infantry 2"  },
+  { slotId:"Marksman2",  type:"Marksman",  label:"Marksman 2"  },
+  { slotId:"Lancer2",    type:"Lancer",    label:"Lancer 2"    },
+];
+
+const GEAR_SLOTS = ["Goggles","Gloves","Belt","Boots","Widget"];
+
+// Default state for one hero slot
+function defaultHeroState(type) {
+  const firstHero = HERO_ROSTER.find(h => h.type === type);
+  return {
+    hero: firstHero?.name ?? "",
+    slots: GEAR_SLOTS.map(slot => ({
+      slot,
+      status:       "Legendary", // Gear Status (slots 1-4 only)
+      gearCurrent:  0,
+      gearGoal:     0,
+      masteryCurrent: 0,
+      masteryGoal:  0,
+      widgetCurrent:0,
+      widgetGoal:   0,
+    })),
+  };
+}
+
+// ─── HeroGearPage ─────────────────────────────────────────────────────────────
+
+function HeroGearPage({ inv }) {
+  const [genFilter, setGenFilter]   = useLocalStorage("hg-gen-filter", "Gen 9");
+  const [heroData,  setHeroData]    = useLocalStorage("hg-heroes",
+    HERO_SLOTS.map(s => defaultHeroState(s.type))
+  );
+
+  // Update a specific hero slot's hero selection
+  const setHero = (slotIdx, heroName) => {
+    setHeroData(prev => prev.map((h, i) =>
+      i === slotIdx ? { ...h, hero: heroName } : h
+    ));
+  };
+
+  // Update a gear slot field
+  const setSlotField = (heroIdx, slotIdx, field, value) => {
+    setHeroData(prev => prev.map((h, hi) => {
+      if (hi !== heroIdx) return h;
+      return {
+        ...h,
+        slots: h.slots.map((s, si) =>
+          si !== slotIdx ? s : { ...s, [field]: value }
+        ),
+      };
+    }));
+  };
+
+  // Filter heroes for a given type by cumulative generation
+  const filteredHeroes = (type) => {
+    const maxGenIdx = GEN_ORDER.indexOf(genFilter);
+    return HERO_ROSTER.filter(h =>
+      h.type === type && GEN_ORDER.indexOf(h.gen) <= maxGenIdx
+    );
+  };
+
+  // Totals across all slots
+  const totals = useMemo(() => {
+    let stones = 0, mithril = 0, mythic = 0;
+    heroData.forEach(h => {
+      h.slots.forEach((s, si) => {
+        if (si === 4) return; // Widget — no costs
+        const isLeg = s.status === "Legendary";
+        const gc    = calcGearCosts(s.gearCurrent, s.gearGoal, isLeg);
+        const mc    = calcMasteryCosts(s.masteryCurrent, s.masteryGoal);
+        stones  += mc.stones;
+        mithril += gc.mithril;
+        mythic  += gc.mythic + mc.mythic;
+      });
+    });
+    return { stones, mithril, mythic };
+  }, [heroData]);
+
+  // Number dropdowns
+  const gearOpts    = Array.from({length:101}, (_,i) => i); // 0-100
+  const masteryOpts = Array.from({length:21},  (_,i) => i); // 0-20
+  const widgetOpts  = Array.from({length:11},  (_,i) => i); // 0-10
+
+  const C = COLORS;
+  const sel = { background:C.card, border:`1px solid ${C.border}`, borderRadius:5,
+                color:C.textPri, fontSize:11, padding:"2px 4px", fontFamily:"'Space Mono',monospace",
+                outline:"none", cursor:"pointer" };
+  const thStyle = { padding:"8px 10px", fontSize:10, fontWeight:700, letterSpacing:"1px",
+                    textTransform:"uppercase", color:C.textDim, borderBottom:`1px solid ${C.border}`,
+                    whiteSpace:"nowrap", background:C.surface };
+  const tdStyle = { padding:"6px 10px", borderBottom:`1px solid ${C.border}`,
+                    fontSize:12, color:C.textSec, verticalAlign:"middle" };
+  const tdMono  = { ...tdStyle, fontFamily:"'Space Mono',monospace", textAlign:"right" };
+
+  return (
+    <div className="fade-in">
+
+      {/* Summary tiles */}
+      <div className="stat-grid" style={{marginBottom:20}}>
+        <StatCard label="Stones needed"  value={totals.stones}  sub={`have ${fmtFull(inv.stones ?? 0)}`}  color={totals.stones  > (inv.stones  ?? 0) ? "red" : undefined} />
+        <StatCard label="Mithril needed" value={totals.mithril} sub={`have ${fmtFull(inv.mithril ?? 0)}`} color={totals.mithril > (inv.mithril ?? 0) ? "red" : undefined} />
+        <StatCard label="Mythic needed"  value={totals.mythic}  sub={`have ${fmtFull(inv.mythicGear ?? 0)}`} color={totals.mythic > (inv.mythicGear ?? 0) ? "red" : undefined} />
+      </div>
+
+      <div className="card">
+        <div className="card-header" style={{flexWrap:"wrap",gap:12}}>
+          <div className="card-title">Hero Gear Upgrade Calculator</div>
+
+          {/* Generation filter */}
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <span style={{fontSize:11,color:C.textDim,fontFamily:"'Space Mono',monospace"}}>Generation filter</span>
+            <select value={genFilter} onChange={e => setGenFilter(e.target.value)} style={{...sel,fontSize:12,padding:"4px 8px"}}>
+              {GEN_ORDER.map(g => <option key={g} value={g}>{g} &amp; below</option>)}
+            </select>
+          </div>
+        </div>
+
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Type</th>
+                <th style={thStyle}>Hero</th>
+                <th style={thStyle}>Slot</th>
+                <th style={thStyle}>Gear Status</th>
+                {/* Current: two sub-cols for gear slots 1-4 */}
+                <th style={{...thStyle,textAlign:"center"}} colSpan={2}>Current</th>
+                <th style={{...thStyle,textAlign:"center"}}>Goal</th>
+                <th style={{...thStyle,textAlign:"right"}}>Stones</th>
+                <th style={{...thStyle,textAlign:"right"}}>Mithril</th>
+                <th style={{...thStyle,textAlign:"right"}}>Mythic Needed</th>
+                <th style={{...thStyle,textAlign:"right"}}>SVS PTS</th>
+              </tr>
+              <tr>
+                <th style={{...thStyle,paddingTop:2,paddingBottom:6}} colSpan={4}/>
+                <th style={{...thStyle,paddingTop:2,paddingBottom:6,textAlign:"center",color:C.textDim,fontSize:9}}>Gear Lvl</th>
+                <th style={{...thStyle,paddingTop:2,paddingBottom:6,textAlign:"center",color:C.textDim,fontSize:9}}>Mastery Lvl</th>
+                <th style={{...thStyle,paddingTop:2,paddingBottom:6}} colSpan={5}/>
+              </tr>
+            </thead>
+            <tbody>
+              {HERO_SLOTS.map((slot, heroIdx) => {
+                const hd      = heroData[heroIdx] || defaultHeroState(slot.type);
+                const heroes  = filteredHeroes(slot.type);
+                // ensure selected hero is still valid after gen filter change
+                const heroVal = heroes.find(h => h.name === hd.hero) ? hd.hero : (heroes[0]?.name ?? "");
+
+                return GEAR_SLOTS.map((gearSlot, slotIdx) => {
+                  const s        = hd.slots[slotIdx] || {};
+                  const isWidget = slotIdx === 4;
+                  const isLeg    = s.status === "Legendary";
+
+                  // Calculated costs
+                  const gc = isWidget ? {mithril:0,mythic:0}
+                           : calcGearCosts(s.gearCurrent ?? 0, s.gearGoal ?? 0, isLeg);
+                  const mc = isWidget ? {stones:0,mythic:0}
+                           : calcMasteryCosts(s.masteryCurrent ?? 0, s.masteryGoal ?? 0);
+                  const rowStones  = mc.stones;
+                  const rowMithril = gc.mithril;
+                  const rowMythic  = gc.mythic + mc.mythic;
+
+                  const typeColor = slot.type === "Infantry" ? C.green
+                                  : slot.type === "Lancer"   ? C.blue
+                                  : C.amber;
+
+                  return (
+                    <tr key={`${slot.slotId}-${gearSlot}`}
+                        style={{background: slotIdx % 2 === 0 ? "transparent" : "rgba(255,255,255,0.01)"}}>
+
+                      {/* Type — only on first row of each hero */}
+                      {slotIdx === 0 && (
+                        <td rowSpan={5} style={{...tdStyle,verticalAlign:"middle",fontWeight:700,color:typeColor,width:90}}>
+                          {slot.label}
+                        </td>
+                      )}
+
+                      {/* Hero dropdown — only on first row */}
+                      {slotIdx === 0 && (
+                        <td rowSpan={5} style={{...tdStyle,verticalAlign:"middle",minWidth:130}}>
+                          <select value={heroVal}
+                            onChange={e => setHero(heroIdx, e.target.value)}
+                            style={{...sel,width:"100%"}}>
+                            {heroes.map(h => <option key={h.name} value={h.name}>{h.name}</option>)}
+                          </select>
+                        </td>
+                      )}
+
+                      {/* Slot name */}
+                      <td style={{...tdStyle,color:C.textPri,fontWeight:600}}>{gearSlot}</td>
+
+                      {/* Gear Status dropdown (slots 1-4 only) */}
+                      <td style={{...tdStyle,width:110}}>
+                        {!isWidget ? (
+                          <select value={s.status ?? "Legendary"}
+                            onChange={e => setSlotField(heroIdx, slotIdx, "status", e.target.value)}
+                            style={sel}>
+                            <option value="Legendary">Legendary</option>
+                            <option value="Mythic">Mythic</option>
+                          </select>
+                        ) : <span style={{color:C.textDim}}>—</span>}
+                      </td>
+
+                      {/* Current: Gear Level */}
+                      <td style={{...tdStyle,width:80,textAlign:"center"}}>
+                        {isWidget ? (
+                          <select value={s.widgetCurrent ?? 0}
+                            onChange={e => setSlotField(heroIdx, slotIdx, "widgetCurrent", Number(e.target.value))}
+                            style={sel}>
+                            {widgetOpts.map(v => <option key={v} value={v}>{v}</option>)}
+                          </select>
+                        ) : (
+                          <select value={s.gearCurrent ?? 0}
+                            onChange={e => setSlotField(heroIdx, slotIdx, "gearCurrent", Number(e.target.value))}
+                            style={sel}>
+                            {gearOpts.map(v => <option key={v} value={v}>{v}</option>)}
+                          </select>
+                        )}
+                      </td>
+
+                      {/* Current: Mastery Level (slots 1-4 only) */}
+                      <td style={{...tdStyle,width:80,textAlign:"center"}}>
+                        {!isWidget ? (
+                          <select value={s.masteryCurrent ?? 0}
+                            onChange={e => setSlotField(heroIdx, slotIdx, "masteryCurrent", Number(e.target.value))}
+                            style={sel}>
+                            {masteryOpts.map(v => <option key={v} value={v}>{v}</option>)}
+                          </select>
+                        ) : <span style={{color:C.textDim}}>—</span>}
+                      </td>
+
+                      {/* Goal */}
+                      <td style={{...tdStyle,width:80,textAlign:"center"}}>
+                        {isWidget ? (
+                          <select value={s.widgetGoal ?? 0}
+                            onChange={e => setSlotField(heroIdx, slotIdx, "widgetGoal", Number(e.target.value))}
+                            style={sel}>
+                            {widgetOpts.map(v => <option key={v} value={v}>{v}</option>)}
+                          </select>
+                        ) : (
+                          <select value={s.gearGoal ?? 0}
+                            onChange={e => setSlotField(heroIdx, slotIdx, "gearGoal", Number(e.target.value))}
+                            style={sel}>
+                            {gearOpts.map(v => <option key={v} value={v}>{v}</option>)}
+                          </select>
+                        )}
+                      </td>
+
+                      {/* Stones */}
+                      <td style={{...tdMono,color: rowStones > 0 ? C.blue : C.textDim}}>
+                        {rowStones > 0 ? fmtFull(rowStones) : "—"}
+                      </td>
+
+                      {/* Mithril */}
+                      <td style={{...tdMono,color: rowMithril > 0 ? C.accent : C.textDim}}>
+                        {rowMithril > 0 ? fmtFull(rowMithril) : "—"}
+                      </td>
+
+                      {/* Mythic Needed */}
+                      <td style={{...tdMono,color: rowMythic > 0 ? C.green : C.textDim}}>
+                        {rowMythic > 0 ? fmtFull(rowMythic) : "—"}
+                      </td>
+
+                      {/* SVS PTS — placeholder, empty for now */}
+                      <td style={{...tdMono,color:C.textDim}}>—</td>
+                    </tr>
+                  );
+                });
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
 const EXPERTS = [
   { name: "Cyrille", level: 100, sigils: 5,  bonus: "Hunter's Heart",      booksNeeded: 0,   sigilsNeeded: 0   },
   { name: "Agnes",   level: 86,  sigils: 2,  bonus: "Earthbreaker",        booksNeeded: 0,   sigilsNeeded: 0   },
@@ -721,58 +1108,6 @@ function ConstructionPage({ inv }) {
           ))}
           <div style={{ marginTop: 16, padding: "12px 16px", background: COLORS.accentBg, border: `1px solid ${COLORS.accentDim}`, borderRadius: 8, fontSize: 12, color: COLORS.textSec }}>
             <span style={{ color: COLORS.accent, fontWeight: 700 }}>Total estimated:</span> {fmt(SVS_SCHEDULE.reduce((s,d) => s+d.points,0))} pts — does not include beasts/terror kills
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function HeroGearPage({ inv }) {
-  const totalStones  = HEROES.flatMap(h=>h.pieces).reduce((s,p)=>s+p.stones,0);
-  const totalMithril = HEROES.flatMap(h=>h.pieces).reduce((s,p)=>s+p.mithril,0);
-  const totalMythic  = HEROES.flatMap(h=>h.pieces).reduce((s,p)=>s+p.mythic,0);
-  const totalSVS     = HEROES.reduce((s,h)=>s+h.svsPoints,0);
-
-  return (
-    <div className="fade-in">
-      <div className="stat-grid">
-        <StatCard label="Stones needed" value={totalStones} sub={`have ${fmt(inv.stones)}`} />
-        <StatCard label="Mithril needed" value={totalMithril} sub={`have ${fmt(inv.mithril)}`} />
-        <StatCard label="Mythic needed" value={totalMythic} sub={`have ${fmt(inv.mythicGear)}`} />
-        <StatCard label="SVS pts (gear)" value={totalSVS} color="accent" />
-      </div>
-
-      <div className="card">
-        <div className="card-header">
-          <div className="card-title">Hero Gear Upgrade Status</div>
-        </div>
-        <div className="card-body" style={{ padding: 0 }}>
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Hero</th><th>Type</th><th>Slot</th>
-                  <th style={{textAlign:"right"}}>Stones</th>
-                  <th style={{textAlign:"right"}}>Mithril</th>
-                  <th style={{textAlign:"right"}}>Mythic</th>
-                  <th style={{textAlign:"right"}}>SVS Pts</th>
-                </tr>
-              </thead>
-              <tbody>
-                {HEROES.map(h => h.pieces.map((p,i) => (
-                  <tr key={`${h.name}-${p.slot}`}>
-                    {i === 0 && <td className="pri" rowSpan={h.pieces.length} style={{verticalAlign:"middle"}}>{h.name}</td>}
-                    {i === 0 && <td rowSpan={h.pieces.length} style={{verticalAlign:"middle"}}><span className="badge badge-blue">{h.type}</span></td>}
-                    <td>{p.slot}</td>
-                    <td className={p.stones > 0 ? "accent" : "mono"} style={{textAlign:"right"}}>{p.stones > 0 ? fmtFull(p.stones) : "—"}</td>
-                    <td className={p.mithril > 0 ? "blue" : "mono"} style={{textAlign:"right", color: p.mithril>0?COLORS.blue:undefined}}>{p.mithril > 0 ? fmtFull(p.mithril) : "—"}</td>
-                    <td className={p.mythic > 0 ? "green" : "mono"} style={{textAlign:"right"}}>{p.mythic > 0 ? fmtFull(p.mythic) : "—"}</td>
-                    {i === 0 && <td className="accent" rowSpan={h.pieces.length} style={{textAlign:"right",verticalAlign:"middle"}}>{h.svsPoints > 0 ? fmt(h.svsPoints) : "—"}</td>}
-                  </tr>
-                )))}
-              </tbody>
-            </table>
           </div>
         </div>
       </div>
