@@ -39,54 +39,115 @@ function useLocalStorage(key, initial) {
     catch { return initial; }
   });
   const set = useCallback(v => {
-    const next = typeof v === "function" ? v(val) : v;
-    setVal(next);
-    try { localStorage.setItem(key, JSON.stringify(next)); } catch {}
-  }, [key, val]);
+    setVal(prev => {
+      const next = typeof v === "function" ? v(prev) : v;
+      try { localStorage.setItem(key, JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }, [key]); // key never changes — no stale closure over val
   return [val, set];
 }
 
-// ─── Initial Data (from your spreadsheet) ────────────────────────────────────
+// ─── Initial Data — blank slate for new users ────────────────────────────────
 const INITIAL_INVENTORY = {
-  // Construction resources
-  fireCrystals:   2982,
-  refinedFC:      34,
-  // Hero Gear materials
-  mithril:        74,
-  stones:         1842,
-  mythicGear:     14,
+  fireCrystals:    0,
+  refinedFC:       0,
+  // Raw materials
+  meat:            0,
+  wood:            0,
+  coal:            0,
+  iron:            0,
+  // Hero gear
+  mithril:         0,
+  stones:          0,
+  mythicGear:      0,       // Consumable Mythic Gear
+  mythicGenShards: 0,       // Mythic General Shards
   // War Academy
-  shards:         265,
-  steel:          0,
+  shards:          0,
+  steel:           0,
+  dailyIntel:      0,
+  weeklyPack:      false,
+  labyrinthWeekly: 0,
   // Experts
-  generalSigils:  204,
-  books:          4252,
-  // Chief Gear & Charms
-  chiefPlans:     507,
-  chiefPolish:    1387,
-  chiefAlloy:     321211,
-  chiefAmber:     12,
-  charmDesigns:   200,
-  charmGuides:    150,
-  charmSecrets:   0,
+  books:           0,
+  generalSigils:   0,
+  cyrilleSigils:   0,
+  agnesSigils:     0,
+  romulusSigils:   0,
+  holgerSigils:    0,
+  fabianSigils:    0,
+  baldurSigils:    0,
+  valeriaSigils:   0,
+  ronneSigils:     0,
+  // Chief gear & charms
+  chiefPlans:      0,
+  chiefPolish:     0,
+  chiefAlloy:      0,
+  chiefAmber:      0,
+  charmDesigns:    0,
+  charmGuides:     0,
+  charmSecrets:    0,
   // Skill settings
-  agnesSkillLevel: 8,
-  zinmanSkillLevel: 5,
-  zinmanBonus:    0.15,
-  // WA accumulation
-  dailyIntel:     30,
-  weeklyPack:     true,
-  labyrinthWeekly: 100,
+  agnesSkillLevel: 1,
+  zinmanSkillLevel:1,
+  zinmanBonus:     0,
 };
 
-const BUILDINGS = [
-  { name: "Furnace",   fc: 2835, rfc: 600  },
-  { name: "Embassy",   fc: 706,  rfc: 146  },
-  { name: "Infantry",  fc: 1273, rfc: 266  },
-  { name: "Marksman",  fc: 1273, rfc: 266  },
-  { name: "Lancer",    fc: 1273, rfc: 266  },
-  { name: "Command",   fc: 567,  rfc: 120  },
-];
+// ─── Helpers to read building costs dynamically from Construction Planner state ─
+// Rather than hardcoding FC/RFC totals, we read the user's actual building
+// selections from localStorage so the Inventory hub always reflects reality.
+function getInventoryBuildingTotals() {
+  try {
+    const raw = localStorage.getItem("cp-buildings");
+    if (!raw) return { fcNeeded: 0, rfcNeeded: 0 };
+    const buildings = JSON.parse(raw);
+    // Use the same FC level order the Construction Planner uses
+    const FC_LEVELS = ["FC1","FC2","FC3","FC4","FC5","FC6","FC7","FC8","FC9","FC10"];
+    // Minimal per-level FC costs for a rough total (from BLDG_DB — just the base FCx row)
+    // For Inventory hub we just need a reasonable "what you need" number
+    // The Construction Planner has the accurate per-sub-level data; here we show 0
+    // if current === goal (done), otherwise show the Construction Planner's numbers.
+    // Simplest correct approach: return 0 and let user check Construction Planner for details.
+    // But that's not helpful — instead sum from the cp-buildings selections via a lightweight lookup.
+    let fcNeeded = 0, rfcNeeded = 0;
+    // These are approximate totals per major-level step, good enough for the hub display
+    const FC_COST_PER_LEVEL = {
+      Furnace:     {FC2:790,FC3:1190,FC4:1675,FC5:2025,FC6:1600,FC7:1560,FC8:1400,FC9:1540,FC10:875},
+      Embassy:     {FC2:195,FC3:295,FC4:415,FC5:498,FC6:300,FC7:330,FC8:380,FC9:425,FC10:215},
+      Infantry:    {FC2:355,FC3:535,FC4:628,FC5:750,FC6:585,FC7:648,FC8:648,FC9:819,FC10:392},
+      Marksman:    {FC2:355,FC3:535,FC4:628,FC5:750,FC6:585,FC7:648,FC8:648,FC9:819,FC10:392},
+      Lancer:      {FC2:355,FC3:535,FC4:628,FC5:750,FC6:585,FC7:648,FC8:648,FC9:819,FC10:392},
+      Command:     {FC2:155,FC3:235,FC4:279,FC5:335,FC6:220,FC7:264,FC8:264,FC9:308,FC10:175},
+      Infirmary:   {FC2:155,FC3:235,FC4:279,FC5:335,FC6:220,FC7:264,FC8:264,FC9:308,FC10:175},
+      "War Academy":{FC2:355,FC3:535,FC4:628,FC5:750,FC6:585,FC7:648,FC8:648,FC9:819,FC10:392},
+    };
+    const RFC_COST_PER_LEVEL = {
+      Furnace:     {FC2:0,FC3:0,FC4:0,FC5:0,FC6:80,FC7:110,FC8:160,FC9:300,FC10:350},
+      Embassy:     {FC2:0,FC3:0,FC4:0,FC5:8,FC6:20,FC7:32,FC8:50,FC9:88,FC10:87},
+      Infantry:    {FC2:0,FC3:0,FC4:0,FC5:16,FC6:45,FC7:76,FC8:114,FC9:166,FC10:157},
+      Marksman:    {FC2:0,FC3:0,FC4:0,FC5:16,FC6:45,FC7:76,FC8:114,FC9:166,FC10:157},
+      Lancer:      {FC2:0,FC3:0,FC4:0,FC5:16,FC6:45,FC7:76,FC8:114,FC9:166,FC10:157},
+      Command:     {FC2:0,FC3:0,FC4:0,FC5:8,FC6:20,FC7:32,FC8:50,FC9:84,FC10:70},
+      Infirmary:   {FC2:0,FC3:0,FC4:0,FC5:8,FC6:20,FC7:32,FC8:50,FC9:84,FC10:70},
+      "War Academy":{FC2:0,FC3:0,FC4:0,FC5:16,FC6:45,FC7:76,FC8:114,FC9:166,FC10:157},
+    };
+    buildings.forEach(b => {
+      const fromIdx = FC_LEVELS.indexOf(b.current);
+      const toIdx   = FC_LEVELS.indexOf(b.goal);
+      if (fromIdx < 0 || toIdx <= fromIdx) return;
+      const fc  = FC_COST_PER_LEVEL[b.name]  || {};
+      const rfc = RFC_COST_PER_LEVEL[b.name] || {};
+      for (let i = fromIdx + 1; i <= toIdx; i++) {
+        const lvl = FC_LEVELS[i];
+        fcNeeded  += fc[lvl]  || 0;
+        rfcNeeded += rfc[lvl] || 0;
+      }
+    });
+    return { fcNeeded, rfcNeeded };
+  } catch {
+    return { fcNeeded: 0, rfcNeeded: 0 };
+  }
+}
 
 const HEROES = [
   { type: "Infantry1", name: "Hector",  pieces: [{slot:"Goggles",stones:0,mithril:0,mythic:0},{slot:"Gloves",stones:0,mithril:0,mythic:0},{slot:"Belt",stones:0,mithril:0,mythic:0},{slot:"Boots",stones:0,mithril:0,mythic:0}], svsPoints: 0 },
@@ -438,27 +499,10 @@ function SectionLabel({ children }) {
 function InventoryPage({ inv, setInv }) {
   const update = (field, val) => setInv(p => ({ ...p, [field]: val }));
 
-  // Derived totals
-  const fcNeeded = BUILDINGS.reduce((s, b) => s + b.fc, 0);
-  const rfcNeeded = BUILDINGS.reduce((s, b) => s + b.rfc, 0);
-  const fcBalance = inv.fireCrystals - fcNeeded;
-  const rfcBalance = inv.refinedFC - rfcNeeded;
-  const stoneBalance = inv.stones - HEROES.reduce((s,h) => s + h.pieces.reduce((p,g)=>p+g.stones,0),0);
-  const mithBalance  = inv.mithril - HEROES.reduce((s,h) => s + h.pieces.reduce((p,g)=>p+g.mithril,0),0);
-
   return (
     <div className="fade-in">
-      <div className="stat-grid">
-        <StatCard label="Fire Crystals" value={inv.fireCrystals} sub={`need ${fmt(fcNeeded)} for FC10`} color="accent" />
-        <StatCard label="Refined FC" value={inv.refinedFC} sub={`need ${fmt(rfcNeeded)} for FC10`} color="accent" />
-        <StatCard label="FC Balance" value={fcBalance} sub="after all upgrades" />
-        <StatCard label="RFC Balance" value={rfcBalance} sub="after all upgrades" />
-        <StatCard label="Stones" value={inv.stones} sub={`${fmt(stoneBalance)} remaining`} />
-        <StatCard label="Mithril" value={inv.mithril} sub={`${fmt(mithBalance)} remaining`} />
-        <StatCard label="Shards (WA)" value={inv.shards} sub={`+${inv.dailyIntel}/day intel`} />
-        <StatCard label="General Sigils" value={inv.generalSigils} sub="expert upgrades" />
-      </div>
 
+      {/* 1. Construction Resources */}
       <div className="card">
         <div className="card-header">
           <div>
@@ -476,17 +520,20 @@ function InventoryPage({ inv, setInv }) {
         </div>
       </div>
 
-      <SectionLabel>Hero Gear Materials</SectionLabel>
+      {/* 2. Raw Materials */}
+      <SectionLabel>Raw Materials</SectionLabel>
       <div className="card">
         <div className="card-body">
           <div className="res-grid">
-            <ResInput label="Stones" icon="ST" field="stones" value={inv.stones} onChange={update} color={COLORS.blue} />
-            <ResInput label="Mithril" icon="MI" field="mithril" value={inv.mithril} onChange={update} color={COLORS.blue} />
-            <ResInput label="Mythic Gear" icon="MG" field="mythicGear" value={inv.mythicGear} onChange={update} color={COLORS.blue} />
+            <ResInput label="Meat"  icon="MT" field="meat" value={inv.meat ?? 0} onChange={update} color={COLORS.green} />
+            <ResInput label="Wood"  icon="WD" field="wood" value={inv.wood ?? 0} onChange={update} color={COLORS.green} />
+            <ResInput label="Coal"  icon="CL" field="coal" value={inv.coal ?? 0} onChange={update} color={COLORS.green} />
+            <ResInput label="Iron"  icon="IR" field="iron" value={inv.iron ?? 0} onChange={update} color={COLORS.green} />
           </div>
         </div>
       </div>
 
+      {/* 3. War Academy */}
       <SectionLabel>War Academy</SectionLabel>
       <div className="card">
         <div className="card-body">
@@ -506,34 +553,58 @@ function InventoryPage({ inv, setInv }) {
         </div>
       </div>
 
+      {/* 4. Hero Level & Gear Materials */}
+      <SectionLabel>Hero Level &amp; Gear Materials</SectionLabel>
+      <div className="card">
+        <div className="card-body">
+          <div className="res-grid">
+            <ResInput label="Stones"                  icon="ST" field="stones"          value={inv.stones}                    onChange={update} color={COLORS.blue} />
+            <ResInput label="Mithril"                 icon="MI" field="mithril"         value={inv.mithril}                   onChange={update} color={COLORS.blue} />
+            <ResInput label="Consumable Mythic Gear"  icon="MG" field="mythicGear"      value={inv.mythicGear}                onChange={update} color={COLORS.blue} />
+            <ResInput label="Mythic General Shards"   icon="MS" field="mythicGenShards" value={inv.mythicGenShards ?? 0}     onChange={update} color={COLORS.blue} />
+          </div>
+        </div>
+      </div>
+
+      {/* 5. Expert Resources */}
       <SectionLabel>Expert Resources</SectionLabel>
       <div className="card">
         <div className="card-body">
           <div className="res-grid">
-            <ResInput label="General Sigils" icon="GS" field="generalSigils" value={inv.generalSigils} onChange={update} color={COLORS.amber} />
-            <ResInput label="Books of Knowledge" icon="BK" field="books" value={inv.books} onChange={update} color={COLORS.amber} />
+            <ResInput label="Books of Knowledge" icon="BK" field="books"          value={inv.books}                onChange={update} color={COLORS.amber} />
+            <ResInput label="General Sigils"     icon="GS" field="generalSigils"  value={inv.generalSigils}        onChange={update} color={COLORS.amber} />
+            <ResInput label="Cyrille Sigils"     icon="CY" field="cyrilleSigils"  value={inv.cyrilleSigils  ?? 0}  onChange={update} color={COLORS.amber} />
+            <ResInput label="Agnes Sigils"       icon="AN" field="agnesSigils"    value={inv.agnesSigils    ?? 0}  onChange={update} color={COLORS.amber} />
+            <ResInput label="Romulus Sigils"     icon="RO" field="romulusSigils"  value={inv.romulusSigils  ?? 0}  onChange={update} color={COLORS.amber} />
+            <ResInput label="Holger Sigils"      icon="HO" field="holgerSigils"   value={inv.holgerSigils   ?? 0}  onChange={update} color={COLORS.amber} />
+            <ResInput label="Fabian Sigils"      icon="FA" field="fabianSigils"   value={inv.fabianSigils   ?? 0}  onChange={update} color={COLORS.amber} />
+            <ResInput label="Baldur Sigils"      icon="BA" field="baldurSigils"   value={inv.baldurSigils   ?? 0}  onChange={update} color={COLORS.amber} />
+            <ResInput label="Valeria Sigils"     icon="VA" field="valeriaSigils"  value={inv.valeriaSigils  ?? 0}  onChange={update} color={COLORS.amber} />
+            <ResInput label="Ronne Sigils"       icon="RN" field="ronneSigils"    value={inv.ronneSigils    ?? 0}  onChange={update} color={COLORS.amber} />
           </div>
         </div>
       </div>
 
+      {/* 6. Chief Gear Materials */}
       <SectionLabel>Chief Gear Materials</SectionLabel>
       <div className="card">
         <div className="card-body">
           <div className="res-grid">
-            <ResInput label="Plans" icon="PL" field="chiefPlans" value={inv.chiefPlans} onChange={update} />
+            <ResInput label="Plans"  icon="PL" field="chiefPlans"  value={inv.chiefPlans}  onChange={update} />
             <ResInput label="Polish" icon="PO" field="chiefPolish" value={inv.chiefPolish} onChange={update} />
-            <ResInput label="Alloy" icon="AL" field="chiefAlloy" value={inv.chiefAlloy} onChange={update} />
-            <ResInput label="Amber" icon="AM" field="chiefAmber" value={inv.chiefAmber} onChange={update} />
+            <ResInput label="Alloy"  icon="AL" field="chiefAlloy"  value={inv.chiefAlloy}  onChange={update} />
+            <ResInput label="Amber"  icon="AM" field="chiefAmber"  value={inv.chiefAmber}  onChange={update} />
           </div>
         </div>
       </div>
 
+      {/* 7. Chief Charm Materials */}
       <SectionLabel>Chief Charm Materials</SectionLabel>
       <div className="card">
         <div className="card-body">
           <div className="res-grid">
             <ResInput label="Designs" icon="DS" field="charmDesigns" value={inv.charmDesigns} onChange={update} />
-            <ResInput label="Guides" icon="GD" field="charmGuides" value={inv.charmGuides} onChange={update} />
+            <ResInput label="Guides"  icon="GD" field="charmGuides"  value={inv.charmGuides}  onChange={update} />
             <ResInput label="Secrets" icon="SC" field="charmSecrets" value={inv.charmSecrets} onChange={update} />
           </div>
         </div>
@@ -876,18 +947,52 @@ export default function App() {
   const syncTimer = useRef(null);
   const prevUser  = useRef(null);
 
-  // ── On sign-in: pull cloud data down and merge ──────────────────────────────
+  // Detect whether the guest has changed anything from the blank default
+  const guestHasData = useCallback((currentInv) => {
+    return Object.keys(INITIAL_INVENTORY).some(k => {
+      const def = INITIAL_INVENTORY[k];
+      const cur = currentInv[k];
+      if (typeof def === "boolean") return cur !== def;
+      if (typeof def === "number")  return cur !== def && cur !== 0;
+      return false;
+    });
+  }, []);
+
+  // ── On sign-in/sign-up: smart merge ────────────────────────────────────────
+  // NEW ACCOUNT (sign-up): upload local guest data → becomes their cloud data
+  // RETURNING ACCOUNT (sign-in): cloud wins, local is replaced
+  // GUEST with no changes signs up: starts fresh (nothing to merge)
   useEffect(() => {
     if (user && user.id !== prevUser.current) {
       prevUser.current = user.id;
+      const isNewSignUp = user.created_at &&
+        (Date.now() - new Date(user.created_at).getTime()) < 30000; // within last 30s
+
       (async () => {
         setSyncing(true);
         const [cloudInv, cloudPlans] = await Promise.all([
           cloudLoadInventory(),
           cloudLoadPlans(),
         ]);
-        if (cloudInv)    setInvRaw(cloudInv);
-        if (cloudPlans && Object.keys(cloudPlans).length > 0) setSavedPlans(cloudPlans);
+
+        if (isNewSignUp && !cloudInv) {
+          // Brand-new account — push local guest data up if they had any
+          if (guestHasData(inv)) {
+            await cloudSaveInventory(inv);
+          }
+          // Plans: always push local plans up on new account
+          const localPlans = savedPlans;
+          if (Object.keys(localPlans).length > 0) {
+            await Promise.all(
+              Object.entries(localPlans).map(([k, v]) => cloudSavePlan(k, v))
+            );
+          }
+        } else {
+          // Returning account — cloud wins
+          if (cloudInv)    setInvRaw(cloudInv);
+          if (cloudPlans && Object.keys(cloudPlans).length > 0)
+            setSavedPlans(cloudPlans);
+        }
         setSyncing(false);
       })();
     }

@@ -382,11 +382,11 @@ const STYLE = `
 .inp-field option{background:${C.card};color:${C.textPri}}
 /* Building table */
 .bld-table{background:${C.card};border:1px solid ${C.border};border-radius:12px;overflow:hidden}
-.bld-thead{display:grid;grid-template-columns:140px 110px 110px 90px 90px 90px 90px 1fr;gap:0;border-bottom:1px solid ${C.border};background:${C.surface}}
+.bld-thead{display:grid;grid-template-columns:140px 100px 100px 80px 80px 70px 1fr 1fr;gap:0;border-bottom:1px solid ${C.border};background:${C.surface}}
 .bld-thead .th{padding:9px 12px;font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:${C.textDim};font-family:'Space Mono',monospace;white-space:nowrap}
 .bld-row-wrap{border-bottom:1px solid ${C.border}}
 .bld-row-wrap:last-child{border-bottom:none}
-.bld-row{display:grid;grid-template-columns:140px 110px 110px 90px 90px 90px 90px 1fr;gap:0;align-items:center;transition:background 0.1s}
+.bld-row{display:grid;grid-template-columns:140px 100px 100px 80px 80px 70px 1fr 1fr;gap:0;align-items:center;transition:background 0.1s}
 .bld-row:hover{background:rgba(255,255,255,0.02)}
 .bld-cell{padding:11px 12px;font-size:13px;color:${C.textSec};vertical-align:middle}
 .bld-cell.name{font-weight:700;color:${C.textPri};font-size:13px}
@@ -437,7 +437,7 @@ const STYLE = `
 .note-box strong{color:${C.accent}}
 /* Responsive */
 @media(max-width:900px){
-  .bld-thead,.bld-row{grid-template-columns:120px 90px 90px 75px 75px 75px 75px 1fr}
+  .bld-thead,.bld-row{grid-template-columns:120px 80px 80px 70px 70px 60px 1fr 1fr}
   .bld-cell,.th{padding:8px 8px}
 }
 @media(max-width:640px){
@@ -469,14 +469,14 @@ const BUILDING_KEY = b => b === "Infantry" ? "Infantry" : b === "Marksman" ? "Ma
   : b === "Lancer" ? "Lancer" : b === "War Academy" ? "War Academy" : b;
 
 const DEFAULT_BUILDINGS = [
-  { name:"Furnace",     current:"FC8", goal:"FC10" },
-  { name:"Embassy",     current:"FC8", goal:"FC10" },
-  { name:"Infantry",    current:"FC8", goal:"FC10" },
-  { name:"Marksman",    current:"FC8", goal:"FC10" },
-  { name:"Lancer",      current:"FC8", goal:"FC10" },
-  { name:"Command",     current:"FC8", goal:"FC10" },
-  { name:"Infirmary",   current:"FC8", goal:"FC8"  },
-  { name:"War Academy", current:"FC8", goal:"FC8"  },
+  { name:"Furnace",     current:"FC1", goal:"FC1" },
+  { name:"Embassy",     current:"FC1", goal:"FC1" },
+  { name:"Infantry",    current:"FC1", goal:"FC1" },
+  { name:"Marksman",    current:"FC1", goal:"FC1" },
+  { name:"Lancer",      current:"FC1", goal:"FC1" },
+  { name:"Command",     current:"FC1", goal:"FC1" },
+  { name:"Infirmary",   current:"FC1", goal:"FC1" },
+  { name:"War Academy", current:"FC1", goal:"FC1" },
 ];
 
 // Load from localStorage or use defaults
@@ -794,24 +794,25 @@ export default function ConstructionPlanner() {
           <div>
             <div className="sec-head">Building upgrade planner</div>
             <div className="bld-table">
-              <div className="bld-thead" style={{gridTemplateColumns:"140px 110px 110px 90px 90px 90px 1fr"}}>
+              <div className="bld-thead" style={{gridTemplateColumns:"140px 100px 100px 80px 80px 70px 1fr 1fr"}}>
                 <div className="th">Building</div>
                 <div className="th">Current level</div>
                 <div className="th">Goal level</div>
                 <div className="th">FC cost</div>
                 <div className="th">RFC cost</div>
                 <div className="th">Sub-levels</div>
-                <div className="th">FC coverage</div>
+                <div className="th">Original build time</div>
+                <div className="th">Actual build time</div>
               </div>
 
               {buildingCalcs.map((b, idx) => {
                 const isDone = b.current === b.goal;
-                const pct   = b.fcCost > 0 ? Math.min(100, Math.round((projectedFC / b.fcCost) * 100)) : 100;
                 const goalOptions = FC_LEVEL_OPTS.filter(l => FC_LEVELS.indexOf(l) >= FC_LEVELS.indexOf(b.current));
+                const actualMins = b.baseMins > 0 ? Math.round(b.baseMins / (1 + buffTotal)) : 0;
 
                 return (
                   <div className="bld-row-wrap" key={b.name}>
-                    <div className="bld-row" style={{gridTemplateColumns:"140px 110px 110px 90px 90px 90px 1fr"}}>
+                    <div className="bld-row" style={{gridTemplateColumns:"140px 100px 100px 80px 80px 70px 1fr 1fr"}}>
                       <div className="bld-cell name">{b.name}</div>
 
                       {/* Current dropdown */}
@@ -836,56 +837,27 @@ export default function ConstructionPlanner() {
                       </div>
                       <div className="bld-cell mono" style={{color:C.textSec}}>{isDone ? "—" : b.subLevels}</div>
 
-                      <div className="bld-cell" style={{display:"flex",alignItems:"center",gap:8}}>
-                        <div className="prog-wrap">
-                          <div className="prog-bar" style={{
-                            width:`${isDone ? 100 : pct}%`,
-                            background: isDone ? C.accent : pct >= 100 ? C.green : pct >= 50 ? C.amber : C.red,
-                          }} />
-                        </div>
-                        <span style={{fontSize:10,fontFamily:"Space Mono,monospace",color:C.textDim,minWidth:32,textAlign:"right"}}>{isDone ? "✓" : pct+"%"}</span>
+                      {/* Original build time */}
+                      <div className="bld-cell mono" style={{color:C.textSec}}>
+                        {isDone || !b.baseMins ? "—" : fmtMins(b.baseMins)}
+                      </div>
+
+                      {/* Actual build time */}
+                      <div className="bld-cell mono" style={{color:C.green,fontWeight:700}}>
+                        {isDone || !b.baseMins ? "—" : fmtMins(actualMins)}
                       </div>
                     </div>
-
-                    {/* Construction time sub-row */}
-                    {!isDone && b.baseMins > 0 && (() => {
-                      const actualMins = Math.round(b.baseMins / (1 + buffTotal));
-                      return (
-                        <div className="time-row">
-                          <div style={{display:"flex",alignItems:"center",gap:10}}>
-                            <span className="time-lbl">Original build time</span>
-                            <span className="time-val time-orig">{fmtMins(b.baseMins)}</span>
-                          </div>
-                          <div style={{width:1,height:28,background:C.borderHi,flexShrink:0}}/>
-                          <div style={{display:"flex",alignItems:"center",gap:10}}>
-                            <span className="time-lbl">Actual build time</span>
-                            <span className="time-val time-actual">{fmtMins(actualMins)}</span>
-                          </div>
-                        </div>
-                      );
-                    })()}
                   </div>
                 );
               })}
 
               {/* Totals footer */}
-              <div style={{background:C.surface,borderTop:`2px solid ${C.borderHi}`,padding:"11px 12px",display:"grid",gridTemplateColumns:"140px 110px 110px 90px 90px 90px 1fr",gap:0,alignItems:"center"}}>
+              <div style={{background:C.surface,borderTop:`2px solid ${C.borderHi}`,padding:"11px 12px",display:"grid",gridTemplateColumns:"140px 100px 100px 80px 80px 70px 1fr 1fr",gap:0,alignItems:"center"}}>
                 <div style={{fontSize:12,fontWeight:800,color:C.textPri}}>TOTAL</div>
                 <div /><div />
                 <div style={{fontFamily:"Space Mono,monospace",fontSize:12,color:C.accent,fontWeight:700}}>{fmtFull(totalFCNeeded)}</div>
                 <div style={{fontFamily:"Space Mono,monospace",fontSize:12,color:C.amber,fontWeight:700}}>{fmtFull(totalRFCNeeded)}</div>
-                <div />
-                <div style={{display:"flex",alignItems:"center",gap:8}}>
-                  <div className="prog-wrap">
-                    <div className="prog-bar" style={{
-                      width:`${Math.min(100, Math.round((projectedFC/totalFCNeeded)*100))}%`,
-                      background: fcBalance >= 0 ? C.green : C.red,
-                    }} />
-                  </div>
-                  <span style={{fontSize:10,fontFamily:"Space Mono,monospace",color:C.textDim,minWidth:32,textAlign:"right"}}>
-                    {totalFCNeeded > 0 ? Math.min(100,Math.round((projectedFC/totalFCNeeded)*100))+"%" : "—"}
-                  </span>
-                </div>
+                <div /><div /><div />
               </div>
             </div>
           </div>

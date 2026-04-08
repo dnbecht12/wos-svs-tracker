@@ -57,13 +57,12 @@ function calcRefines(weekCumulativeSoFar, count) {
 }
 
 const WEEKDAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
-const MON_FAVORITES = [20,40,60,80,100,120];
+const MON_FAVORITES = [1, 5, 10, 20, 40, 60, 80, 100];
 
 const fmtN = n => typeof n==="number" ? Math.round(n).toLocaleString() : "—";
 function loadLS(k,fb){try{const s=localStorage.getItem(k);return s?JSON.parse(s):fb;}catch{return fb;}}
 function saveLS(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
 
-// Use the shared utility for date formatting
 function fmtDate(isoStr) { return fmtIso(isoStr); }
 
 function addDays(isoStr, n) {
@@ -73,11 +72,31 @@ function addDays(isoStr, n) {
   d.setDate(d.getDate()+n);
   return toIso(d);
 }
-function planKey(isoStr) {
+
+// Base plan name: "Month YYYY" (e.g. "April 2026")
+function planBaseName(isoStr) {
   if (!isoStr) return "";
   const d = new Date(isoStr + "T00:00:00");
   if (isNaN(d)) return "";
   return d.toLocaleDateString("en-US",{month:"long",year:"numeric"});
+}
+
+// Generate next available key: "April 2026-01", "April 2026-02", etc.
+function nextPlanKey(baseName, existingKeys) {
+  let seq = 1;
+  while (true) {
+    const candidate = `${baseName}-${String(seq).padStart(2,"0")}`;
+    if (!existingKeys.includes(candidate)) return candidate;
+    seq++;
+  }
+}
+
+// Get the most recent existing key for this base name (for overwrite Save)
+function latestPlanKey(baseName, existingKeys) {
+  const matches = existingKeys
+    .filter(k => k.startsWith(baseName + "-"))
+    .sort();
+  return matches[matches.length - 1] || null;
 }
 
 const C = {
@@ -220,8 +239,8 @@ function MonSelect({ value, onChange }) {
       <optgroup label="── Favorites ──">
         {MON_FAVORITES.map(v=><option key={v} value={v}>{v}</option>)}
       </optgroup>
-      <optgroup label="── All (1–120) ──">
-        {Array.from({length:120},(_,i)=>i+1).map(v=><option key={v} value={v}>{v}</option>)}
+      <optgroup label="── All (1–100) ──">
+        {Array.from({length:100},(_,i)=>i+1).map(v=><option key={v} value={v}>{v}</option>)}
       </optgroup>
     </select>
   );
@@ -242,7 +261,7 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan }) {
   const cycleOpts    = useMemo(()=>buildCycles(Math.max(1,currentCycle-1), 16),[currentCycle]);
 
   const [selectedCycle, setSelectedCycle] = useState(()=>loadLS("rfc-cycle", currentCycle));
-  const [monRefines,  setMonRefines]  = useState(()=>loadLS("rfc-monref",  20));
+  const [monRefines,  setMonRefines]  = useState(()=>loadLS("rfc-monref",  1));
   const [weekdayMode, setWeekdayMode] = useState(()=>loadLS("rfc-wdmode",  "default"));
   const [actuals,     setActuals]     = useState(()=>loadLS("rfc-actuals2", EMPTY_ACTUALS));
   const [toast,       setToast]       = useState("");
@@ -314,11 +333,30 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan }) {
     finalRFC:rows[27]?.rollingRFC??inv.refinedFC,
   }),[rows,inv.refinedFC]);
 
-  const savePlan=()=>{
-    const key=planKey(startDate)||`Cycle ${selectedCycle}`;
-    onSavePlan(key,{key,savedAt:new Date().toISOString(),selectedCycle,startDate,monRefines,weekdayMode,actuals,fireCrystals:inv.fireCrystals,refinedFC:inv.refinedFC});
+  const buildPlanData = () => ({
+    savedAt: new Date().toISOString(),
+    selectedCycle, startDate, monRefines, weekdayMode, actuals,
+    fireCrystals: inv.fireCrystals, refinedFC: inv.refinedFC,
+  });
+
+  const baseName = planBaseName(startDate) || `Cycle ${selectedCycle}`;
+  const existingKeys = Object.keys(savedPlans);
+
+  // Save — overwrite the most recent plan for this month, or create -01 if none exists
+  const saveOver = () => {
+    const existing = latestPlanKey(baseName, existingKeys);
+    const key = existing || nextPlanKey(baseName, existingKeys);
+    onSavePlan(key, { key, ...buildPlanData() });
     setToast(`Saved: ${key}`);
-    setTimeout(()=>setToast(""),2500);
+    setTimeout(()=>setToast(""), 2500);
+  };
+
+  // Save New — always creates the next numbered slot
+  const saveNew = () => {
+    const key = nextPlanKey(baseName, existingKeys);
+    onSavePlan(key, { key, ...buildPlanData() });
+    setToast(`Saved new: ${key}`);
+    setTimeout(()=>setToast(""), 2500);
   };
 
   // Group rows into 4 weeks
@@ -356,9 +394,15 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan }) {
               </div>
               <div className="date-ctrl">
                 <span className="date-lbl">Save plan</span>
-                <button className="save-btn" onClick={savePlan}>
-                  ↓ Save {planKey(startDate)?`(${planKey(startDate)})`:"plan"}
-                </button>
+                <div style={{display:"flex",gap:6}}>
+                  <button className="save-btn" onClick={saveOver} title="Overwrite the most recent plan for this month">
+                    ↓ Save
+                  </button>
+                  <button className="save-btn" onClick={saveNew} title="Create a new numbered plan for this month"
+                    style={{background:"transparent",border:`1px solid ${C.accentDim}`,color:C.accent}}>
+                    + Save New
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -428,8 +472,8 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan }) {
                     <optgroup label="── Favorites ──">
                       {MON_FAVORITES.map(v=><option key={v} value={v}>{v} refines</option>)}
                     </optgroup>
-                    <optgroup label="── All (1–120) ──">
-                      {Array.from({length:120},(_,i)=>i+1).map(v=><option key={v} value={v}>{v}</option>)}
+                    <optgroup label="── All (1–100) ──">
+                      {Array.from({length:100},(_,i)=>i+1).map(v=><option key={v} value={v}>{v}</option>)}
                     </optgroup>
                   </select>
                 </div>
