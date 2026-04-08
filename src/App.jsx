@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import ConstructionPlanner from "./ConstructionPlanner.jsx";
 import RFCPlanner from "./RFCPlanner.jsx";
 import SvSCalendar from "./SvSCalendar.jsx";
-import { useAuth, cloudLoadInventory, cloudSaveInventory, cloudLoadPlans, cloudSavePlan, cloudDeletePlan } from "./useAuth.js";
+import { useAuth } from "./useAuth.js";
+import { useCharacters, charLoadInventory, charSaveInventory, charLoadPlans, charSavePlan, charDeletePlan } from "./useCharacters.js";
 
 // ─── Theme & Design System ────────────────────────────────────────────────────
 const COLORS = {
@@ -790,12 +791,298 @@ const GLOBAL_STYLE = `
   .auth-toggle { font-size: 11px; color: ${COLORS.textDim}; text-align: center; }
   .auth-toggle span { color: ${COLORS.accent}; text-decoration: underline; cursor: pointer; }
   .auth-title { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: ${COLORS.textDim}; margin-bottom: 8px; font-family: 'Space Mono', monospace; }
+
+  /* Character switcher */
+  .char-switcher { padding: 10px 10px 0; }
+  .char-select { width: 100%; background: ${COLORS.card}; border: 1px solid ${COLORS.border}; border-radius: 7px; color: ${COLORS.textPri}; font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 600; padding: 8px 10px; cursor: pointer; outline: none; transition: border-color 0.15s; }
+  .char-select:focus { border-color: ${COLORS.accent}; }
+  .char-select option { background: ${COLORS.card}; }
+
+  /* Modal overlay */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .modal { background: ${COLORS.card}; border: 1px solid ${COLORS.borderHi}; border-radius: 14px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; box-shadow: 0 24px 80px rgba(0,0,0,0.6); }
+  .modal-header { padding: 20px 24px 16px; border-bottom: 1px solid ${COLORS.border}; display: flex; align-items: center; justify-content: space-between; }
+  .modal-title { font-size: 15px; font-weight: 800; color: ${COLORS.textPri}; }
+  .modal-close { background: none; border: none; color: ${COLORS.textDim}; cursor: pointer; font-size: 18px; line-height: 1; padding: 4px; }
+  .modal-close:hover { color: ${COLORS.textPri}; }
+  .modal-body { padding: 20px 24px; }
+  .modal-section { margin-bottom: 24px; }
+  .modal-section:last-child { margin-bottom: 0; }
+  .modal-section-title { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: ${COLORS.textDim}; margin-bottom: 12px; font-family: 'Space Mono', monospace; }
+  .modal-inp { background: ${COLORS.surface}; border: 1px solid ${COLORS.border}; border-radius: 7px; padding: 8px 12px; font-family: 'Space Mono', monospace; font-size: 12px; color: ${COLORS.textPri}; outline: none; width: 100%; transition: border-color 0.15s; box-sizing: border-box; }
+  .modal-inp:focus { border-color: ${COLORS.accent}; }
+  .modal-inp::placeholder { color: ${COLORS.textDim}; }
+  .modal-btn { padding: 9px 16px; border-radius: 7px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: 'Syne', sans-serif; border: none; transition: all 0.15s; }
+  .modal-btn-primary { background: ${COLORS.accent}; color: #0a0c10; }
+  .modal-btn-primary:hover { opacity: 0.88; }
+  .modal-btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+  .modal-btn-ghost { background: transparent; color: ${COLORS.textSec}; border: 1px solid ${COLORS.border}; }
+  .modal-btn-ghost:hover { border-color: ${COLORS.borderHi}; color: ${COLORS.textPri}; }
+  .modal-btn-danger { background: ${COLORS.redBg}; color: ${COLORS.red}; border: 1px solid ${COLORS.redDim}; }
+  .modal-btn-danger:hover { background: ${COLORS.red}; color: #fff; }
+  .modal-error { font-size: 11px; color: ${COLORS.red}; font-family: 'Space Mono', monospace; padding: 7px 10px; background: ${COLORS.redBg}; border-radius: 5px; border: 1px solid ${COLORS.redDim}; margin-top: 8px; }
+  .modal-success { font-size: 11px; color: ${COLORS.green}; font-family: 'Space Mono', monospace; padding: 7px 10px; background: ${COLORS.greenBg}; border-radius: 5px; border: 1px solid ${COLORS.greenDim}; margin-top: 8px; }
+  .char-list-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: ${COLORS.surface}; border: 1px solid ${COLORS.border}; border-radius: 8px; margin-bottom: 8px; }
+  .char-list-item.is-active { border-color: ${COLORS.accentDim}; background: ${COLORS.accentBg}; }
+  .char-avatar-sm { width: 30px; height: 30px; border-radius: 50%; background: ${COLORS.card}; border: 1px solid ${COLORS.border}; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: ${COLORS.accent}; flex-shrink: 0; font-family: 'Space Mono', monospace; }
+  .char-name-text { font-size: 13px; font-weight: 700; color: ${COLORS.textPri}; }
+  .char-state-text { font-size: 10px; color: ${COLORS.textDim}; font-family: 'Space Mono', monospace; }
+  .profile-btn-wrap { display: flex; align-items: center; gap: 8px; padding: 12px 12px; cursor: pointer; border-top: 1px solid ${COLORS.border}; transition: background 0.15s; }
+  .profile-btn-wrap:hover { background: rgba(255,255,255,0.03); }
+  .profile-avatar { width: 28px; height: 28px; border-radius: 50%; background: ${COLORS.accentBg}; border: 1px solid ${COLORS.accentDim}; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: ${COLORS.accent}; flex-shrink: 0; font-family: 'Space Mono', monospace; }
 `;
+
+// ─── Profile Management Modal ─────────────────────────────────────────────────
+
+function ProfileModal({ open, onClose, initialSection="account",
+  user, characters, activeCharId,
+  addCharacter, removeCharacter, renameCharacter, makeDefault, switchCharacter,
+  changePassword, requestDeleteAccount, confirmDeleteAccount,
+  charError, clearCharError, authError, clearAuthError,
+}) {
+  const [section, setSection]       = useState(initialSection);
+  const [msg, setMsg]               = useState("");
+  const [msgType, setMsgType]       = useState("success"); // "success"|"error"
+  // New character form
+  const [newName,  setNewName]      = useState("");
+  const [newState, setNewState]     = useState("");
+  // Edit character
+  const [editId,   setEditId]       = useState(null);
+  const [editName, setEditName]     = useState("");
+  const [editState,setEditState]    = useState("");
+  // Delete account
+  const [deleteStep, setDeleteStep] = useState(0); // 0=idle,1=email sent,2=otp entry
+  const [otp, setOtp]               = useState("");
+  const [busy, setBusy]             = useState(false);
+
+  useEffect(() => { if (open) setSection(initialSection); }, [open, initialSection]);
+  useEffect(() => { clearCharError?.(); clearAuthError?.(); setMsg(""); }, [section]);
+
+  const flash = (text, type="success") => { setMsg(text); setMsgType(type); setTimeout(()=>setMsg(""),4000); };
+
+  if (!open) return null;
+
+  const C = COLORS;
+
+  const handleAddChar = async () => {
+    if (!newName.trim()) return;
+    setBusy(true);
+    const c = await addCharacter(newName.trim(), newState ? parseInt(newState) : null);
+    setBusy(false);
+    if (c) { setNewName(""); setNewState(""); flash(`Character "${c.name}" added!`); }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editName.trim()) return;
+    setBusy(true);
+    await renameCharacter(editId, editName.trim(), editState ? parseInt(editState) : null);
+    setBusy(false);
+    setEditId(null);
+    flash("Character updated.");
+  };
+
+  const handlePasswordChange = async () => {
+    setBusy(true);
+    const ok = await changePassword();
+    setBusy(false);
+    if (ok) flash("Password reset email sent — check your inbox.");
+    else flash(authError || "Failed to send email.", "error");
+  };
+
+  const handleRequestDelete = async () => {
+    setBusy(true);
+    const ok = await requestDeleteAccount();
+    setBusy(false);
+    if (ok) { setDeleteStep(1); flash("Confirmation email sent — enter the code below."); }
+    else flash(authError || "Failed.", "error");
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!otp.trim()) return;
+    setBusy(true);
+    const ok = await confirmDeleteAccount(otp.trim(), user.email);
+    setBusy(false);
+    if (!ok) flash(authError || "Invalid code.", "error");
+  };
+
+  const tabs = [
+    { id:"characters", label:"Characters" },
+    { id:"account",    label:"Account"    },
+  ];
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal">
+        <div className="modal-header">
+          <div className="modal-title">Profile Management</div>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+
+        {/* Tab bar */}
+        <div style={{display:"flex",borderBottom:`1px solid ${C.border}`,padding:"0 24px"}}>
+          {tabs.map(t => (
+            <button key={t.id} onClick={() => setSection(t.id)}
+              style={{padding:"10px 16px",background:"none",border:"none",cursor:"pointer",
+                fontSize:12,fontWeight:700,fontFamily:"Syne,sans-serif",
+                color: section===t.id ? C.accent : C.textDim,
+                borderBottom: section===t.id ? `2px solid ${C.accent}` : "2px solid transparent",
+                transition:"all 0.15s",marginBottom:-1}}>
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="modal-body">
+          {msg && <div className={msg ? (msgType==="success" ? "modal-success" : "modal-error") : ""} style={{marginBottom:16}}>{msg}</div>}
+
+          {/* ── Characters tab ── */}
+          {section === "characters" && (
+            <>
+              <div className="modal-section">
+                <div className="modal-section-title">Your Characters ({characters.length}/5)</div>
+                {characters.map(c => (
+                  <div key={c.id} className={`char-list-item${c.id === activeCharId ? " is-active" : ""}`}>
+                    <div className="char-avatar-sm">{c.name?.[0]?.toUpperCase() ?? "?"}</div>
+                    <div style={{flex:1,minWidth:0}}>
+                      {editId === c.id ? (
+                        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                          <input className="modal-inp" value={editName} onChange={e=>setEditName(e.target.value)} placeholder="Character name" />
+                          <input className="modal-inp" type="number" value={editState} onChange={e=>setEditState(e.target.value)} placeholder="State number" />
+                          <div style={{display:"flex",gap:6,marginTop:2}}>
+                            <button className="modal-btn modal-btn-primary" onClick={handleSaveEdit} disabled={busy}>Save</button>
+                            <button className="modal-btn modal-btn-ghost" onClick={()=>setEditId(null)}>Cancel</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="char-name-text">{c.name}</div>
+                          <div className="char-state-text">{c.state_number ? `State ${c.state_number}` : "No state set"}</div>
+                        </>
+                      )}
+                    </div>
+                    {editId !== c.id && (
+                      <div style={{display:"flex",flexDirection:"column",gap:4,alignItems:"flex-end"}}>
+                        {c.is_default && <span style={{fontSize:9,fontWeight:700,letterSpacing:1,background:C.accentBg,color:C.accent,border:`1px solid ${C.accentDim}`,padding:"2px 6px",borderRadius:3}}>DEFAULT</span>}
+                        <div style={{display:"flex",gap:4}}>
+                          <button className="modal-btn modal-btn-ghost" style={{padding:"3px 8px",fontSize:10}}
+                            onClick={()=>{ setEditId(c.id); setEditName(c.name); setEditState(c.state_number||""); }}>Edit</button>
+                          {!c.is_default && (
+                            <button className="modal-btn modal-btn-ghost" style={{padding:"3px 8px",fontSize:10}}
+                              onClick={()=>makeDefault(c.id).then(()=>flash(`"${c.name}" set as default.`))}>Set Default</button>
+                          )}
+                          {c.id !== activeCharId && (
+                            <button className="modal-btn modal-btn-ghost" style={{padding:"3px 8px",fontSize:10}}
+                              onClick={()=>{ switchCharacter(c.id); onClose(); }}>Switch</button>
+                          )}
+                          {characters.length > 1 && (
+                            <button className="modal-btn modal-btn-danger" style={{padding:"3px 8px",fontSize:10}}
+                              onClick={()=>{ if(confirm(`Delete "${c.name}"? All their data will be lost.`)) removeCharacter(c.id).then(()=>flash("Character deleted.")); }}>Delete</button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {charError && <div className="modal-error">{charError}</div>}
+              </div>
+
+              {characters.length < 5 && (
+                <div className="modal-section">
+                  <div className="modal-section-title">Add New Character</div>
+                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                    <input className="modal-inp" value={newName} onChange={e=>setNewName(e.target.value)} placeholder="Character name (e.g. Main, Alt 1)" />
+                    <input className="modal-inp" type="number" value={newState} onChange={e=>setNewState(e.target.value)} placeholder="State number (e.g. 142)" />
+                    <button className="modal-btn modal-btn-primary" onClick={handleAddChar} disabled={busy || !newName.trim()} style={{alignSelf:"flex-start"}}>
+                      {busy ? "Adding…" : "Add Character"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* ── Account tab ── */}
+          {section === "account" && (
+            <>
+              <div className="modal-section">
+                <div className="modal-section-title">Signed in as</div>
+                <div style={{fontSize:13,color:C.textPri,fontFamily:"Space Mono,monospace"}}>{user?.email || "Discord user"}</div>
+              </div>
+
+              <div className="modal-section">
+                <div className="modal-section-title">Password</div>
+                <p style={{fontSize:12,color:C.textSec,marginBottom:12}}>A reset link will be sent to your email address.</p>
+                <button className="modal-btn modal-btn-ghost" onClick={handlePasswordChange} disabled={busy}>
+                  {busy ? "Sending…" : "Send Password Reset Email"}
+                </button>
+              </div>
+
+              <div className="modal-section">
+                <div className="modal-section-title" style={{color:C.red}}>Danger Zone</div>
+                {deleteStep === 0 && (
+                  <>
+                    <p style={{fontSize:12,color:C.textSec,marginBottom:12}}>Permanently delete your account and all character data. This cannot be undone.</p>
+                    <button className="modal-btn modal-btn-danger" onClick={handleRequestDelete} disabled={busy}>
+                      {busy ? "Sending…" : "Delete Account"}
+                    </button>
+                  </>
+                )}
+                {deleteStep >= 1 && (
+                  <>
+                    <p style={{fontSize:12,color:C.textSec,marginBottom:12}}>Enter the confirmation code sent to your email to permanently delete your account.</p>
+                    <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                      <input className="modal-inp" value={otp} onChange={e=>setOtp(e.target.value)} placeholder="6-digit confirmation code" maxLength={6} />
+                      <div style={{display:"flex",gap:8}}>
+                        <button className="modal-btn modal-btn-danger" onClick={handleConfirmDelete} disabled={busy || !otp.trim()}>
+                          {busy ? "Deleting…" : "Confirm Delete"}
+                        </button>
+                        <button className="modal-btn modal-btn-ghost" onClick={()=>setDeleteStep(0)}>Cancel</button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Save Plan Popup ──────────────────────────────────────────────────────────
+
+function SavePlanPopup({ open, defaultName, onSave, onCancel }) {
+  const [name, setName] = useState(defaultName || "");
+  useEffect(() => { if (open) setName(defaultName || ""); }, [open, defaultName]);
+  if (!open) return null;
+  const handleKey = e => { if (e.key === "Enter") onSave(name.trim() || defaultName); if (e.key === "Escape") onCancel(); };
+  const C = COLORS;
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onCancel()}>
+      <div className="modal" style={{maxWidth:380}}>
+        <div className="modal-header">
+          <div className="modal-title">Save Plan</div>
+          <button className="modal-close" onClick={onCancel}>✕</button>
+        </div>
+        <div className="modal-body">
+          <p style={{fontSize:12,color:C.textSec,marginBottom:12}}>Give this plan a nickname, or keep the auto-generated name.</p>
+          <input className="modal-inp" value={name} onChange={e=>setName(e.target.value)} onKeyDown={handleKey}
+            placeholder={defaultName} autoFocus />
+          <div style={{display:"flex",gap:8,marginTop:14}}>
+            <button className="modal-btn modal-btn-primary" onClick={()=>onSave(name.trim() || defaultName)}>Save</button>
+            <button className="modal-btn modal-btn-ghost" onClick={onCancel}>Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─── Auth Panel Component ─────────────────────────────────────────────────────
 
-function AuthPanel({ user, loading, error, signUp, signIn, signInWithDiscord, signOut, clearError, syncing }) {
-  const [mode,     setMode]     = useState("login"); // "login" | "signup"
+function AuthPanel({ user, loading, error, signUp, signIn, signInWithDiscord, clearError }) {
+  const [mode,     setMode]     = useState("login");
   const [email,    setEmail]    = useState("");
   const [password, setPassword] = useState("");
   const [name,     setName]     = useState("");
@@ -806,37 +1093,19 @@ function AuthPanel({ user, loading, error, signUp, signIn, signInWithDiscord, si
   const handleSubmit = async () => {
     if (!email || !password) return;
     setBusy(true);
-    if (mode === "signup") {
-      await signUp(email, password, name || email.split("@")[0]);
-    } else {
-      await signIn(email, password);
-    }
+    if (mode === "signup") await signUp(email, password, name || email.split("@")[0]);
+    else await signIn(email, password);
     setBusy(false);
   };
 
   const handleKey = (e) => { if (e.key === "Enter") handleSubmit(); };
 
+  // When signed in, AuthPanel renders nothing — profile button handles user UI
+  if (user) return null;
+
   if (loading) return (
     <div className="auth-panel">
-      <div style={{fontSize:11,color:COLORS.textDim,fontFamily:"Space Mono,monospace",textAlign:"center",padding:"8px 0"}}>
-        Loading…
-      </div>
-    </div>
-  );
-
-  if (user) return (
-    <div className="auth-panel">
-      {syncing && (
-        <div className="auth-sync-badge">
-          <div className="auth-sync-dot"/>
-          Cloud sync active
-        </div>
-      )}
-      <div className="auth-user-row">
-        <div className="auth-avatar">{(user.email?.[0] ?? user.user_metadata?.full_name?.[0] ?? "?").toUpperCase()}</div>
-        <div className="auth-email">{user.user_metadata?.full_name || user.email}</div>
-        <button className="auth-signout" onClick={signOut}>Sign out</button>
-      </div>
+      <div style={{fontSize:11,color:COLORS.textDim,fontFamily:"Space Mono,monospace",textAlign:"center",padding:"8px 0"}}>Loading…</div>
     </div>
   );
 
@@ -1324,101 +1593,100 @@ const PAGE_TITLES = {
   alliance:     { title: "Alliance Scores", sub: "SvS prep scores and historical results" },};
 
 export default function App() {
-  const { user, loading: authLoading, error: authError, signUp, signIn, signInWithDiscord, signOut, clearError } = useAuth();
-  const [page, setPage] = useState("inventory");
-  const [inv, setInvRaw] = useLocalStorage("wos-svs-inventory", INITIAL_INVENTORY);
-  const [savedAt,      setSavedAt]      = useState(null);
-  const [savedPlans,   setSavedPlans]   = useLocalStorage("wos-rfc-saved-plans", {});
-  const [loadedPlanKey,setLoadedPlanKey]= useState(null);
-  const [syncing,      setSyncing]      = useState(false);
-  const syncTimer = useRef(null);
-  const prevUser  = useRef(null);
+  const { user, loading: authLoading, error: authError, signUp, signIn, signInWithDiscord, signOut,
+          changePassword, requestDeleteAccount, confirmDeleteAccount, clearError } = useAuth();
 
-  // Detect whether the guest has changed anything from the blank default
-  const guestHasData = useCallback((currentInv) => {
-    return Object.keys(INITIAL_INVENTORY).some(k => {
-      const def = INITIAL_INVENTORY[k];
-      const cur = currentInv[k];
-      if (typeof def === "boolean") return cur !== def;
-      if (typeof def === "number")  return cur !== def && cur !== 0;
-      return false;
-    });
-  }, []);
+  const {
+    characters, activeCharacter, activeCharId,
+    loadingChars, charError, clearCharError,
+    switchCharacter, addCharacter, removeCharacter, renameCharacter, makeDefault,
+  } = useCharacters(user);
 
-  // ── On sign-in/sign-up: smart merge ────────────────────────────────────────
-  // NEW ACCOUNT (sign-up): upload local guest data → becomes their cloud data
-  // RETURNING ACCOUNT (sign-in): cloud wins, local is replaced
-  // GUEST with no changes signs up: starts fresh (nothing to merge)
+  const [page,          setPage]         = useState("inventory");
+  const [inv,           setInvRaw]       = useLocalStorage("wos-svs-inventory", INITIAL_INVENTORY);
+  const [savedPlans,    setSavedPlans]   = useLocalStorage("wos-rfc-saved-plans", {});
+  const [savedAt,       setSavedAt]      = useState(null);
+  const [loadedPlanKey, setLoadedPlanKey]= useState(null);
+  const [syncing,       setSyncing]      = useState(false);
+  const [profileOpen,   setProfileOpen]  = useState(false);
+  const [profileSection,setProfileSection]=useState("account");
+  const [savePlanPopup, setSavePlanPopup]= useState({ open:false, defaultName:"", mode:"over" });
+
+  const syncTimer  = useRef(null);
+  const prevCharId = useRef(null);
+
+  // ── Load data when active character changes ──────────────────────────────────
   useEffect(() => {
-    if (user && user.id !== prevUser.current) {
-      prevUser.current = user.id;
-      const isNewSignUp = user.created_at &&
-        (Date.now() - new Date(user.created_at).getTime()) < 30000; // within last 30s
+    if (!user || !activeCharId) return;
+    if (activeCharId === prevCharId.current) return;
+    prevCharId.current = activeCharId;
 
-      (async () => {
-        setSyncing(true);
-        const [cloudInv, cloudPlans] = await Promise.all([
-          cloudLoadInventory(),
-          cloudLoadPlans(),
-        ]);
+    (async () => {
+      setSyncing(true);
+      const [cloudInv, cloudPlans] = await Promise.all([
+        charLoadInventory(activeCharId),
+        charLoadPlans(activeCharId),
+      ]);
 
-        if (isNewSignUp && !cloudInv) {
-          // Brand-new account — push local guest data up if they had any
-          if (guestHasData(inv)) {
-            await cloudSaveInventory(inv);
-          }
-          // Plans: always push local plans up on new account
-          const localPlans = savedPlans;
-          if (Object.keys(localPlans).length > 0) {
-            await Promise.all(
-              Object.entries(localPlans).map(([k, v]) => cloudSavePlan(k, v))
-            );
-          }
+      const isNewChar = !cloudInv;
+      if (isNewChar) {
+        // Brand-new character — seed with local data if it's the first character
+        if (characters.length <= 1) {
+          const localHasData = Object.keys(INITIAL_INVENTORY).some(k => {
+            const d = INITIAL_INVENTORY[k], c = inv[k];
+            return typeof d === "boolean" ? c !== d : c !== 0;
+          });
+          if (localHasData) await charSaveInventory(activeCharId, inv);
         } else {
-          // Returning account — cloud wins
-          if (cloudInv)    setInvRaw(cloudInv);
-          if (cloudPlans && Object.keys(cloudPlans).length > 0)
-            setSavedPlans(cloudPlans);
+          // New additional character — reset to blank
+          setInvRaw(INITIAL_INVENTORY);
+          setSavedPlans({});
         }
-        setSyncing(false);
-      })();
-    }
-    if (!user) prevUser.current = null;
+      } else {
+        if (cloudInv) setInvRaw(cloudInv);
+        if (cloudPlans && Object.keys(cloudPlans).length > 0) setSavedPlans(cloudPlans);
+        else setSavedPlans({});
+      }
+      setSyncing(false);
+    })();
+  }, [user, activeCharId]);
+
+  // ── Reset when user signs out ────────────────────────────────────────────────
+  useEffect(() => {
+    if (!user) { prevCharId.current = null; }
   }, [user]);
 
-  // ── Debounced cloud save whenever inv changes (if logged in) ────────────────
+  // ── Debounced cloud save on inv change ────────────────────────────────────────
   const setInv = useCallback((valOrFn) => {
     setInvRaw(prev => {
       const next = typeof valOrFn === "function" ? valOrFn(prev) : valOrFn;
-      if (user) {
+      if (user && activeCharId) {
         clearTimeout(syncTimer.current);
-        syncTimer.current = setTimeout(() => cloudSaveInventory(next), 1500);
+        syncTimer.current = setTimeout(() => charSaveInventory(activeCharId, next), 1500);
       }
       setSavedAt(new Date().toLocaleTimeString());
       return next;
     });
-  }, [user]);
+  }, [user, activeCharId]);
 
-  useEffect(() => {
-    setSavedAt(new Date().toLocaleTimeString());
-  }, []);
+  useEffect(() => { setSavedAt(new Date().toLocaleTimeString()); }, []);
 
-  // ── Plan save: localStorage + cloud ─────────────────────────────────────────
+  // ── Plan handlers ─────────────────────────────────────────────────────────────
   const handleSavePlan = useCallback((key, plan) => {
     setSavedPlans(prev => {
       const next = { ...prev, [key]: plan };
-      if (user) cloudSavePlan(key, plan);
+      if (user && activeCharId) charSavePlan(activeCharId, key, plan);
       return next;
     });
-  }, [user]);
+  }, [user, activeCharId]);
 
   const handleLoadPlan = useCallback((key) => {
     const plan = savedPlans[key];
     if (!plan) return;
     try {
-      if (plan.selectedCycle !== undefined) localStorage.setItem("rfc-cycle",  JSON.stringify(plan.selectedCycle));
-      if (plan.monRefines    !== undefined) localStorage.setItem("rfc-monref", JSON.stringify(plan.monRefines));
-      if (plan.weekdayMode   !== undefined) localStorage.setItem("rfc-wdmode", JSON.stringify(plan.weekdayMode));
+      if (plan.selectedCycle !== undefined) localStorage.setItem("rfc-cycle",   JSON.stringify(plan.selectedCycle));
+      if (plan.monRefines    !== undefined) localStorage.setItem("rfc-monref",  JSON.stringify(plan.monRefines));
+      if (plan.weekdayMode   !== undefined) localStorage.setItem("rfc-wdmode",  JSON.stringify(plan.weekdayMode));
       if (plan.actuals       !== undefined) localStorage.setItem("rfc-actuals2",JSON.stringify(plan.actuals));
       if (plan.fireCrystals  !== undefined) setInv(p => ({ ...p, fireCrystals: plan.fireCrystals }));
       if (plan.refinedFC     !== undefined) setInv(p => ({ ...p, refinedFC:    plan.refinedFC    }));
@@ -1432,25 +1700,104 @@ export default function App() {
     setSavedPlans(prev => {
       const next = { ...prev };
       delete next[key];
-      if (user) cloudDeletePlan(key);
+      if (user && activeCharId) charDeletePlan(activeCharId, key);
       return next;
     });
-  }, [user]);
+  }, [user, activeCharId]);
 
-  const sections    = [...new Set(PAGES.map(p => p.section))];
-  const pageTitle   = PAGE_TITLES[page] || { title: "Planner", sub: "" };
+  // ── Save popup helpers ────────────────────────────────────────────────────────
+  const openSavePopup = useCallback((defaultName, mode, resolve, reject) => {
+    setSavePlanPopup({ open: true, defaultName, mode, _resolve: resolve, _reject: reject });
+  }, []);
+
+  const handleSavePopupConfirm = useCallback((nickname) => {
+    setSavePlanPopup(prev => {
+      prev._resolve?.(nickname);
+      return { open: false, defaultName: "", mode: "over", _resolve: null, _reject: null };
+    });
+  }, []);
+
+  const handleSavePopupCancel = useCallback(() => {
+    setSavePlanPopup(prev => {
+      prev._reject?.();
+      return { open: false, defaultName: "", mode: "over", _resolve: null, _reject: null };
+    });
+  }, []);
+
+  const sections  = [...new Set(PAGES.map(p => p.section))];
+  const pageTitle = PAGE_TITLES[page] || { title: "Planner", sub: "" };
   const { title, sub } = pageTitle;
-  const planKeys    = Object.keys(savedPlans).sort();
+  const planKeys  = Object.keys(savedPlans).sort();
+  const userInitial = (user?.user_metadata?.full_name?.[0] ?? user?.email?.[0] ?? "?").toUpperCase();
 
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: GLOBAL_STYLE }} />
+
+      {/* Profile Management Modal */}
+      {user && (
+        <ProfileModal
+          open={profileOpen}
+          onClose={() => setProfileOpen(false)}
+          initialSection={profileSection}
+          user={user}
+          characters={characters}
+          activeCharId={activeCharId}
+          addCharacter={addCharacter}
+          removeCharacter={removeCharacter}
+          renameCharacter={renameCharacter}
+          makeDefault={makeDefault}
+          switchCharacter={(id) => { switchCharacter(id); prevCharId.current = null; }}
+          changePassword={changePassword}
+          requestDeleteAccount={requestDeleteAccount}
+          confirmDeleteAccount={confirmDeleteAccount}
+          charError={charError}
+          clearCharError={clearCharError}
+          authError={authError}
+          clearAuthError={clearError}
+        />
+      )}
+
+      {/* Save Plan Popup */}
+      <SavePlanPopup
+        open={savePlanPopup.open}
+        defaultName={savePlanPopup.defaultName}
+        onSave={handleSavePopupConfirm}
+        onCancel={handleSavePopupCancel}
+      />
+
       <div className="app">
         <aside className="sidebar">
           <div className="sidebar-logo">
             <div className="wos">WoS · SvS</div>
             <h1>Planning<br /><span>Tracker</span></h1>
           </div>
+
+          {/* Character switcher — only for logged-in users with characters */}
+          {user && characters.length > 0 && (
+            <div className="char-switcher">
+              <select className="char-select"
+                value={activeCharId || ""}
+                onChange={e => {
+                  const val = e.target.value;
+                  if (val === "__manage__") {
+                    setProfileSection("characters");
+                    setProfileOpen(true);
+                  } else {
+                    switchCharacter(val);
+                    prevCharId.current = null;
+                  }
+                }}>
+                {characters.map(c => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}{c.state_number ? ` · State ${c.state_number}` : ""}
+                  </option>
+                ))}
+                <option disabled>──────────</option>
+                <option value="__manage__">⚙ Manage Characters</option>
+              </select>
+            </div>
+          )}
 
           <nav className="sidebar-nav">
             {sections.map(sec => (
@@ -1470,8 +1817,8 @@ export default function App() {
               </div>
             ))}
 
-            {/* Saved Plans */}
-            {planKeys.length > 0 && (
+            {/* Saved Plans — only for logged-in users */}
+            {user && planKeys.length > 0 && (
               <div>
                 <div className="nav-section">Saved Plans</div>
                 {planKeys.map(key => (
@@ -1484,18 +1831,16 @@ export default function App() {
                       <span className="nav-icon" style={{flexShrink:0}}>[P]</span>
                       <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:12}}>{key}</span>
                     </span>
-                    <span
-                      onClick={e => { e.stopPropagation(); handleDeletePlan(key); }}
+                    <span onClick={e => { e.stopPropagation(); handleDeletePlan(key); }}
                       style={{color:COLORS.red,fontSize:13,lineHeight:1,padding:"2px 4px",flexShrink:0,cursor:"pointer",opacity:0.7}}
-                      title="Delete plan"
-                    >✕</span>
+                      title="Delete plan">✕</span>
                   </div>
                 ))}
               </div>
             )}
           </nav>
 
-          {/* Auth panel at bottom of sidebar */}
+          {/* Auth panel (sign-in form for guests) */}
           <AuthPanel
             user={user}
             loading={authLoading}
@@ -1503,10 +1848,31 @@ export default function App() {
             signUp={signUp}
             signIn={signIn}
             signInWithDiscord={signInWithDiscord}
-            signOut={signOut}
             clearError={clearError}
-            syncing={syncing || !!user}
           />
+
+          {/* Profile button — signed-in users */}
+          {user && (
+            <div className="profile-btn-wrap" onClick={() => { setProfileSection("account"); setProfileOpen(true); }}>
+              <div className="profile-avatar">{userInitial}</div>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:11,color:COLORS.textSec,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                  {user.user_metadata?.full_name || user.email}
+                </div>
+                <div style={{fontSize:10,color:COLORS.textDim,fontFamily:"Space Mono,monospace"}}>
+                  {syncing ? "Syncing…" : "● Cloud sync"}
+                </div>
+              </div>
+              <button onClick={e => { e.stopPropagation(); signOut(); }}
+                style={{fontSize:10,color:COLORS.textDim,cursor:"pointer",padding:"2px 6px",borderRadius:4,
+                  border:`1px solid ${COLORS.border}`,background:"transparent",fontFamily:"Space Mono,monospace",
+                  transition:"all 0.15s",flexShrink:0}}
+                onMouseEnter={e=>{e.target.style.color=COLORS.red;e.target.style.borderColor=COLORS.redDim;}}
+                onMouseLeave={e=>{e.target.style.color=COLORS.textDim;e.target.style.borderColor=COLORS.border;}}>
+                Sign out
+              </button>
+            </div>
+          )}
         </aside>
 
         <main className="main">
@@ -1516,18 +1882,16 @@ export default function App() {
                 <div className="page-title">
                   {title.split(" ").map((w,i) => i===0
                     ? <span key={i}>{w} </span>
-                    : <span key={i} style={{color:COLORS.accent}}>{w} </span>
-                  )}
+                    : <span key={i} style={{color:COLORS.accent}}>{w} </span>)}
                 </div>
                 <div className="page-sub">
                   {loadedPlanKey ? `Editing saved plan: ${loadedPlanKey}` : sub}
                 </div>
               </div>
               <div style={{display:"flex",alignItems:"center",gap:12}}>
-                {user && (
-                  <div style={{fontSize:11,fontFamily:"Space Mono,monospace",color:COLORS.green,display:"flex",alignItems:"center",gap:5}}>
-                    <div style={{width:6,height:6,borderRadius:"50%",background:COLORS.green}}/>
-                    Cloud sync
+                {user && activeCharacter && (
+                  <div style={{fontSize:11,fontFamily:"Space Mono,monospace",color:COLORS.textDim}}>
+                    {activeCharacter.name}{activeCharacter.state_number ? ` · State ${activeCharacter.state_number}` : ""}
                   </div>
                 )}
                 {savedAt && <div className="last-saved">saved {savedAt}</div>}
@@ -1538,7 +1902,11 @@ export default function App() {
           <div className="page-body">
             {page === "inventory"    && <InventoryPage    inv={inv} setInv={setInv} />}
             {page === "construction" && <ConstructionPlanner inv={inv} setInv={setInv} />}
-            {page === "rfc-planner"  && <RFCPlanner inv={inv} setInv={setInv} savedPlans={savedPlans} onSavePlan={handleSavePlan} onLoadPlan={handleLoadPlan} />}
+            {page === "rfc-planner"  && <RFCPlanner inv={inv} setInv={setInv}
+                savedPlans={user ? savedPlans : {}}
+                onSavePlan={user ? handleSavePlan : ()=>{}}
+                onLoadPlan={handleLoadPlan}
+                openSavePopup={user ? openSavePopup : null} />}
             {page === "hero-gear"    && <HeroGearPage     inv={inv} />}
             {page === "experts"      && <ExpertsPage      inv={inv} />}
             {page === "war-academy"  && <WarAcademyPage   inv={inv} />}

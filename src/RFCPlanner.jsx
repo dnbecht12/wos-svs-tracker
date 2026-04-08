@@ -256,7 +256,7 @@ function WkdaySelect({ value, onChange }) {
 
 const EMPTY_ACTUALS = Array.from({length:28},()=>({refines:"",rfcUsed:""}));
 
-export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan }) {
+export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSavePopup }) {
   const currentCycle = useMemo(()=>getCurrentCycleNum(),[]);
   const cycleOpts    = useMemo(()=>buildCycles(Math.max(1,currentCycle-1), 16),[currentCycle]);
 
@@ -342,20 +342,34 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan }) {
   const baseName = planBaseName(startDate) || `Cycle ${selectedCycle}`;
   const existingKeys = Object.keys(savedPlans);
 
-  // Save — overwrite the most recent plan for this month, or create -01 if none exists
-  const saveOver = () => {
+  // Ask for nickname then save, overwriting the most recent plan for this month
+  const saveOver = async () => {
     const existing = latestPlanKey(baseName, existingKeys);
-    const key = existing || nextPlanKey(baseName, existingKeys);
+    const autoName = existing || nextPlanKey(baseName, existingKeys);
+    let key = autoName;
+    if (openSavePopup) {
+      key = await new Promise((resolve, reject) => {
+        openSavePopup(autoName, "over", resolve, reject);
+      }).catch(() => null);
+      if (!key) return; // user cancelled
+    }
     onSavePlan(key, { key, ...buildPlanData() });
     setToast(`Saved: ${key}`);
     setTimeout(()=>setToast(""), 2500);
   };
 
-  // Save New — always creates the next numbered slot
-  const saveNew = () => {
-    const key = nextPlanKey(baseName, existingKeys);
+  // Ask for nickname then save as a new numbered slot
+  const saveNew = async () => {
+    const autoName = nextPlanKey(baseName, existingKeys);
+    let key = autoName;
+    if (openSavePopup) {
+      key = await new Promise((resolve, reject) => {
+        openSavePopup(autoName, "new", resolve, reject);
+      }).catch(() => null);
+      if (!key) return;
+    }
     onSavePlan(key, { key, ...buildPlanData() });
-    setToast(`Saved new: ${key}`);
+    setToast(`Saved: ${key}`);
     setTimeout(()=>setToast(""), 2500);
   };
 
@@ -395,14 +409,19 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan }) {
               <div className="date-ctrl">
                 <span className="date-lbl">Save plan</span>
                 <div style={{display:"flex",gap:6}}>
-                  <button className="save-btn" onClick={saveOver} title="Overwrite the most recent plan for this month">
+                  <button className="save-btn" onClick={saveOver}
+                    title="Overwrite the most recent plan for this month"
+                    disabled={!onSavePlan}>
                     ↓ Save
                   </button>
-                  <button className="save-btn" onClick={saveNew} title="Create a new numbered plan for this month"
+                  <button className="save-btn" onClick={saveNew}
+                    title="Create a new numbered plan for this month"
+                    disabled={!onSavePlan}
                     style={{background:"transparent",border:`1px solid ${C.accentDim}`,color:C.accent}}>
                     + Save New
                   </button>
                 </div>
+                {!onSavePlan && <div style={{fontSize:10,color:C.textDim,fontFamily:"Space Mono,monospace",marginTop:4}}>Sign in to save plans</div>}
               </div>
             </div>
           </div>
