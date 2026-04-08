@@ -867,7 +867,63 @@ export default function ConstructionPlanner({ inv, setInv }) {
 
           {/* Building planner table */}
           <div>
-            <div className="sec-head">Building upgrade planner</div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10,marginBottom:10}}>
+              <div className="sec-head" style={{margin:0}}>Building upgrade planner</div>
+              <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+                {/* Set all current */}
+                <div style={{display:"flex",alignItems:"center",gap:6}}>
+                  <span style={{fontSize:11,color:C.textDim,fontFamily:"Space Mono,monospace",whiteSpace:"nowrap"}}>Set all current</span>
+                  <select
+                    defaultValue=""
+                    onChange={e => {
+                      const val = e.target.value;
+                      if (!val) return;
+                      e.target.value = "";
+                      const next = buildings.map(b => {
+                        const updated = { ...b, current: val };
+                        const gi = FC_LEVELS.indexOf(updated.goal);
+                        const ci = FC_LEVELS.indexOf(val);
+                        if (gi < ci) updated.goal = val;
+                        return updated;
+                      });
+                      const cascaded = cascadePrereqs(next);
+                      setBuildings(cascaded);
+                      saveState("cp-buildings", cascaded);
+                    }}
+                    style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,
+                      color:C.textPri,fontSize:11,padding:"5px 8px",cursor:"pointer",outline:"none",
+                      fontFamily:"Space Mono,monospace"}}>
+                    <option value="">— level —</option>
+                    {FC_LEVEL_OPTS.map(l => <option key={l} value={l}>{l}</option>)}
+                  </select>
+                </div>
+                {/* Set all goal */}
+                <div style={{display:"flex",alignItems:"center",gap:6}}>
+                  <span style={{fontSize:11,color:C.textDim,fontFamily:"Space Mono,monospace",whiteSpace:"nowrap"}}>Set all goal</span>
+                  <select
+                    defaultValue=""
+                    onChange={e => {
+                      const val = e.target.value;
+                      if (!val) return;
+                      e.target.value = "";
+                      const next = buildings.map(b => {
+                        const ci = FC_LEVELS.indexOf(b.current);
+                        const gi = FC_LEVELS.indexOf(val);
+                        return { ...b, goal: gi >= ci ? val : b.current };
+                      });
+                      const cascaded = cascadePrereqs(next);
+                      setBuildings(cascaded);
+                      saveState("cp-buildings", cascaded);
+                    }}
+                    style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,
+                      color:C.textPri,fontSize:11,padding:"5px 8px",cursor:"pointer",outline:"none",
+                      fontFamily:"Space Mono,monospace"}}>
+                    <option value="">— level —</option>
+                    {FC_LEVEL_OPTS.map(l => <option key={l} value={l}>{l}</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
             <div className="bld-table">
               <div className="bld-thead" style={{gridTemplateColumns:"140px 100px 100px 80px 80px 80px minmax(140px,1fr) minmax(140px,1fr)"}}>
                 <div className="th">Building</div>
