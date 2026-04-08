@@ -1,6 +1,63 @@
 import { useState, useMemo } from "react";
 import { buildCycles, getCurrentCycleNum, getCycleStartDate, fmtDate as fmtDateCal, cycleLabelFull } from "./svsCalendar.js";
 
+// ─── Exact building data from Misc. Data Tables AO3:BE399 ────────────────────
+// Columns: AO=Building, AP=Level, AT=FC, AU=RFC, AV=Meat, AW=Wood, AX=Coal, AY=Iron, BD=TtlMins
+// Each entry: one sub-level upgrade cost + construction time in minutes
+const BLDG_DB = {
+"Embassy":{"30.1":{"fc":33,"rfc":0,"meat":13000000,"wood":13000000,"coal":2700000,"iron":670000,"mins":6652},"30.2":{"fc":33,"rfc":0,"meat":13000000,"wood":13000000,"coal":2700000,"iron":670000,"mins":6652},"30.3":{"fc":33,"rfc":0,"meat":13000000,"wood":13000000,"coal":2700000,"iron":670000,"mins":6652},"30.4":{"fc":33,"rfc":0,"meat":13000000,"wood":13000000,"coal":2700000,"iron":670000,"mins":6652},"FC1":{"fc":33,"rfc":0,"meat":13000000,"wood":13000000,"coal":2700000,"iron":670000,"mins":6652},"FC1.1":{"fc":39,"rfc":0,"meat":14000000,"wood":14000000,"coal":2900000,"iron":720000,"mins":8553},"FC1.2":{"fc":39,"rfc":0,"meat":14000000,"wood":14000000,"coal":2900000,"iron":720000,"mins":8553},"FC1.3":{"fc":39,"rfc":0,"meat":14000000,"wood":14000000,"coal":2900000,"iron":720000,"mins":8553},"FC1.4":{"fc":39,"rfc":0,"meat":14000000,"wood":14000000,"coal":2900000,"iron":720000,"mins":8553},"FC2":{"fc":39,"rfc":0,"meat":14000000,"wood":14000000,"coal":2900000,"iron":720000,"mins":8553},"FC2.1":{"fc":59,"rfc":0,"meat":15000000,"wood":15000000,"coal":3100000,"iron":790000,"mins":10454},"FC2.2":{"fc":59,"rfc":0,"meat":15000000,"wood":15000000,"coal":3100000,"iron":790000,"mins":10454},"FC2.3":{"fc":59,"rfc":0,"meat":15000000,"wood":15000000,"coal":3100000,"iron":790000,"mins":10454},"FC2.4":{"fc":59,"rfc":0,"meat":15000000,"wood":15000000,"coal":3100000,"iron":790000,"mins":10454},"FC3":{"fc":59,"rfc":0,"meat":15000000,"wood":15000000,"coal":3100000,"iron":790000,"mins":10454},"FC3.1":{"fc":70,"rfc":0,"meat":16000000,"wood":16000000,"coal":3200000,"iron":820000,"mins":11404},"FC3.2":{"fc":70,"rfc":0,"meat":16000000,"wood":16000000,"coal":3200000,"iron":820000,"mins":11404},"FC3.3":{"fc":70,"rfc":0,"meat":16000000,"wood":16000000,"coal":3200000,"iron":820000,"mins":11404},"FC3.4":{"fc":70,"rfc":0,"meat":16000000,"wood":16000000,"coal":3200000,"iron":820000,"mins":11404},"FC4":{"fc":70,"rfc":0,"meat":16000000,"wood":16000000,"coal":3200000,"iron":820000,"mins":11404},"FC4.1":{"fc":83,"rfc":0,"meat":16000000,"wood":16000000,"coal":3300000,"iron":840000,"mins":13305},"FC4.2":{"fc":83,"rfc":0,"meat":16000000,"wood":16000000,"coal":3300000,"iron":840000,"mins":13305},"FC4.3":{"fc":83,"rfc":0,"meat":16000000,"wood":16000000,"coal":3300000,"iron":840000,"mins":13305},"FC4.4":{"fc":83,"rfc":0,"meat":16000000,"wood":16000000,"coal":3300000,"iron":840000,"mins":13305},"FC5":{"fc":83,"rfc":0,"meat":16000000,"wood":16000000,"coal":3300000,"iron":840000,"mins":13305},"FC5.1":{"fc":50,"rfc":2,"meat":19000000,"wood":19000000,"coal":3800000,"iron":960000,"mins":14256},"FC5.2":{"fc":50,"rfc":2,"meat":19000000,"wood":19000000,"coal":3800000,"iron":960000,"mins":14256},"FC5.3":{"fc":50,"rfc":2,"meat":19000000,"wood":19000000,"coal":3800000,"iron":960000,"mins":14256},"FC5.4":{"fc":50,"rfc":2,"meat":19000000,"wood":19000000,"coal":3800000,"iron":960000,"mins":14256},"FC6":{"fc":25,"rfc":5,"meat":19000000,"wood":19000000,"coal":3800000,"iron":960000,"mins":14256},"FC6.1":{"fc":60,"rfc":3,"meat":21000000,"wood":21000000,"coal":4300000,"iron":1100000,"mins":15462},"FC6.2":{"fc":60,"rfc":3,"meat":21000000,"wood":21000000,"coal":4300000,"iron":1100000,"mins":15462},"FC6.3":{"fc":60,"rfc":3,"meat":21000000,"wood":21000000,"coal":4300000,"iron":1100000,"mins":15462},"FC6.4":{"fc":60,"rfc":3,"meat":21000000,"wood":21000000,"coal":4300000,"iron":1100000,"mins":15462},"FC7":{"fc":30,"rfc":7,"meat":21000000,"wood":21000000,"coal":4300000,"iron":1100000,"mins":15462},"FC7.1":{"fc":60,"rfc":5,"meat":26000000,"wood":26000000,"coal":5300000,"iron":1300000,"mins":17280},"FC7.2":{"fc":60,"rfc":5,"meat":26000000,"wood":26000000,"coal":5300000,"iron":1300000,"mins":17280},"FC7.3":{"fc":60,"rfc":5,"meat":26000000,"wood":26000000,"coal":5300000,"iron":1300000,"mins":17280},"FC7.4":{"fc":60,"rfc":5,"meat":26000000,"wood":26000000,"coal":5300000,"iron":1300000,"mins":17280},"FC8":{"fc":30,"rfc":10,"meat":26000000,"wood":26000000,"coal":5300000,"iron":1300000,"mins":17280},"FC8.1":{"fc":70,"rfc":7,"meat":29000000,"wood":29000000,"coal":5800000,"iron":1500000,"mins":18662},"FC8.2":{"fc":70,"rfc":7,"meat":29000000,"wood":29000000,"coal":5800000,"iron":1500000,"mins":18662},"FC8.3":{"fc":70,"rfc":7,"meat":29000000,"wood":29000000,"coal":5800000,"iron":1500000,"mins":18662},"FC8.4":{"fc":70,"rfc":7,"meat":29000000,"wood":29000000,"coal":5800000,"iron":1500000,"mins":18662},"FC9":{"fc":35,"rfc":15,"meat":29000000,"wood":29000000,"coal":5800000,"iron":1500000,"mins":18662},"FC9.1":{"fc":87,"rfc":17,"meat":33000000,"wood":33000000,"coal":6700000,"iron":1700000,"mins":20275},"FC9.2":{"fc":87,"rfc":17,"meat":33000000,"wood":33000000,"coal":6700000,"iron":1700000,"mins":20275},"FC9.3":{"fc":87,"rfc":17,"meat":33000000,"wood":33000000,"coal":6700000,"iron":1700000,"mins":20275},"FC9.4":{"fc":87,"rfc":17,"meat":33000000,"wood":33000000,"coal":6700000,"iron":1700000,"mins":20275},"FC10":{"fc":43,"rfc":35,"meat":33000000,"wood":33000000,"coal":6700000,"iron":1700000,"mins":20275}},
+"Furnace":{"30.1":{"fc":132,"rfc":0,"meat":67000000,"wood":67000000,"coal":13000000,"iron":3300000,"mins":10080},"30.2":{"fc":132,"rfc":0,"meat":67000000,"wood":67000000,"coal":13000000,"iron":3300000,"mins":10080},"30.3":{"fc":132,"rfc":0,"meat":67000000,"wood":67000000,"coal":13000000,"iron":3300000,"mins":10080},"30.4":{"fc":132,"rfc":0,"meat":67000000,"wood":67000000,"coal":13000000,"iron":3300000,"mins":10080},"FC1":{"fc":132,"rfc":0,"meat":67000000,"wood":67000000,"coal":13000000,"iron":3300000,"mins":10080},"FC1.1":{"fc":158,"rfc":0,"meat":72000000,"wood":72000000,"coal":14000000,"iron":3600000,"mins":12960},"FC1.2":{"fc":158,"rfc":0,"meat":72000000,"wood":72000000,"coal":14000000,"iron":3600000,"mins":12960},"FC1.3":{"fc":158,"rfc":0,"meat":72000000,"wood":72000000,"coal":14000000,"iron":3600000,"mins":12960},"FC1.4":{"fc":158,"rfc":0,"meat":72000000,"wood":72000000,"coal":14000000,"iron":3600000,"mins":12960},"FC2":{"fc":158,"rfc":0,"meat":72000000,"wood":72000000,"coal":14000000,"iron":3600000,"mins":12960},"FC2.1":{"fc":238,"rfc":0,"meat":79000000,"wood":79000000,"coal":15000000,"iron":3900000,"mins":17280},"FC2.2":{"fc":238,"rfc":0,"meat":79000000,"wood":79000000,"coal":15000000,"iron":3900000,"mins":17280},"FC2.3":{"fc":238,"rfc":0,"meat":79000000,"wood":79000000,"coal":15000000,"iron":3900000,"mins":17280},"FC2.4":{"fc":238,"rfc":0,"meat":79000000,"wood":79000000,"coal":15000000,"iron":3900000,"mins":17280},"FC3":{"fc":238,"rfc":0,"meat":79000000,"wood":79000000,"coal":15000000,"iron":3900000,"mins":17280},"FC3.1":{"fc":280,"rfc":0,"meat":82000000,"wood":82000000,"coal":16000000,"iron":4100000,"mins":20160},"FC3.2":{"fc":280,"rfc":0,"meat":82000000,"wood":82000000,"coal":16000000,"iron":4100000,"mins":20160},"FC3.3":{"fc":280,"rfc":0,"meat":82000000,"wood":82000000,"coal":16000000,"iron":4100000,"mins":20160},"FC3.4":{"fc":280,"rfc":0,"meat":82000000,"wood":82000000,"coal":16000000,"iron":4100000,"mins":20160},"FC4":{"fc":280,"rfc":0,"meat":82000000,"wood":82000000,"coal":16000000,"iron":4100000,"mins":20160},"FC4.1":{"fc":335,"rfc":0,"meat":84000000,"wood":84000000,"coal":16000000,"iron":4100000,"mins":21600},"FC4.2":{"fc":335,"rfc":0,"meat":84000000,"wood":84000000,"coal":16000000,"iron":4100000,"mins":21600},"FC4.3":{"fc":335,"rfc":0,"meat":84000000,"wood":84000000,"coal":16000000,"iron":4100000,"mins":21600},"FC4.4":{"fc":335,"rfc":0,"meat":84000000,"wood":84000000,"coal":16000000,"iron":4100000,"mins":21600},"FC5":{"fc":335,"rfc":0,"meat":84000000,"wood":84000000,"coal":16000000,"iron":4100000,"mins":21600},"FC5.1":{"fc":200,"rfc":10,"meat":96000000,"wood":96000000,"coal":19000000,"iron":4800000,"mins":21600},"FC5.2":{"fc":200,"rfc":10,"meat":96000000,"wood":96000000,"coal":19000000,"iron":4800000,"mins":21600},"FC5.3":{"fc":200,"rfc":10,"meat":96000000,"wood":96000000,"coal":19000000,"iron":4800000,"mins":21600},"FC5.4":{"fc":200,"rfc":10,"meat":96000000,"wood":96000000,"coal":19000000,"iron":4800000,"mins":21600},"FC6":{"fc":100,"rfc":20,"meat":96000000,"wood":96000000,"coal":19000000,"iron":4800000,"mins":21600},"FC6.1":{"fc":240,"rfc":15,"meat":100000000,"wood":100000000,"coal":21000000,"iron":5200000,"mins":25920},"FC6.2":{"fc":240,"rfc":15,"meat":100000000,"wood":100000000,"coal":21000000,"iron":5200000,"mins":25920},"FC6.3":{"fc":240,"rfc":15,"meat":100000000,"wood":100000000,"coal":21000000,"iron":5200000,"mins":25920},"FC6.4":{"fc":240,"rfc":15,"meat":100000000,"wood":100000000,"coal":21000000,"iron":5200000,"mins":25920},"FC7":{"fc":120,"rfc":30,"meat":100000000,"wood":100000000,"coal":21000000,"iron":5200000,"mins":25920},"FC7.1":{"fc":240,"rfc":20,"meat":130000000,"wood":130000000,"coal":26000000,"iron":6500000,"mins":28800},"FC7.2":{"fc":240,"rfc":20,"meat":130000000,"wood":130000000,"coal":26000000,"iron":6500000,"mins":28800},"FC7.3":{"fc":240,"rfc":20,"meat":130000000,"wood":130000000,"coal":26000000,"iron":6500000,"mins":28800},"FC7.4":{"fc":240,"rfc":20,"meat":130000000,"wood":130000000,"coal":26000000,"iron":6500000,"mins":28800},"FC8":{"fc":120,"rfc":40,"meat":130000000,"wood":130000000,"coal":26000000,"iron":6500000,"mins":28800},"FC8.1":{"fc":280,"rfc":30,"meat":140000000,"wood":140000000,"coal":29000000,"iron":7200000,"mins":28800},"FC8.2":{"fc":280,"rfc":30,"meat":140000000,"wood":140000000,"coal":29000000,"iron":7200000,"mins":28800},"FC8.3":{"fc":280,"rfc":30,"meat":140000000,"wood":140000000,"coal":29000000,"iron":7200000,"mins":28800},"FC8.4":{"fc":280,"rfc":30,"meat":140000000,"wood":140000000,"coal":29000000,"iron":7200000,"mins":28800},"FC9":{"fc":140,"rfc":60,"meat":140000000,"wood":140000000,"coal":29000000,"iron":7200000,"mins":28800},"FC9.1":{"fc":350,"rfc":70,"meat":160000000,"wood":160000000,"coal":33000000,"iron":8400000,"mins":28800},"FC9.2":{"fc":350,"rfc":70,"meat":160000000,"wood":160000000,"coal":33000000,"iron":8400000,"mins":28800},"FC9.3":{"fc":350,"rfc":70,"meat":160000000,"wood":160000000,"coal":33000000,"iron":8400000,"mins":28800},"FC9.4":{"fc":350,"rfc":70,"meat":160000000,"wood":160000000,"coal":33000000,"iron":8400000,"mins":28800},"FC10":{"fc":175,"rfc":140,"meat":160000000,"wood":160000000,"coal":33000000,"iron":8400000,"mins":28800}},
+"Infantry":{"30.1":{"fc":59,"rfc":0,"meat":23000000,"wood":23000000,"coal":4700000,"iron":1200000,"mins":1512},"30.2":{"fc":59,"rfc":0,"meat":23000000,"wood":23000000,"coal":4700000,"iron":1200000,"mins":1512},"30.3":{"fc":59,"rfc":0,"meat":23000000,"wood":23000000,"coal":4700000,"iron":1200000,"mins":1512},"30.4":{"fc":59,"rfc":0,"meat":23000000,"wood":23000000,"coal":4700000,"iron":1200000,"mins":1512},"FC1":{"fc":59,"rfc":0,"meat":23000000,"wood":23000000,"coal":4700000,"iron":1200000,"mins":1512},"FC1.1":{"fc":71,"rfc":0,"meat":25000000,"wood":25000000,"coal":5000000,"iron":1300000,"mins":2016},"FC1.2":{"fc":71,"rfc":0,"meat":25000000,"wood":25000000,"coal":5000000,"iron":1300000,"mins":2016},"FC1.3":{"fc":71,"rfc":0,"meat":25000000,"wood":25000000,"coal":5000000,"iron":1300000,"mins":2016},"FC1.4":{"fc":71,"rfc":0,"meat":25000000,"wood":25000000,"coal":5000000,"iron":1300000,"mins":2016},"FC2":{"fc":71,"rfc":0,"meat":25000000,"wood":25000000,"coal":5000000,"iron":1300000,"mins":2016},"FC2.1":{"fc":107,"rfc":0,"meat":27000000,"wood":27000000,"coal":5500000,"iron":1400000,"mins":2880},"FC2.2":{"fc":107,"rfc":0,"meat":27000000,"wood":27000000,"coal":5500000,"iron":1400000,"mins":2880},"FC2.3":{"fc":107,"rfc":0,"meat":27000000,"wood":27000000,"coal":5500000,"iron":1400000,"mins":2880},"FC2.4":{"fc":107,"rfc":0,"meat":27000000,"wood":27000000,"coal":5500000,"iron":1400000,"mins":2880},"FC3":{"fc":107,"rfc":0,"meat":27000000,"wood":27000000,"coal":5500000,"iron":1400000,"mins":2880},"FC3.1":{"fc":126,"rfc":0,"meat":28000000,"wood":28000000,"coal":5700000,"iron":1400000,"mins":3456},"FC3.2":{"fc":126,"rfc":0,"meat":28000000,"wood":28000000,"coal":5700000,"iron":1400000,"mins":3456},"FC3.3":{"fc":126,"rfc":0,"meat":28000000,"wood":28000000,"coal":5700000,"iron":1400000,"mins":3456},"FC3.4":{"fc":126,"rfc":0,"meat":28000000,"wood":28000000,"coal":5700000,"iron":1400000,"mins":3456},"FC4":{"fc":126,"rfc":0,"meat":28000000,"wood":28000000,"coal":5700000,"iron":1400000,"mins":3456},"FC4.1":{"fc":150,"rfc":0,"meat":29000000,"wood":29000000,"coal":5900000,"iron":1500000,"mins":4032},"FC4.2":{"fc":150,"rfc":0,"meat":29000000,"wood":29000000,"coal":5900000,"iron":1500000,"mins":4032},"FC4.3":{"fc":150,"rfc":0,"meat":29000000,"wood":29000000,"coal":5900000,"iron":1500000,"mins":4032},"FC4.4":{"fc":150,"rfc":0,"meat":29000000,"wood":29000000,"coal":5900000,"iron":1500000,"mins":4032},"FC5":{"fc":150,"rfc":0,"meat":29000000,"wood":29000000,"coal":5900000,"iron":1500000,"mins":4032},"FC5.1":{"fc":90,"rfc":4,"meat":33000000,"wood":33000000,"coal":6700000,"iron":1700000,"mins":4608},"FC5.2":{"fc":90,"rfc":4,"meat":33000000,"wood":33000000,"coal":6700000,"iron":1700000,"mins":4608},"FC5.3":{"fc":90,"rfc":4,"meat":33000000,"wood":33000000,"coal":6700000,"iron":1700000,"mins":4608},"FC5.4":{"fc":90,"rfc":4,"meat":33000000,"wood":33000000,"coal":6700000,"iron":1700000,"mins":4608},"FC6":{"fc":45,"rfc":9,"meat":33000000,"wood":33000000,"coal":6700000,"iron":1700000,"mins":4608},"FC6.1":{"fc":108,"rfc":6,"meat":38000000,"wood":38000000,"coal":7600000,"iron":1900000,"mins":5760},"FC6.2":{"fc":108,"rfc":6,"meat":38000000,"wood":38000000,"coal":7600000,"iron":1900000,"mins":5760},"FC6.3":{"fc":108,"rfc":6,"meat":38000000,"wood":38000000,"coal":7600000,"iron":1900000,"mins":5760},"FC6.4":{"fc":108,"rfc":6,"meat":38000000,"wood":38000000,"coal":7600000,"iron":1900000,"mins":5760},"FC7":{"fc":54,"rfc":13,"meat":38000000,"wood":38000000,"coal":7600000,"iron":1900000,"mins":5760},"FC7.1":{"fc":108,"rfc":9,"meat":46000000,"wood":46000000,"coal":9300000,"iron":2300000,"mins":6912},"FC7.2":{"fc":108,"rfc":9,"meat":46000000,"wood":46000000,"coal":9300000,"iron":2300000,"mins":6912},"FC7.3":{"fc":108,"rfc":9,"meat":46000000,"wood":46000000,"coal":9300000,"iron":2300000,"mins":6912},"FC7.4":{"fc":108,"rfc":9,"meat":46000000,"wood":46000000,"coal":9300000,"iron":2300000,"mins":6912},"FC8":{"fc":54,"rfc":19,"meat":46000000,"wood":46000000,"coal":9300000,"iron":2300000,"mins":6912},"FC8.1":{"fc":126,"rfc":13,"meat":50000000,"wood":50000000,"coal":10000000,"iron":2500000,"mins":8064},"FC8.2":{"fc":126,"rfc":13,"meat":50000000,"wood":50000000,"coal":10000000,"iron":2500000,"mins":8064},"FC8.3":{"fc":126,"rfc":13,"meat":50000000,"wood":50000000,"coal":10000000,"iron":2500000,"mins":8064},"FC8.4":{"fc":126,"rfc":13,"meat":50000000,"wood":50000000,"coal":10000000,"iron":2500000,"mins":8064},"FC9":{"fc":63,"rfc":27,"meat":50000000,"wood":50000000,"coal":10000000,"iron":2500000,"mins":8064},"FC9.1":{"fc":157,"rfc":31,"meat":59000000,"wood":59000000,"coal":11000000,"iron":2900000,"mins":9504},"FC9.2":{"fc":157,"rfc":31,"meat":59000000,"wood":59000000,"coal":11000000,"iron":2900000,"mins":9504},"FC9.3":{"fc":157,"rfc":31,"meat":59000000,"wood":59000000,"coal":11000000,"iron":2900000,"mins":9504},"FC9.4":{"fc":157,"rfc":31,"meat":59000000,"wood":59000000,"coal":11000000,"iron":2900000,"mins":9504},"FC10":{"fc":78,"rfc":63,"meat":59000000,"wood":59000000,"coal":11000000,"iron":2900000,"mins":9504}},
+"Command":{"30.1":{"fc":26,"rfc":0,"meat":20000000,"wood":20000000,"coal":4000000,"iron":1000000,"mins":1209},"30.2":{"fc":26,"rfc":0,"meat":20000000,"wood":20000000,"coal":4000000,"iron":1000000,"mins":1209},"30.3":{"fc":26,"rfc":0,"meat":20000000,"wood":20000000,"coal":4000000,"iron":1000000,"mins":1209},"30.4":{"fc":26,"rfc":0,"meat":20000000,"wood":20000000,"coal":4000000,"iron":1000000,"mins":1209},"FC1":{"fc":26,"rfc":0,"meat":20000000,"wood":20000000,"coal":4000000,"iron":1000000,"mins":1209},"FC1.1":{"fc":31,"rfc":0,"meat":21000000,"wood":21000000,"coal":4300000,"iron":1100000,"mins":1613},"FC1.2":{"fc":31,"rfc":0,"meat":21000000,"wood":21000000,"coal":4300000,"iron":1100000,"mins":1613},"FC1.3":{"fc":31,"rfc":0,"meat":21000000,"wood":21000000,"coal":4300000,"iron":1100000,"mins":1613},"FC1.4":{"fc":31,"rfc":0,"meat":21000000,"wood":21000000,"coal":4300000,"iron":1100000,"mins":1613},"FC2":{"fc":31,"rfc":0,"meat":21000000,"wood":21000000,"coal":4300000,"iron":1100000,"mins":1613},"FC2.1":{"fc":47,"rfc":0,"meat":23000000,"wood":23000000,"coal":4700000,"iron":1200000,"mins":2318},"FC2.2":{"fc":47,"rfc":0,"meat":23000000,"wood":23000000,"coal":4700000,"iron":1200000,"mins":2318},"FC2.3":{"fc":47,"rfc":0,"meat":23000000,"wood":23000000,"coal":4700000,"iron":1200000,"mins":2318},"FC2.4":{"fc":47,"rfc":0,"meat":23000000,"wood":23000000,"coal":4700000,"iron":1200000,"mins":2318},"FC3":{"fc":47,"rfc":0,"meat":23000000,"wood":23000000,"coal":4700000,"iron":1200000,"mins":2318},"FC3.1":{"fc":56,"rfc":0,"meat":24000000,"wood":24000000,"coal":4900000,"iron":1200000,"mins":2822},"FC3.2":{"fc":56,"rfc":0,"meat":24000000,"wood":24000000,"coal":4900000,"iron":1200000,"mins":2822},"FC3.3":{"fc":56,"rfc":0,"meat":24000000,"wood":24000000,"coal":4900000,"iron":1200000,"mins":2822},"FC3.4":{"fc":56,"rfc":0,"meat":24000000,"wood":24000000,"coal":4900000,"iron":1200000,"mins":2822},"FC4":{"fc":56,"rfc":0,"meat":24000000,"wood":24000000,"coal":4900000,"iron":1200000,"mins":2822},"FC4.1":{"fc":67,"rfc":0,"meat":25000000,"wood":25000000,"coal":5000000,"iron":1300000,"mins":3427},"FC4.2":{"fc":67,"rfc":0,"meat":25000000,"wood":25000000,"coal":5000000,"iron":1300000,"mins":3427},"FC4.3":{"fc":67,"rfc":0,"meat":25000000,"wood":25000000,"coal":5000000,"iron":1300000,"mins":3427},"FC4.4":{"fc":67,"rfc":0,"meat":25000000,"wood":25000000,"coal":5000000,"iron":1300000,"mins":3427},"FC5":{"fc":67,"rfc":0,"meat":25000000,"wood":25000000,"coal":5000000,"iron":1300000,"mins":3427},"FC5.1":{"fc":40,"rfc":2,"meat":29000000,"wood":29000000,"coal":5800000,"iron":1500000,"mins":3830},"FC5.2":{"fc":40,"rfc":2,"meat":29000000,"wood":29000000,"coal":5800000,"iron":1500000,"mins":3830},"FC5.3":{"fc":40,"rfc":2,"meat":29000000,"wood":29000000,"coal":5800000,"iron":1500000,"mins":3830},"FC5.4":{"fc":40,"rfc":2,"meat":29000000,"wood":29000000,"coal":5800000,"iron":1500000,"mins":3830},"FC6":{"fc":20,"rfc":4,"meat":29000000,"wood":29000000,"coal":5800000,"iron":1500000,"mins":3830},"FC6.1":{"fc":48,"rfc":3,"meat":32000000,"wood":32000000,"coal":6500000,"iron":1600000,"mins":4636},"FC6.2":{"fc":48,"rfc":3,"meat":32000000,"wood":32000000,"coal":6500000,"iron":1600000,"mins":4636},"FC6.3":{"fc":48,"rfc":3,"meat":32000000,"wood":32000000,"coal":6500000,"iron":1600000,"mins":4636},"FC6.4":{"fc":48,"rfc":3,"meat":32000000,"wood":32000000,"coal":6500000,"iron":1600000,"mins":4636},"FC7":{"fc":24,"rfc":6,"meat":32000000,"wood":32000000,"coal":6500000,"iron":1600000,"mins":4636},"FC7.1":{"fc":48,"rfc":4,"meat":39000000,"wood":39000000,"coal":7900000,"iron":2000000,"mins":5644},"FC7.2":{"fc":48,"rfc":4,"meat":39000000,"wood":39000000,"coal":7900000,"iron":2000000,"mins":5644},"FC7.3":{"fc":48,"rfc":4,"meat":39000000,"wood":39000000,"coal":7900000,"iron":2000000,"mins":5644},"FC7.4":{"fc":48,"rfc":4,"meat":39000000,"wood":39000000,"coal":7900000,"iron":2000000,"mins":5644},"FC8":{"fc":24,"rfc":8,"meat":39000000,"wood":39000000,"coal":7900000,"iron":2000000,"mins":5644},"FC8.1":{"fc":56,"rfc":6,"meat":43000000,"wood":43000000,"coal":8700000,"iron":2200000,"mins":6450},"FC8.2":{"fc":56,"rfc":6,"meat":43000000,"wood":43000000,"coal":8700000,"iron":2200000,"mins":6450},"FC8.3":{"fc":56,"rfc":6,"meat":43000000,"wood":43000000,"coal":8700000,"iron":2200000,"mins":6450},"FC8.4":{"fc":56,"rfc":6,"meat":43000000,"wood":43000000,"coal":8700000,"iron":2200000,"mins":6450},"FC9":{"fc":28,"rfc":12,"meat":43000000,"wood":43000000,"coal":8700000,"iron":2200000,"mins":6450},"FC9.1":{"fc":70,"rfc":14,"meat":50000000,"wood":50000000,"coal":10000000,"iron":2500000,"mins":7862},"FC9.2":{"fc":70,"rfc":14,"meat":50000000,"wood":50000000,"coal":10000000,"iron":2500000,"mins":7862},"FC9.3":{"fc":70,"rfc":14,"meat":50000000,"wood":50000000,"coal":10000000,"iron":2500000,"mins":7862},"FC9.4":{"fc":70,"rfc":14,"meat":50000000,"wood":50000000,"coal":10000000,"iron":2500000,"mins":7862},"FC10":{"fc":35,"rfc":28,"meat":50000000,"wood":50000000,"coal":10000000,"iron":2500000,"mins":7862}},
+"Infirmary":{"30.1":{"fc":26,"rfc":0,"meat":16000000,"wood":16000000,"coal":3300000,"iron":820000,"mins":1411},"30.2":{"fc":26,"rfc":0,"meat":16000000,"wood":16000000,"coal":3300000,"iron":820000,"mins":1411},"30.3":{"fc":26,"rfc":0,"meat":16000000,"wood":16000000,"coal":3300000,"iron":820000,"mins":1411},"30.4":{"fc":26,"rfc":0,"meat":16000000,"wood":16000000,"coal":3300000,"iron":820000,"mins":1411},"FC1":{"fc":26,"rfc":0,"meat":16000000,"wood":16000000,"coal":3300000,"iron":820000,"mins":1411},"FC1.1":{"fc":31,"rfc":0,"meat":18000000,"wood":18000000,"coal":3600000,"iron":910000,"mins":1814},"FC1.2":{"fc":31,"rfc":0,"meat":18000000,"wood":18000000,"coal":3600000,"iron":910000,"mins":1814},"FC1.3":{"fc":31,"rfc":0,"meat":18000000,"wood":18000000,"coal":3600000,"iron":910000,"mins":1814},"FC1.4":{"fc":31,"rfc":0,"meat":18000000,"wood":18000000,"coal":3600000,"iron":910000,"mins":1814},"FC2":{"fc":31,"rfc":0,"meat":18000000,"wood":18000000,"coal":3600000,"iron":910000,"mins":1814},"FC2.1":{"fc":47,"rfc":0,"meat":19000000,"wood":19000000,"coal":3900000,"iron":980000,"mins":2318},"FC2.2":{"fc":47,"rfc":0,"meat":19000000,"wood":19000000,"coal":3900000,"iron":980000,"mins":2318},"FC2.3":{"fc":47,"rfc":0,"meat":19000000,"wood":19000000,"coal":3900000,"iron":980000,"mins":2318},"FC2.4":{"fc":47,"rfc":0,"meat":19000000,"wood":19000000,"coal":3900000,"iron":980000,"mins":2318},"FC3":{"fc":47,"rfc":0,"meat":19000000,"wood":19000000,"coal":3900000,"iron":980000,"mins":2318},"FC3.1":{"fc":56,"rfc":0,"meat":20000000,"wood":20000000,"coal":4100000,"iron":1000000,"mins":2822},"FC3.2":{"fc":56,"rfc":0,"meat":20000000,"wood":20000000,"coal":4100000,"iron":1000000,"mins":2822},"FC3.3":{"fc":56,"rfc":0,"meat":20000000,"wood":20000000,"coal":4100000,"iron":1000000,"mins":2822},"FC3.4":{"fc":56,"rfc":0,"meat":20000000,"wood":20000000,"coal":4100000,"iron":1000000,"mins":2822},"FC4":{"fc":56,"rfc":0,"meat":20000000,"wood":20000000,"coal":4100000,"iron":1000000,"mins":2822},"FC4.1":{"fc":67,"rfc":0,"meat":21000000,"wood":21000000,"coal":4200000,"iron":1100000,"mins":3225},"FC4.2":{"fc":67,"rfc":0,"meat":21000000,"wood":21000000,"coal":4200000,"iron":1100000,"mins":3225},"FC4.3":{"fc":67,"rfc":0,"meat":21000000,"wood":21000000,"coal":4200000,"iron":1100000,"mins":3225},"FC4.4":{"fc":67,"rfc":0,"meat":21000000,"wood":21000000,"coal":4200000,"iron":1100000,"mins":3225},"FC5":{"fc":67,"rfc":0,"meat":21000000,"wood":21000000,"coal":4200000,"iron":1100000,"mins":3225},"FC5.1":{"fc":40,"rfc":2,"meat":24000000,"wood":24000000,"coal":4800000,"iron":1200000,"mins":3830},"FC5.2":{"fc":40,"rfc":2,"meat":24000000,"wood":24000000,"coal":4800000,"iron":1200000,"mins":3830},"FC5.3":{"fc":40,"rfc":2,"meat":24000000,"wood":24000000,"coal":4800000,"iron":1200000,"mins":3830},"FC5.4":{"fc":40,"rfc":2,"meat":24000000,"wood":24000000,"coal":4800000,"iron":1200000,"mins":3830},"FC6":{"fc":20,"rfc":4,"meat":24000000,"wood":24000000,"coal":4800000,"iron":1200000,"mins":3830},"FC6.1":{"fc":48,"rfc":3,"meat":27000000,"wood":27000000,"coal":5400000,"iron":1400000,"mins":4636},"FC6.2":{"fc":48,"rfc":3,"meat":27000000,"wood":27000000,"coal":5400000,"iron":1400000,"mins":4636},"FC6.3":{"fc":48,"rfc":3,"meat":27000000,"wood":27000000,"coal":5400000,"iron":1400000,"mins":4636},"FC6.4":{"fc":48,"rfc":3,"meat":27000000,"wood":27000000,"coal":5400000,"iron":1400000,"mins":4636},"FC7":{"fc":24,"rfc":6,"meat":27000000,"wood":27000000,"coal":5400000,"iron":1400000,"mins":4636},"FC7.1":{"fc":48,"rfc":4,"meat":33000000,"wood":33000000,"coal":6600000,"iron":1700000,"mins":5644},"FC7.2":{"fc":48,"rfc":4,"meat":33000000,"wood":33000000,"coal":6600000,"iron":1700000,"mins":5644},"FC7.3":{"fc":48,"rfc":4,"meat":33000000,"wood":33000000,"coal":6600000,"iron":1700000,"mins":5644},"FC7.4":{"fc":48,"rfc":4,"meat":33000000,"wood":33000000,"coal":6600000,"iron":1700000,"mins":5644},"FC8":{"fc":24,"rfc":8,"meat":33000000,"wood":33000000,"coal":6600000,"iron":1700000,"mins":5644},"FC8.1":{"fc":56,"rfc":6,"meat":36000000,"wood":36000000,"coal":7200000,"iron":1800000,"mins":6450},"FC8.2":{"fc":56,"rfc":6,"meat":36000000,"wood":36000000,"coal":7200000,"iron":1800000,"mins":6450},"FC8.3":{"fc":56,"rfc":6,"meat":36000000,"wood":36000000,"coal":7200000,"iron":1800000,"mins":6450},"FC8.4":{"fc":56,"rfc":6,"meat":36000000,"wood":36000000,"coal":7200000,"iron":1800000,"mins":6450},"FC9":{"fc":28,"rfc":12,"meat":36000000,"wood":36000000,"coal":7200000,"iron":1800000,"mins":6450},"FC9.1":{"fc":70,"rfc":14,"meat":42000000,"wood":42000000,"coal":8400000,"iron":2100000,"mins":7862},"FC9.2":{"fc":70,"rfc":14,"meat":42000000,"wood":42000000,"coal":8400000,"iron":2100000,"mins":7862},"FC9.3":{"fc":70,"rfc":14,"meat":42000000,"wood":42000000,"coal":8400000,"iron":2100000,"mins":7862},"FC9.4":{"fc":70,"rfc":14,"meat":42000000,"wood":42000000,"coal":8400000,"iron":2100000,"mins":7862},"FC10":{"fc":35,"rfc":28,"meat":42000000,"wood":42000000,"coal":8400000,"iron":2100000,"mins":7862}},
+"WA":{"FC1":{"fc":0,"rfc":0,"meat":0,"wood":0,"coal":0,"iron":0,"mins":0},"FC1.1":{"fc":71,"rfc":0,"meat":36000000,"wood":36000000,"coal":7200000,"iron":1800000,"mins":2592},"FC1.2":{"fc":71,"rfc":0,"meat":36000000,"wood":36000000,"coal":7200000,"iron":1800000,"mins":2592},"FC1.3":{"fc":71,"rfc":0,"meat":36000000,"wood":36000000,"coal":7200000,"iron":1800000,"mins":2592},"FC1.4":{"fc":71,"rfc":0,"meat":36000000,"wood":36000000,"coal":7200000,"iron":1800000,"mins":2592},"FC2":{"fc":71,"rfc":0,"meat":36000000,"wood":36000000,"coal":7200000,"iron":1800000,"mins":2592},"FC2.1":{"fc":107,"rfc":0,"meat":39000000,"wood":39000000,"coal":7900000,"iron":1900000,"mins":3456},"FC2.2":{"fc":107,"rfc":0,"meat":39000000,"wood":39000000,"coal":7900000,"iron":1900000,"mins":3456},"FC2.3":{"fc":107,"rfc":0,"meat":39000000,"wood":39000000,"coal":7900000,"iron":1900000,"mins":3456},"FC2.4":{"fc":107,"rfc":0,"meat":39000000,"wood":39000000,"coal":7900000,"iron":1900000,"mins":3456},"FC3":{"fc":107,"rfc":0,"meat":39000000,"wood":39000000,"coal":7900000,"iron":1900000,"mins":3456},"FC3.1":{"fc":126,"rfc":0,"meat":41000000,"wood":41000000,"coal":8200000,"iron":2000000,"mins":4320},"FC3.2":{"fc":126,"rfc":0,"meat":41000000,"wood":41000000,"coal":8200000,"iron":2000000,"mins":4320},"FC3.3":{"fc":126,"rfc":0,"meat":41000000,"wood":41000000,"coal":8200000,"iron":2000000,"mins":4320},"FC3.4":{"fc":126,"rfc":0,"meat":41000000,"wood":41000000,"coal":8200000,"iron":2000000,"mins":4320},"FC4":{"fc":126,"rfc":0,"meat":41000000,"wood":41000000,"coal":8200000,"iron":2000000,"mins":4320},"FC4.1":{"fc":150,"rfc":0,"meat":42000000,"wood":42000000,"coal":8200000,"iron":2000000,"mins":5184},"FC4.2":{"fc":150,"rfc":0,"meat":42000000,"wood":42000000,"coal":8200000,"iron":2000000,"mins":5184},"FC4.3":{"fc":150,"rfc":0,"meat":42000000,"wood":42000000,"coal":8200000,"iron":2000000,"mins":5184},"FC4.4":{"fc":150,"rfc":0,"meat":42000000,"wood":42000000,"coal":8200000,"iron":2000000,"mins":5184},"FC5":{"fc":150,"rfc":0,"meat":42000000,"wood":42000000,"coal":8200000,"iron":2000000,"mins":5184},"FC5.1":{"fc":90,"rfc":4,"meat":48000000,"wood":48000000,"coal":9600000,"iron":2400000,"mins":5760},"FC5.2":{"fc":90,"rfc":4,"meat":48000000,"wood":48000000,"coal":9600000,"iron":2400000,"mins":5760},"FC5.3":{"fc":90,"rfc":4,"meat":48000000,"wood":48000000,"coal":9600000,"iron":2400000,"mins":5760},"FC5.4":{"fc":90,"rfc":4,"meat":48000000,"wood":48000000,"coal":9600000,"iron":2400000,"mins":5760},"FC6":{"fc":45,"rfc":9,"meat":48000000,"wood":48000000,"coal":9600000,"iron":2400000,"mins":5760},"FC6.1":{"fc":108,"rfc":6,"meat":54000000,"wood":54000000,"coal":10000000,"iron":2700000,"mins":6912},"FC6.2":{"fc":108,"rfc":6,"meat":54000000,"wood":54000000,"coal":10000000,"iron":2700000,"mins":6912},"FC6.3":{"fc":108,"rfc":6,"meat":54000000,"wood":54000000,"coal":10000000,"iron":2700000,"mins":6912},"FC6.4":{"fc":108,"rfc":6,"meat":54000000,"wood":54000000,"coal":10000000,"iron":2700000,"mins":6912},"FC7":{"fc":54,"rfc":13,"meat":54000000,"wood":54000000,"coal":10000000,"iron":2700000,"mins":6912},"FC7.1":{"fc":108,"rfc":9,"meat":66000000,"wood":66000000,"coal":13000000,"iron":3300000,"mins":8064},"FC7.2":{"fc":108,"rfc":9,"meat":66000000,"wood":66000000,"coal":13000000,"iron":3300000,"mins":8064},"FC7.3":{"fc":108,"rfc":9,"meat":66000000,"wood":66000000,"coal":13000000,"iron":3300000,"mins":8064},"FC7.4":{"fc":108,"rfc":9,"meat":66000000,"wood":66000000,"coal":13000000,"iron":3300000,"mins":8064},"FC8":{"fc":108,"rfc":9,"meat":66000000,"wood":66000000,"coal":13000000,"iron":3300000,"mins":8064},"FC8.1":{"fc":126,"rfc":13,"meat":72000000,"wood":72000000,"coal":14000000,"iron":3600000,"mins":9216},"FC8.2":{"fc":126,"rfc":13,"meat":72000000,"wood":72000000,"coal":14000000,"iron":3600000,"mins":9216},"FC8.3":{"fc":126,"rfc":13,"meat":72000000,"wood":72000000,"coal":14000000,"iron":3600000,"mins":9216},"FC8.4":{"fc":126,"rfc":13,"meat":72000000,"wood":72000000,"coal":14000000,"iron":3600000,"mins":9216},"FC9":{"fc":63,"rfc":27,"meat":72000000,"wood":72000000,"coal":14000000,"iron":3600000,"mins":9216},"FC9.1":{"fc":157,"rfc":31,"meat":84000000,"wood":84000000,"coal":16000000,"iron":4100000,"mins":10368},"FC9.2":{"fc":157,"rfc":31,"meat":84000000,"wood":84000000,"coal":16000000,"iron":4100000,"mins":10368},"FC9.3":{"fc":157,"rfc":31,"meat":84000000,"wood":84000000,"coal":16000000,"iron":4100000,"mins":10368},"FC9.4":{"fc":157,"rfc":31,"meat":84000000,"wood":84000000,"coal":16000000,"iron":4100000,"mins":10368},"FC10":{"fc":78,"rfc":63,"meat":84000000,"wood":84000000,"coal":16000000,"iron":4100000,"mins":10368}}
+};
+// Marksman and Lancer share Infantry data
+BLDG_DB["Marksman"] = BLDG_DB["Infantry"];
+BLDG_DB["Lancer"]   = BLDG_DB["Infantry"];
+BLDG_DB["War Academy"] = BLDG_DB["WA"];
+
+// Sub-level order within each FC major level (the 5 entries in order)
+const SUB_LEVEL_KEYS = {
+  FC1: ["FC1","FC1.1","FC1.2","FC1.3","FC1.4"],
+  FC2: ["FC2","FC2.1","FC2.2","FC2.3","FC2.4"],
+  FC3: ["FC3","FC3.1","FC3.2","FC3.3","FC3.4"],
+  FC4: ["FC4","FC4.1","FC4.2","FC4.3","FC4.4"],
+  FC5: ["FC5","FC5.1","FC5.2","FC5.3","FC5.4"],
+  FC6: ["FC6","FC6.1","FC6.2","FC6.3","FC6.4"],
+  FC7: ["FC7","FC7.1","FC7.2","FC7.3","FC7.4"],
+  FC8: ["FC8","FC8.1","FC8.2","FC8.3","FC8.4"],
+  FC9: ["FC9","FC9.1","FC9.2","FC9.3","FC9.4"],
+  FC10:["FC10","FC10","FC10","FC10","FC10"],
+};
+
+// Compute totals (FC, RFC, materials, mins) from fromLevel to toLevel
+function computeUpgradeFull(building, fromLevel, toLevel) {
+  const db = BLDG_DB[building] || BLDG_DB["Infantry"];
+  const fromIdx = FC_LEVELS.indexOf(fromLevel);
+  const toIdx   = FC_LEVELS.indexOf(toLevel);
+  if (fromIdx < 0 || toIdx < 0 || fromIdx >= toIdx) return {fc:0,rfc:0,meat:0,wood:0,coal:0,iron:0,mins:0,subLevels:0};
+  let fc=0,rfc=0,meat=0,wood=0,coal=0,iron=0,mins=0,subLevels=0;
+  for (let i = fromIdx; i < toIdx; i++) {
+    const majorLevel = FC_LEVELS[i+1]; // e.g. "FC2"
+    const keys = SUB_LEVEL_KEYS[majorLevel] || [];
+    keys.forEach(k => {
+      const row = db[k];
+      if (!row) return;
+      fc   += row.fc;
+      rfc  += row.rfc;
+      meat += row.meat;
+      wood += row.wood;
+      coal += row.coal;
+      iron += row.iron;
+      mins += row.mins;
+      subLevels++;
+    });
+  }
+  return {fc,rfc,meat,wood,coal,iron,mins,subLevels};
+}
+
+
 // ─── Complete material cost database from Misc. Data Tables ──────────────────
 // Each entry is costs for ONE sub-level upgrade. FC1 has 5 sub-levels (FC1, FC1.1-FC1.4)
 // Columns: rfc, meat(M), wood(M), coal(M), iron(M)  — materials in actual numbers
@@ -344,6 +401,12 @@ const STYLE = `
 /* Timeline */
 .timeline{display:flex;gap:2px;margin-top:8px}
 .tl-seg{height:8px;border-radius:2px;transition:width 0.4s ease}
+/* Time sub-row */
+.time-row{background:rgba(56,139,253,0.04);border-top:1px solid ${C.border};padding:7px 12px;display:flex;gap:24px;flex-wrap:wrap;align-items:center}
+.time-lbl{font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:${C.textDim};font-family:'Space Mono',monospace;min-width:160px}
+.time-val{font-size:12px;font-weight:700;font-family:'Space Mono',monospace}
+.time-orig{color:${C.textSec}}
+.time-actual{color:${C.green}}
 /* Tooltip-like note */
 .note-box{background:${C.accentBg};border:1px solid ${C.accentDim};border-radius:8px;padding:10px 14px;font-size:12px;color:${C.textSec};line-height:1.6}
 .note-box strong{color:${C.accent}}
@@ -359,6 +422,19 @@ const STYLE = `
   .cp-topbar{padding:14px 16px}
 }
 `;
+
+// Format minutes as "Xd Xh Xm"
+function fmtMins(totalMins) {
+  if (!totalMins || totalMins <= 0) return "—";
+  const d = Math.floor(totalMins / 1440);
+  const h = Math.floor((totalMins % 1440) / 60);
+  const m = Math.round(totalMins % 60);
+  const parts = [];
+  if (d > 0) parts.push(`${d}d`);
+  if (h > 0) parts.push(`${h}h`);
+  if (m > 0 || parts.length === 0) parts.push(`${m}m`);
+  return parts.join(" ");
+}
 
 const BUILDINGS_LIST = [
   "Furnace","Embassy","Infantry","Marksman","Lancer","Command","Infirmary","War Academy"
@@ -418,10 +494,11 @@ export default function ConstructionPlanner() {
   const [agnesLevel, setAgnesLevel] = useState(() => loadState("cp-agnes", 8));
   const [valeriaMult, setValeriaMult] = useState(() => loadState("cp-valeria", 0.18));
 
-  // Construction buff toggles
+  // Single construction speed bonus — user enters e.g. "91.5" meaning 91.5%
+  const [speedBuff, setSpeedBuff] = useState(() => loadState("cp-speedbuff", 91.5));
+
+  // Keep pet, chiefOrder, presSkill, presPos as toggles (4 remaining)
   const [buffs, setBuffs] = useState(() => loadState("cp-buffs", {
-    tech: true, island: true, alliance: true,
-    lvl1fac: true, lvl3fac: true, vip12: true,
     pet: true, chiefOrder: true, presSkill: true, presPos: true,
   }));
 
@@ -429,6 +506,18 @@ export default function ConstructionPlanner() {
     const next = { ...buffs, [k]: !buffs[k] };
     setBuffs(next); saveState("cp-buffs", next);
   }
+
+  // buffTotal = speedBuff% + zinman + remaining toggles
+  const buffTotal = useMemo(() => {
+    let t = speedBuff / 100; // user-entered overview total as fraction
+    const zinBonus = [0,0.03,0.06,0.09,0.12,0.15][zinmanLevel] || 0;
+    t += zinBonus;
+    if (buffs.pet)        t += 0.15;
+    if (buffs.chiefOrder) t += 0.2;
+    if (buffs.presSkill)  t += 0.1;
+    if (buffs.presPos)    t += 0.1;
+    return t;
+  }, [speedBuff, zinmanLevel, buffs]);
 
   // Accumulation of RFC over daysToSVS at current tier
   const rfcAccumulated = useMemo(() => {
@@ -446,30 +535,26 @@ export default function ConstructionPlanner() {
   // FC accumulated over daysToSVS from daily income
   const fcAccumulated = useMemo(() => Math.round(dailyFCIncome * daysToSVS), [dailyFCIncome, daysToSVS]);
 
-  // Per-building computed costs
+  // Per-building computed costs — all from BLDG_DB (accurate spreadsheet data)
   const buildingCalcs = useMemo(() => {
     return buildings.map(b => {
       const key = BUILDING_KEY(b.name);
-      const { fc: fcCost, rfc: rfcCost, subLevels } = computeUpgradeCost(key, b.current, b.goal);
-      return { ...b, fcCost, rfcCost, subLevels };
+      const full = computeUpgradeFull(key, b.current, b.goal);
+      return { ...b, fcCost: full.fc, rfcCost: full.rfc, subLevels: full.subLevels,
+               meat: full.meat, wood: full.wood, coal: full.coal, iron: full.iron,
+               baseMins: full.mins };
     });
   }, [buildings]);
 
-  // Material totals across all buildings
-  const materialTotals = useMemo(() => {
-    return buildingCalcs.reduce((acc, b) => {
-      const key = BUILDING_KEY(b.name);
-      const m = computeMaterials(key, b.current, b.goal);
-      return {
-        fc:   acc.fc   + m.fc,
-        rfc:  acc.rfc  + m.rfc,
-        meat: acc.meat + m.meat,
-        wood: acc.wood + m.wood,
-        coal: acc.coal + m.coal,
-        iron: acc.iron + m.iron,
-      };
-    }, {fc:0, rfc:0, meat:0, wood:0, coal:0, iron:0});
-  }, [buildingCalcs]);
+  // Material totals across all buildings (directly from buildingCalcs)
+  const materialTotals = useMemo(() => buildingCalcs.reduce((acc, b) => ({
+    fc:   acc.fc   + b.fcCost,
+    rfc:  acc.rfc  + b.rfcCost,
+    meat: acc.meat + b.meat,
+    wood: acc.wood + b.wood,
+    coal: acc.coal + b.coal,
+    iron: acc.iron + b.iron,
+  }), {fc:0,rfc:0,meat:0,wood:0,coal:0,iron:0}), [buildingCalcs]);
 
   // Totals
   const totalFCNeeded  = buildingCalcs.reduce((s, b) => s + b.fcCost,  0);
@@ -478,24 +563,6 @@ export default function ConstructionPlanner() {
   const projectedRFC   = rfc + rfcAccumulated;
   const fcBalance      = projectedFC  - totalFCNeeded;
   const rfcBalance     = projectedRFC - totalRFCNeeded;
-
-  // Construction time buff total
-  const buffTotal = useMemo(() => {
-    let t = 0;
-    const zinBonus = [0,0.03,0.06,0.09,0.12,0.15][zinmanLevel] || 0;
-    t += zinBonus;
-    if (buffs.tech)      t += 0.235;
-    if (buffs.island)    t += 0.1;
-    if (buffs.alliance)  t += 0.1;
-    if (buffs.lvl1fac)   t += 0.05;
-    if (buffs.lvl3fac)   t += 0.08;
-    if (buffs.vip12)     t += 0.2;
-    if (buffs.pet)       t += 0.15;
-    if (buffs.chiefOrder)t += 0.2;
-    if (buffs.presSkill) t += 0.1;
-    if (buffs.presPos)   t += 0.1;
-    return t;
-  }, [zinmanLevel, buffs]);
 
   // SVS point estimates (Monday FC burn is biggest)
   const svsMonPts  = Math.round((totalFCNeeded > 0 ? Math.min(projectedFC, totalFCNeeded) : 0) * SvS_FC_POINTS_PER_FC * (1 + valeriaMult));
@@ -656,35 +723,45 @@ export default function ConstructionPlanner() {
           {/* Construction buffs */}
           <div>
             <div className="sec-head">Construction buffs (time reduction)</div>
-            <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+            <div style={{display:"flex",flexWrap:"wrap",gap:10,alignItems:"flex-end"}}>
+              {/* Primary: user-entered overview total */}
+              <div style={{display:"flex",flexDirection:"column",gap:5,minWidth:260}}>
+                <label className="inp-label">Bonus Overview Total — Construction Speed (%)</label>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <input
+                    className="inp-field"
+                    type="number" min={0} max={500} step={0.5}
+                    value={speedBuff}
+                    onChange={e => { const v=Number(e.target.value); setSpeedBuff(v); saveState("cp-speedbuff",v); }}
+                    style={{width:100,textAlign:"right"}}
+                  />
+                  <span style={{fontSize:12,color:C.textDim,fontFamily:"Space Mono,monospace"}}>%</span>
+                  <span style={{fontSize:11,color:C.textSec}}>e.g. enter 91.5 for 91.5% speed</span>
+                </div>
+              </div>
+              {/* Remaining toggles */}
               {[
-                {k:"tech",       label:"Tech",        val:"23.5%"},
-                {k:"island",     label:"Island",      val:"10%"  },
-                {k:"alliance",   label:"Alliance",    val:"10%"  },
-                {k:"lvl1fac",    label:"Fac Lv1",     val:"5%"   },
-                {k:"lvl3fac",    label:"Fac Lv3",     val:"8%"   },
-                {k:"vip12",      label:"VIP12",       val:"20%"  },
-                {k:"pet",        label:"Pet",         val:"15%"  },
-                {k:"chiefOrder", label:"Chief Order", val:"20%"  },
-                {k:"presSkill",  label:"Pres Skill",  val:"10%"  },
-                {k:"presPos",    label:"Pres Position",val:"10%" },
+                {k:"pet",        label:"Pet",          val:"15%"},
+                {k:"chiefOrder", label:"Chief Order",  val:"20%"},
+                {k:"presSkill",  label:"Pres Skill",   val:"10%"},
+                {k:"presPos",    label:"Pres Position",val:"10%"},
               ].map(b => (
                 <button key={b.k}
                   onClick={() => toggleBuff(b.k)}
                   style={{
-                    padding:"6px 12px",borderRadius:7,fontSize:11,fontWeight:700,cursor:"pointer",
+                    padding:"7px 13px",borderRadius:7,fontSize:11,fontWeight:700,cursor:"pointer",
                     fontFamily:"Syne,sans-serif",transition:"all 0.15s",
                     background: buffs[b.k] ? C.greenBg : C.surface,
                     color:      buffs[b.k] ? C.green   : C.textDim,
                     border:     `1px solid ${buffs[b.k] ? C.greenDim : C.border}`,
                   }}>
-                  {b.label} {b.val}
+                  {b.label} +{b.val}
                 </button>
               ))}
             </div>
             <div style={{marginTop:10,fontSize:12,color:C.textSec}}>
-              Total buff: <span style={{color:C.green,fontFamily:"Space Mono,monospace",fontWeight:700}}>{(buffTotal*100).toFixed(1)}%</span>
-              {" · "}Build times reduced by this amount with all active buffs
+              Total construction speed bonus: <span style={{color:C.green,fontFamily:"Space Mono,monospace",fontWeight:700}}>{(buffTotal*100).toFixed(1)}%</span>
+              {" · "}Actual time = base time ÷ (1 + {(buffTotal*100).toFixed(1)}%)
             </div>
           </div>
 
@@ -744,6 +821,26 @@ export default function ConstructionPlanner() {
                         <span style={{fontSize:10,fontFamily:"Space Mono,monospace",color:C.textDim,minWidth:32,textAlign:"right"}}>{isDone ? "✓" : pct+"%"}</span>
                       </div>
                     </div>
+
+                    {/* Construction time sub-row */}
+                    {!isDone && b.baseMins > 0 && (() => {
+                      const actualMins = Math.round(b.baseMins / (1 + buffTotal));
+                      return (
+                        <div className="time-row">
+                          <div style={{display:"flex",alignItems:"center",gap:12}}>
+                            <span className="time-lbl">Original build time</span>
+                            <span className="time-val time-orig">{fmtMins(b.baseMins)}</span>
+                          </div>
+                          <div style={{display:"flex",alignItems:"center",gap:12}}>
+                            <span className="time-lbl">Actual build time</span>
+                            <span className="time-val time-actual">{fmtMins(actualMins)}</span>
+                          </div>
+                          <span style={{fontSize:10,color:C.textDim,fontFamily:"Space Mono,monospace"}}>
+                            ÷ (1 + {(buffTotal*100).toFixed(1)}% bonus)
+                          </span>
+                        </div>
+                      );
+                    })()}
                   </div>
                 );
               })}
