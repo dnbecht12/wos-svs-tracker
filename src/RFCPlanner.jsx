@@ -486,7 +486,7 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
               <div className="cfg-grid">
                 <div className="cfg-item">
                   <label className="cfg-lbl">Set Monday refines to</label>
-                  <span className="cfg-hint">Applies to all 4 Mondays · each row is still individually editable</span>
+                  <span className="cfg-hint" style={{whiteSpace:"nowrap"}}>Applies to all 4 Mondays · each row is still individually editable</span>
                   <select className="cfg-inp" value={monRefines} onChange={e=>applyMonRefines(Number(e.target.value))}>
                     <optgroup label="── Favorites ──">
                       {MON_FAVORITES.map(v=><option key={v} value={v}>{v} refines</option>)}
@@ -498,7 +498,7 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
                 </div>
                 <div className="cfg-item">
                   <label className="cfg-lbl">Tue–Sun refinement mode</label>
-                  <span className="cfg-hint">Default = 1 refine/day locked · Manual = per-day dropdown (1–40)</span>
+                  <span className="cfg-hint" style={{whiteSpace:"nowrap"}}>Select Default or Manual Entry</span>
                   <select className="cfg-inp" value={weekdayMode}
                     onChange={e=>{setWeekdayMode(e.target.value);saveLS("rfc-wdmode",e.target.value);}}>
                     <option value="default">Default — 1 refine each day (locked)</option>
