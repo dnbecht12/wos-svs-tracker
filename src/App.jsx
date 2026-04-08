@@ -438,7 +438,7 @@ function HeroGearPage({ inv }) {
 
                       {/* Type — only on first row of each hero */}
                       {slotIdx === 0 && (
-                        <td rowSpan={5} style={{...tdStyle,verticalAlign:"middle",fontWeight:700,color:typeColor,width:90}}>
+                        <td rowSpan={5} style={{...tdStyle,verticalAlign:"middle",fontWeight:700,color:typeColor,width:110,whiteSpace:"nowrap"}}>
                           {slot.label}
                         </td>
                       )}
