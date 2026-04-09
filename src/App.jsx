@@ -1682,12 +1682,15 @@ export default function App() {
     if (!user || !charId) return;
     clearTimeout(syncTimer.current);
     syncTimer.current = null;
+    console.log("[flushSave] saving charId:", charId, "inv:", invRef.current);
     await charSaveInventory(charId, invRef.current);
+    console.log("[flushSave] done");
   }, [user]);
 
   // ── Load data whenever activeCharId changes ───────────────────────────────────
   useEffect(() => {
     if (!user || !activeCharId) return;
+    console.log("[loadEffect] loading charId:", activeCharId);
 
     (async () => {
       setSyncing(true);
@@ -1695,11 +1698,10 @@ export default function App() {
         charLoadInventory(activeCharId),
         charLoadPlans(activeCharId),
       ]);
+      console.log("[loadEffect] cloudInv:", cloudInv);
 
       if (!cloudInv) {
-        // Brand-new character with no saved data yet
         if (characters.length <= 1) {
-          // First character — seed from local if guest had data
           const localHasData = Object.keys(INITIAL_INVENTORY).some(k => {
             const d = INITIAL_INVENTORY[k], c = invRef.current[k];
             return typeof d === "boolean" ? c !== d : c !== 0;
@@ -1710,7 +1712,6 @@ export default function App() {
           setSavedPlans({});
         }
       } else {
-        // Always load from cloud — this is the source of truth
         setInvRaw(cloudInv);
         if (cloudPlans && Object.keys(cloudPlans).length > 0) setSavedPlans(cloudPlans);
         else setSavedPlans({});
