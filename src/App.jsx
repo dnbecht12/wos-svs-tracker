@@ -1630,19 +1630,36 @@ function AuthPanel({ user, loading, error, signUp, signIn, signInWithDiscord, cl
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function ResInput({ label, icon, field, value, onChange, color }) {
-  const [editing, setEditing] = useState(false);
+  const [focused, setFocused] = useState(false);
   const [raw,     setRaw]     = useState("");
 
-  const handleFocus  = () => { setEditing(true); setRaw(value === 0 ? "" : String(value)); };
-  const handleBlur   = () => { setEditing(false); };
-  const handleChange = e => {
-    const cleaned = e.target.value.replace(/[^0-9,]/g, "");
-    setRaw(cleaned);
-    // Update parent state immediately on every keystroke
-    const n = parseInt(cleaned.replace(/,/g, ""), 10);
+  // When focus arrives, seed raw from the current numeric value
+  const handleFocus = () => {
+    setRaw(value === 0 ? "" : String(value));
+    setFocused(true);
+  };
+
+  // On blur, parse and commit — raw stays as-is for display until next focus
+  const handleBlur = () => {
+    setFocused(false);
+    const n = parseInt(raw.replace(/,/g, ""), 10);
     onChange(field, isNaN(n) ? 0 : Math.max(0, n));
   };
+
+  // While typing just update raw string; also push to parent so other tabs stay live
+  const handleChange = e => {
+    const cleaned = e.target.value.replace(/[^0-9]/g, ""); // no commas while typing
+    setRaw(cleaned);
+    const n = parseInt(cleaned, 10);
+    onChange(field, isNaN(n) ? 0 : Math.max(0, n));
+  };
+
   const handleKey = e => { if (e.key === "Enter") e.target.blur(); };
+
+  // Display: plain digits while focused, formatted with commas when idle
+  const displayValue = focused
+    ? raw
+    : (value === 0 ? "0" : Number(value).toLocaleString());
 
   return (
     <div className="res-item" style={color ? { borderColor: color + "40" } : {}}>
@@ -1652,7 +1669,7 @@ function ResInput({ label, icon, field, value, onChange, color }) {
         className="res-input"
         type="text"
         inputMode="numeric"
-        value={editing ? raw : (value === 0 ? "0" : Number(value).toLocaleString())}
+        value={displayValue}
         onFocus={handleFocus}
         onBlur={handleBlur}
         onChange={handleChange}
