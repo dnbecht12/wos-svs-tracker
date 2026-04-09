@@ -1630,61 +1630,37 @@ function AuthPanel({ user, loading, error, signUp, signIn, signInWithDiscord, cl
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function ResInput({ label, icon, field, value, onChange, color }) {
-  const inputRef = useRef(null);
   const [focused, setFocused] = useState(false);
-
-  // When not focused, sync the displayed formatted value to the DOM directly
-  useEffect(() => {
-    if (!focused && inputRef.current) {
-      inputRef.current.value = value === 0 ? "0" : Number(value).toLocaleString();
-    }
-  }, [value, focused]);
-
-  const handleFocus = () => {
-    setFocused(true);
-    // Show plain digits when editing
-    if (inputRef.current) {
-      inputRef.current.value = value === 0 ? "" : String(value);
-      inputRef.current.select();
-    }
-  };
-
-  const handleBlur = () => {
-    setFocused(false);
-    const raw = inputRef.current?.value ?? "";
-    const n = parseInt(raw.replace(/[^0-9]/g, ""), 10);
-    const final = isNaN(n) ? 0 : Math.max(0, n);
-    onChange(field, final);
-    // Format immediately
-    if (inputRef.current) {
-      inputRef.current.value = final === 0 ? "0" : Number(final).toLocaleString();
-    }
-  };
-
-  const handleChange = e => {
-    const raw = e.target.value.replace(/[^0-9]/g, "");
-    const n = parseInt(raw, 10);
-    onChange(field, isNaN(n) ? 0 : Math.max(0, n));
-  };
-
-  const handleKey = e => { if (e.key === "Enter") e.target.blur(); };
 
   return (
     <div className="res-item" style={color ? { borderColor: color + "40" } : {}}>
       <div className="res-icon">{icon}</div>
       <div className="res-label">{label}</div>
-      <input
-        ref={inputRef}
-        className="res-input"
-        type="text"
-        inputMode="numeric"
-        defaultValue={value === 0 ? "0" : Number(value).toLocaleString()}
-        onFocus={handleFocus}
-        onBlur={handleBlur}
-        onChange={handleChange}
-        onKeyDown={handleKey}
-        style={color ? { color } : {}}
-      />
+      {focused ? (
+        <input
+          className="res-input"
+          type="number"
+          min={0}
+          autoFocus
+          defaultValue={value || ""}
+          onChange={e => {
+            const n = parseInt(e.target.value, 10);
+            onChange(field, isNaN(n) ? 0 : Math.max(0, n));
+          }}
+          onBlur={() => setFocused(false)}
+          onKeyDown={e => { if (e.key === "Enter") e.target.blur(); }}
+          style={color ? { color } : {}}
+        />
+      ) : (
+        <input
+          className="res-input"
+          type="text"
+          readOnly
+          value={value === 0 ? "0" : Number(value).toLocaleString()}
+          onFocus={() => setFocused(true)}
+          style={{cursor:"text", ...(color ? { color } : {})}}
+        />
+      )}
     </div>
   );
 }
