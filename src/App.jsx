@@ -1928,8 +1928,8 @@ export default function App() {
                 <div style={{fontSize:11,color:COLORS.textSec,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                   {user.user_metadata?.full_name || user.email}
                 </div>
-                <div style={{fontSize:10,color:COLORS.textDim,fontFamily:"Space Mono,monospace"}}>
-                  {syncing ? "Syncing…" : "● Cloud sync"}
+                <div style={{fontSize:10,fontFamily:"Space Mono,monospace",color: syncing ? COLORS.amber : COLORS.green}}>
+                  {syncing ? "● Syncing…" : "● Cloud sync"}
                 </div>
               </div>
               <button onClick={e => { e.stopPropagation(); signOut(); }}
