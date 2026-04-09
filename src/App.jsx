@@ -330,12 +330,12 @@ function sortHeroesByGen(heroes) {
 // Default stats for a single hero in the Heroes module
 // Star options: 0, 0.1, 0.2 ... 0.5, 1, 1.1 ... 5.5
 const STAR_OPTS = [];
-for (let s = 0; s <= 5; s++) {
+for (let s = 0; s <= 4; s++) {
   for (let sub = 0; sub <= 5; sub++) {
     STAR_OPTS.push(parseFloat((s + sub * 0.1).toFixed(1)));
   }
 }
-STAR_OPTS.push(5.5); // max
+STAR_OPTS.push(5); // max is exactly 5
 
 function defaultHeroStats() {
   return {
@@ -667,7 +667,15 @@ function HeroesPage({ genFilter, setGenFilter, heroStats, setHeroStats }) {
     });
   };
 
-  const setAllLevelsMax = () => {
+  const setAllStarsMax = () => {
+    setHeroStats(prev => {
+      const next = { ...prev };
+      visible.forEach(h => {
+        next[h.name] = { ...(next[h.name] || defaultHeroStats()), stars: 5 };
+      });
+      return next;
+    });
+  };
     setHeroStats(prev => {
       const next = { ...prev };
       visible.forEach(h => {
@@ -902,6 +910,7 @@ function HeroesPage({ genFilter, setGenFilter, heroStats, setHeroStats }) {
         </div>
         {/* Set-all buttons */}
         <div style={{display:"flex",gap:8}}>
+          <button style={btnStyle(false)} onClick={setAllStarsMax}>Set All Stars → 5</button>
           <button style={btnStyle(false)} onClick={setAllLevelsMax}>Set All Levels → 80</button>
           <button style={btnStyle(false)} onClick={setAllSkillsMax}>Set All Skills → 5</button>
         </div>
