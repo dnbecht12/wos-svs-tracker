@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef, useMemo, Component } from "react";
-import { createPortal } from "react-dom";
 import ConstructionPlanner from "./ConstructionPlanner.jsx";
 import RFCPlanner from "./RFCPlanner.jsx";
 import SvSCalendar from "./SvSCalendar.jsx";
@@ -502,7 +501,7 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose }) {
   const levelOpts  = Array.from({length:81}, (_,i) => i);
   const widgetOpts = Array.from({length:11}, (_,i) => i);
 
-  return createPortal(
+  return (
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal" style={{maxWidth:560}}>
         {/* Header */}
@@ -607,8 +606,7 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose }) {
 
         </div>
       </div>
-    </div>,
-    document.body
+    </div>
   );
 }
 
