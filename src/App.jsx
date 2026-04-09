@@ -1630,46 +1630,55 @@ function AuthPanel({ user, loading, error, signUp, signIn, signInWithDiscord, cl
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function ResInput({ label, icon, field, value, onChange, color }) {
+  const inputRef = useRef(null);
   const [focused, setFocused] = useState(false);
-  const [raw,     setRaw]     = useState("");
 
-  // When focus arrives, seed raw from the current numeric value
+  // When not focused, sync the displayed formatted value to the DOM directly
+  useEffect(() => {
+    if (!focused && inputRef.current) {
+      inputRef.current.value = value === 0 ? "0" : Number(value).toLocaleString();
+    }
+  }, [value, focused]);
+
   const handleFocus = () => {
-    setRaw(value === 0 ? "" : String(value));
     setFocused(true);
+    // Show plain digits when editing
+    if (inputRef.current) {
+      inputRef.current.value = value === 0 ? "" : String(value);
+      inputRef.current.select();
+    }
   };
 
-  // On blur, parse and commit — raw stays as-is for display until next focus
   const handleBlur = () => {
     setFocused(false);
-    const n = parseInt(raw.replace(/,/g, ""), 10);
-    onChange(field, isNaN(n) ? 0 : Math.max(0, n));
+    const raw = inputRef.current?.value ?? "";
+    const n = parseInt(raw.replace(/[^0-9]/g, ""), 10);
+    const final = isNaN(n) ? 0 : Math.max(0, n);
+    onChange(field, final);
+    // Format immediately
+    if (inputRef.current) {
+      inputRef.current.value = final === 0 ? "0" : Number(final).toLocaleString();
+    }
   };
 
-  // While typing just update raw string; also push to parent so other tabs stay live
   const handleChange = e => {
-    const cleaned = e.target.value.replace(/[^0-9]/g, ""); // no commas while typing
-    setRaw(cleaned);
-    const n = parseInt(cleaned, 10);
+    const raw = e.target.value.replace(/[^0-9]/g, "");
+    const n = parseInt(raw, 10);
     onChange(field, isNaN(n) ? 0 : Math.max(0, n));
   };
 
   const handleKey = e => { if (e.key === "Enter") e.target.blur(); };
-
-  // Display: plain digits while focused, formatted with commas when idle
-  const displayValue = focused
-    ? raw
-    : (value === 0 ? "0" : Number(value).toLocaleString());
 
   return (
     <div className="res-item" style={color ? { borderColor: color + "40" } : {}}>
       <div className="res-icon">{icon}</div>
       <div className="res-label">{label}</div>
       <input
+        ref={inputRef}
         className="res-input"
         type="text"
         inputMode="numeric"
-        value={displayValue}
+        defaultValue={value === 0 ? "0" : Number(value).toLocaleString()}
         onFocus={handleFocus}
         onBlur={handleBlur}
         onChange={handleChange}
