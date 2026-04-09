@@ -1849,7 +1849,7 @@ export default function App() {
                   <div key={key}
                     className={clsx("nav-item", loadedPlanKey === key && "active")}
                     style={{justifyContent:"space-between", paddingRight:6}}
-                    onClick={() => { handleLoadPlan(key); setSidebarOpen(false); }}}
+                    onClick={() => { handleLoadPlan(key); setSidebarOpen(false); }}
                   >
                     <span style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
                       <span className="nav-icon" style={{flexShrink:0}}>[P]</span>
