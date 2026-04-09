@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { buildCycles, getCurrentCycleNum, getCycleStartDate, fmtDate as fmtDateCal, cycleLabelFull } from "./svsCalendar.js";
+import { buildCycles, getCurrentCycleNum, getCycleStartDate, fmtDate as fmtDateCal, cycleLabelFull, addDaysToDate, toIso, FIRST_SVS_MONDAY } from "./svsCalendar.js";
 
 // ─── Exact building data from Misc. Data Tables AO3:BE399 ────────────────────
 // Columns: AO=Building, AP=Level, AT=FC, AU=RFC, AV=Meat, AW=Wood, AX=Coal, AY=Iron, BD=TtlMins
@@ -327,17 +327,7 @@ function computeRFCAccumulation(startRFC, currentRefineCount, daysUntilSVS, dail
 const SvS_FC_POINTS_PER_FC = 1784160 / 390; // ~4574 pts per FC burned on SVS Monday T1
 const SVS_RFC_POINTS_PER_RFC = 2442600 / 29; // ~84,228 pts per RFC on SVS Monday
 
-// Colors matching the existing app theme
-const C = {
-  bg: "#0a0c10", surface: "#111418", card: "#161b22", border: "#21262d",
-  borderHi: "#30363d", accent: "#e36b1a", accentDim: "#7d3a0d", accentBg: "#1a1008",
-  blue: "#388bfd", blueBg: "#0c1929", blueDim: "#1f4b8c",
-  green: "#3fb950", greenBg: "#0a1f0e", greenDim: "#1a5c26",
-  red: "#f85149", redBg: "#1f0c0b", redDim: "#7d1f1a",
-  amber: "#d29922", amberBg: "#1a1408",
-  teal: "#2ea8b0", tealBg: "#0a1e20",
-  textPri: "#e6edf3", textSec: "#8b949e", textDim: "#484f58",
-};
+const C = new Proxy({}, { get(_, key) { return `var(--c-${key})`; } });
 
 const fmt = n => {
   if (n === null || n === undefined || isNaN(n)) return "—";
@@ -375,7 +365,7 @@ function NumInput({ value, onChange, className, style, min = 0 }) {
 const STYLE = `
 @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;500;600;700;800&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
-.cp-wrap{font-family:'Syne',sans-serif;color:${C.textPri};background:${C.bg};min-height:100vh;padding:0}
+.cp-wrap{font-family:'Syne',sans-serif;color:${C.textPri};background:var(--c-bg);min-height:100vh;padding:0}
 .cp-topbar{background:${C.surface};border-bottom:1px solid ${C.border};padding:20px 28px;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
 .cp-title{font-size:20px;font-weight:800}
 .cp-title span{color:${C.accent}}
@@ -391,7 +381,7 @@ const STYLE = `
 .s-val.green{color:${C.green}}
 .s-val.red{color:${C.red}}
 .s-val.amber{color:${C.amber}}
-.s-val.teal{color:${C.teal}}
+.s-val.teal{color:var(--c-blue)}
 .s-sub{font-size:10px;color:${C.textDim};margin-top:4px;font-family:'Space Mono',monospace}
 /* Sections */
 .sec-head{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${C.textDim};display:flex;align-items:center;gap:8px;margin-bottom:12px}
@@ -410,7 +400,7 @@ const STYLE = `
 .bld-row-wrap{border-bottom:1px solid ${C.border}}
 .bld-row-wrap:last-child{border-bottom:none}
 .bld-row{display:grid;grid-template-columns:140px 100px 100px 80px 80px 80px minmax(140px,1fr) minmax(140px,1fr);gap:0;align-items:center;transition:background 0.1s}
-.bld-row:hover{background:rgba(255,255,255,0.02)}
+.bld-row:hover{background:var(--c-hover)}
 .bld-cell{padding:11px 12px;font-size:13px;color:${C.textSec};vertical-align:middle}
 .bld-cell.name{font-weight:700;color:${C.textPri};font-size:13px}
 .bld-cell.mono{font-family:'Space Mono',monospace;font-size:12px}
@@ -426,7 +416,7 @@ const STYLE = `
 .badge-amber{background:${C.amberBg};color:${C.amber}}
 .badge-blue{background:${C.blueBg};color:${C.blue};border:1px solid ${C.blueDim}}
 .badge-accent{background:${C.accentBg};color:${C.accent};border:1px solid ${C.accentDim}}
-.badge-teal{background:${C.tealBg};color:${C.teal}}
+.badge-teal{background:var(--c-blueBg);color:var(--c-blue)}
 /* Progress bar */
 .prog-wrap{background:${C.border};border-radius:3px;height:5px;overflow:hidden;flex:1;min-width:40px}
 .prog-bar{height:100%;border-radius:3px;transition:width 0.4s ease}
@@ -613,15 +603,41 @@ function saveState(key, val) {
   try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
 }
 
-export default function ConstructionPlanner({ inv, setInv }) {
+export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSnapshot, onUpdatePlan }) {
   // Cycle selector linked to SvS Calendar
   const currentCycle = useMemo(() => getCurrentCycleNum(), []);
   const cycleOpts    = useMemo(() => buildCycles(Math.max(1, currentCycle - 1), 16), [currentCycle]);
   const [selectedCycle, setSelectedCycle] = useState(() => loadState("cp-cycle", currentCycle));
 
-  // Derive daysToSVS from cycle: SvS week starts day 22 (Mon of wk4), plan starts day 1 (Mon of wk1)
-  // So daysToSVS = 21 (days from start of Prep1 to start of SvS week Monday)
-  const daysToSVS = 21;
+  // ── Live days-to-SvS calculation ─────────────────────────────────────────────
+  // SvS Monday of selected cycle = FIRST_SVS_MONDAY + (cycleNum-1)*4 weeks
+  const svsMonday = useMemo(() => {
+    const weekOffset = (selectedCycle - 1) * 4; // SvS is week 4 of cycle N
+    return addDaysToDate(FIRST_SVS_MONDAY, weekOffset * 7);
+  }, [selectedCycle]);
+
+  const { daysToSVS, todayDayIndex } = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const cycleStart = getCycleStartDate(selectedCycle); // Prep1 Monday
+    cycleStart.setHours(0, 0, 0, 0);
+    const msPerDay = 86400000;
+    // Days from cycle start (day 0 = Prep1 Monday)
+    const daysSinceCycleStart = Math.floor((today - cycleStart) / msPerDay);
+    // Days remaining until SvS Monday (day 21 of cycle)
+    const remaining = Math.max(0, Math.ceil((svsMonday - today) / msPerDay));
+    // Today's 0-based index in the 21-day plan (0=day1 ... 20=day21)
+    const todayIdx = Math.min(Math.max(daysSinceCycleStart, 0), 20);
+    return { daysToSVS: remaining, todayDayIndex: todayIdx };
+  }, [selectedCycle, svsMonday]);
+
+  // Also compute today's 0-based index in the RFC planner's 28-day schedule
+  const rfcTodayIndex = useMemo(() => {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const cycleStart = getCycleStartDate(selectedCycle); cycleStart.setHours(0, 0, 0, 0);
+    const diff = Math.floor((today - cycleStart) / 86400000);
+    return Math.min(Math.max(diff, 0), 27);
+  }, [selectedCycle]);
 
   // Start date display (Prep1 Monday of selected cycle)
   const cycleStartDate = useMemo(() => {
@@ -634,13 +650,57 @@ export default function ConstructionPlanner({ inv, setInv }) {
     loadState("cp-buildings", DEFAULT_BUILDINGS)
   );
 
-  // FC and RFC come from shared inv prop — changes sync back via setInv
-  const fc  = inv?.fireCrystals ?? 0;
-  const rfc = inv?.refinedFC    ?? 0;
-  const setFC  = (val) => setInv(p => ({ ...p, fireCrystals: val }));
-  const setRFC = (val) => setInv(p => ({ ...p, refinedFC:    val }));
+  // Live inv values — always editable, always reflect Inventory tab
+  const liveFC  = inv?.fireCrystals ?? 0;
+  const liveRFC = inv?.refinedFC    ?? 0;
+  const setFC   = (val) => setInv(p => ({ ...p, fireCrystals: val }));
+  const setRFC  = (val) => setInv(p => ({ ...p, refinedFC:    val }));
+
+  // Projection base — use snapshot if set, otherwise live values
+  const fc  = planSnapshot ? (planSnapshot.fc  ?? liveFC)  : liveFC;
+  const rfc = planSnapshot ? (planSnapshot.rfc ?? liveRFC) : liveRFC;
   const [dailyFCIncome, setDailyFCIncome] = useState(() => loadState("cp-dailyfc", 48));
   const [agnesLevel, setAgnesLevel] = useState(() => loadState("cp-agnes", 8));
+
+  // ── Update Plan modal state ───────────────────────────────────────────────────
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [updateNote,      setUpdateNote]      = useState("");
+  const [modalFC,         setModalFC]         = useState(0);
+  const [modalRFC,        setModalRFC]        = useState(0);
+  const [upgradeOverrides, setUpgradeOverrides] = useState({});
+
+  const openUpdateModal = () => {
+    setModalFC(liveFC);
+    setModalRFC(liveRFC);
+    setUpgradeOverrides({});
+    setUpdateNote("");
+    setShowUpdateModal(true);
+  };
+
+  const handleConfirmUpdate = () => {
+    // Apply building upgrades from modal
+    if (Object.keys(upgradeOverrides).length > 0) {
+      const next = buildings.map(b => {
+        const override = upgradeOverrides[b.name];
+        if (!override || override === b.current) return b;
+        const updated = { ...b, current: override };
+        const ci = FC_LEVELS.indexOf(override);
+        const gi = FC_LEVELS.indexOf(updated.goal);
+        if (gi < ci) updated.goal = override;
+        return updated;
+      });
+      const cascaded = cascadePrereqs(next);
+      setBuildings(cascaded);
+      saveState("cp-buildings", cascaded);
+    }
+    // Write confirmed FC/RFC back to live inventory and update plan
+    setFC(modalFC);
+    setRFC(modalRFC);
+    onUpdatePlan?.(rfcTodayIndex, modalFC, modalRFC);
+    setShowUpdateModal(false);
+    setUpgradeOverrides({});
+    setUpdateNote("");
+  };
 
   // Single construction speed bonus — user enters e.g. "91.5" meaning 91.5%
   const [speedBuff, setSpeedBuff] = useState(() => loadState("cp-speedbuff", 91.5));
@@ -665,7 +725,7 @@ export default function ConstructionPlanner({ inv, setInv }) {
     return t;
   }, [speedBuff, buffs]);
 
-  // Accumulation of RFC over daysToSVS based on daily FC income and refine tiers
+  // Accumulation of RFC over remaining days based on daily FC income and refine tiers
   const rfcAccumulated = useMemo(() => {
     let total = 0, rc = 1;
     for (let d = 0; d < daysToSVS; d++) {
@@ -677,8 +737,38 @@ export default function ConstructionPlanner({ inv, setInv }) {
     return Math.round(total);
   }, [daysToSVS, dailyFCIncome]);
 
-  // FC accumulated over daysToSVS from daily income
+  // FC accumulated over remaining days from daily income
   const fcAccumulated = useMemo(() => Math.round(dailyFCIncome * daysToSVS), [dailyFCIncome, daysToSVS]);
+
+  // Build per-day accumulation rows (full 21-day cycle for display)
+  const accumRows = useMemo(() => {
+    const rows = [];
+    let runningFC  = fc;
+    let runningRFC = rfc;
+    let rc = 1;
+    const cycleStart = getCycleStartDate(selectedCycle);
+    for (let d = 0; d < 21; d++) {
+      const dayDate = addDaysToDate(cycleStart, d);
+      const dayFC   = dailyFCIncome;
+      const tier    = getRFCTier(rc);
+      const refines = Math.floor(dailyFCIncome / tier.fcPer);
+      const dayRFC  = refines * tier.rfcPer;
+      rc = Math.min(rc + refines, 100);
+      runningFC  += dayFC;
+      runningRFC += dayRFC;
+      rows.push({
+        day: d + 1,
+        date: fmtDateCal(dayDate),
+        dailyFC: dayFC,
+        dailyRFC: dayRFC,
+        runningFC,
+        runningRFC,
+        isPast: d < todayDayIndex,
+        isToday: d === todayDayIndex,
+      });
+    }
+    return rows;
+  }, [fc, rfc, dailyFCIncome, selectedCycle, todayDayIndex]);
 
   // Per-building computed costs — all from BLDG_DB (accurate spreadsheet data)
   const buildingCalcs = useMemo(() => {
@@ -765,8 +855,139 @@ export default function ConstructionPlanner({ inv, setInv }) {
               <span style={{fontSize:9,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:C.textDim,fontFamily:"Space Mono,monospace"}}>Plan starts</span>
               <span style={{fontFamily:"Space Mono,monospace",fontSize:12,color:C.textSec,padding:"5px 0"}}>{cycleStartDate}</span>
             </div>
+            <div style={{display:"flex",flexDirection:"column",gap:3}}>
+              <span style={{fontSize:9,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:C.textDim,fontFamily:"Space Mono,monospace"}}>Days to SvS</span>
+              <span style={{fontFamily:"Space Mono,monospace",fontSize:12,fontWeight:700,color:daysToSVS <= 7 ? C.red : daysToSVS <= 14 ? C.amber : C.green,padding:"5px 0"}}>
+                {daysToSVS} day{daysToSVS !== 1 ? "s" : ""}
+              </span>
+            </div>
+            {/* Snapshot action buttons */}
+            <div style={{display:"flex",gap:8,alignItems:"flex-end",paddingBottom:2}}>
+              <button onClick={onSetSnapshot}
+                style={{padding:"6px 12px",borderRadius:7,fontSize:11,fontWeight:700,cursor:"pointer",
+                  fontFamily:"Syne,sans-serif",border:`1px solid ${C.accentDim}`,
+                  background:C.accentBg,color:C.accent,transition:"all 0.15s"}}
+                title="Lock today's inventory as the starting point for this SvS cycle">
+                📌 Set Starting Inventory
+              </button>
+              {planSnapshot && (
+                <button onClick={openUpdateModal}
+                  style={{padding:"6px 12px",borderRadius:7,fontSize:11,fontWeight:700,cursor:"pointer",
+                    fontFamily:"Syne,sans-serif",border:`1px solid ${C.blueDim}`,
+                    background:C.blueBg,color:C.blue,transition:"all 0.15s"}}
+                  title="Update plan with today's actual balances">
+                  🔄 Update Plan
+                </button>
+              )}
+            </div>
           </div>
         </div>
+
+        {/* Snapshot status banner */}
+        {planSnapshot && (
+          <div style={{padding:"8px 20px",background:C.accentBg,borderBottom:`1px solid ${C.accentDim}`,
+            fontSize:11,color:C.accent,fontFamily:"Space Mono,monospace",display:"flex",alignItems:"center",gap:8}}>
+            <span>📌</span>
+            <span>Starting inventory set {planSnapshot.setAt ? new Date(planSnapshot.setAt).toLocaleDateString() : ""} — FC: {fmtFull(planSnapshot.fc ?? 0)}, RFC: {fmtFull(planSnapshot.rfc ?? 0)}</span>
+          </div>
+        )}
+
+        {/* Update Plan Modal */}
+        {showUpdateModal && (
+          <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+            <div style={{background:C.card,border:`1px solid ${C.borderHi}`,borderRadius:14,width:"100%",maxWidth:520,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 24px 80px rgba(0,0,0,0.6)"}}>
+              <div style={{padding:"20px 24px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                <div style={{fontSize:15,fontWeight:800,color:C.textPri}}>Update Plan</div>
+                <button onClick={() => setShowUpdateModal(false)} style={{background:"none",border:"none",color:C.textDim,cursor:"pointer",fontSize:18}}>✕</button>
+              </div>
+              <div style={{padding:"20px 24px"}}>
+
+                {/* FC / RFC confirmation inputs */}
+                <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",color:C.textDim,fontFamily:"Space Mono,monospace",marginBottom:10}}>Confirm Current Inventory</div>
+                <p style={{fontSize:11,color:C.textSec,marginBottom:12}}>
+                  Pre-filled from your Inventory tab. Correct these if needed before confirming.
+                </p>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:20}}>
+                  <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                    <label style={{fontSize:11,fontWeight:600,color:C.textSec}}>Fire Crystals (FC)</label>
+                    <NumInput className="inp-field"
+                      value={modalFC} min={0}
+                      onChange={v => setModalFC(v)}
+                      style={{background:C.surface,border:`1px solid ${C.accentDim}`,borderRadius:7,
+                        padding:"7px 10px",fontFamily:"Space Mono,monospace",fontSize:13,
+                        color:C.accent,outline:"none",width:"100%",textAlign:"right"}} />
+                  </div>
+                  <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                    <label style={{fontSize:11,fontWeight:600,color:C.textSec}}>Refined FC (RFC)</label>
+                    <NumInput className="inp-field"
+                      value={modalRFC} min={0}
+                      onChange={v => setModalRFC(v)}
+                      style={{background:C.surface,border:`1px solid ${C.amberBg}`,borderRadius:7,
+                        padding:"7px 10px",fontFamily:"Space Mono,monospace",fontSize:13,
+                        color:C.amber,outline:"none",width:"100%",textAlign:"right"}} />
+                  </div>
+                </div>
+                <p style={{fontSize:11,color:C.textDim,marginBottom:16,fontFamily:"Space Mono,monospace"}}>
+                  Will also override Day {rfcTodayIndex + 1} in the RFC Planner.
+                </p>
+
+                {/* Per-building upgrade overrides */}
+                <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",color:C.textDim,fontFamily:"Space Mono,monospace",marginBottom:10}}>Buildings Already Upgraded</div>
+                <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
+                  {buildings.map(b => {
+                    const override = upgradeOverrides[b.name] || b.current;
+                    const goalIdx  = FC_LEVELS.indexOf(b.goal);
+                    const available = FC_LEVEL_OPTS.filter(l => {
+                      const li = FC_LEVELS.indexOf(l);
+                      return li >= FC_LEVELS.indexOf(b.current) && li <= goalIdx;
+                    });
+                    if (available.length <= 1) return null; // nothing to upgrade to
+                    return (
+                      <div key={b.name} style={{display:"flex",alignItems:"center",gap:10}}>
+                        <span style={{fontSize:12,fontWeight:600,color:C.textPri,width:120,flexShrink:0}}>{b.name}</span>
+                        <span style={{fontSize:11,color:C.textDim,fontFamily:"Space Mono,monospace",width:50}}>{b.current}</span>
+                        <span style={{fontSize:11,color:C.textDim}}>→</span>
+                        <select value={override}
+                          onChange={e => setUpgradeOverrides(prev => ({...prev,[b.name]:e.target.value}))}
+                          style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,
+                            color:C.textPri,fontSize:11,padding:"4px 8px",cursor:"pointer",outline:"none",
+                            fontFamily:"Space Mono,monospace"}}>
+                          {available.map(l => (
+                            <option key={l} value={l}>{l}{l === b.current ? " (current)" : l === b.goal ? " (goal)" : ""}</option>
+                          ))}
+                        </select>
+                        {override !== b.current && (
+                          <span style={{fontSize:10,color:C.green,fontFamily:"Space Mono,monospace"}}>✓ upgraded</span>
+                        )}
+                      </div>
+                    );
+                  }).filter(Boolean)}
+                </div>
+
+                {/* Notes */}
+                <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",color:C.textDim,fontFamily:"Space Mono,monospace",marginBottom:6}}>Notes (optional)</div>
+                <textarea value={updateNote} onChange={e => setUpdateNote(e.target.value)}
+                  placeholder="e.g. Bought a 10-pack, completed Embassy FC6 upgrade"
+                  style={{width:"100%",background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,
+                    padding:"8px 12px",color:C.textPri,fontSize:12,fontFamily:"Space Mono,monospace",
+                    resize:"vertical",minHeight:60,outline:"none",boxSizing:"border-box"}} />
+
+                <div style={{display:"flex",gap:8,marginTop:16}}>
+                  <button onClick={handleConfirmUpdate}
+                    style={{padding:"9px 20px",borderRadius:7,fontSize:12,fontWeight:700,cursor:"pointer",
+                      fontFamily:"Syne,sans-serif",border:"none",background:C.blue,color:"var(--c-btnText)"}}>
+                    Confirm Update
+                  </button>
+                  <button onClick={() => { setShowUpdateModal(false); setUpgradeOverrides({}); setUpdateNote(""); setModalFC(0); setModalRFC(0); }}
+                    style={{padding:"9px 16px",borderRadius:7,fontSize:12,fontWeight:700,cursor:"pointer",
+                      fontFamily:"Syne,sans-serif",background:"transparent",color:C.textSec,border:`1px solid ${C.border}`}}>
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="cp-body">
 
@@ -816,16 +1037,22 @@ export default function ConstructionPlanner({ inv, setInv }) {
 
           {/* Inventory & Accumulation Settings */}
           <div>
-            <div className="sec-head">Inventory &amp; accumulation settings</div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8,marginBottom:12}}>
+              <div className="sec-head" style={{margin:0}}>Inventory &amp; accumulation settings</div>
+              {planSnapshot
+                ? <span style={{fontSize:10,color:C.accent,fontFamily:"Space Mono,monospace"}}>Using starting inventory snapshot</span>
+                : <span style={{fontSize:10,color:C.textDim,fontFamily:"Space Mono,monospace"}}>Using live inventory · click 📌 Set Starting Inventory to lock in a baseline</span>
+              }
+            </div>
             <div className="settings-grid">
               <div className="inp-group">
                 <label className="inp-label">Current FC</label>
-                <NumInput className="inp-field" value={fc} min={0}
+                <NumInput className="inp-field" value={liveFC} min={0}
                   onChange={v => setFC(v)} />
               </div>
               <div className="inp-group">
                 <label className="inp-label">Current Refined FC</label>
-                <NumInput className="inp-field" value={rfc} min={0}
+                <NumInput className="inp-field" value={liveRFC} min={0}
                   onChange={v => setRFC(v)} />
               </div>
               <div className="inp-group">
@@ -1024,7 +1251,7 @@ export default function ConstructionPlanner({ inv, setInv }) {
                 {label:"Fire Crystals", value:materialTotals.fc,   color:C.accent,  unit:"FC"},
                 {label:"Refined FC",    value:materialTotals.rfc,  color:C.amber,   unit:"RFC"},
                 {label:"Meat",          value:materialTotals.meat, color:C.green,   unit:"M"},
-                {label:"Wood",          value:materialTotals.wood, color:C.teal,    unit:"M"},
+                {label:"Wood",          value:materialTotals.wood, color:C.blue,    unit:"M"},
                 {label:"Coal",          value:materialTotals.coal, color:C.textSec, unit:"M"},
                 {label:"Iron",          value:materialTotals.iron, color:C.blue,    unit:"M"},
               ].map(({label,value,color,unit})=>(
@@ -1042,10 +1269,10 @@ export default function ConstructionPlanner({ inv, setInv }) {
           {/* Accumulation breakdown */}
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
             <div>
-              <div className="sec-head">FC &amp; RFC accumulation over {daysToSVS} days</div>
+              <div className="sec-head">FC &amp; RFC accumulation — {daysToSVS} days remaining</div>
               <div className="accum-card">
                 <div className="accum-row">
-                  <span className="accum-label">Current FC</span>
+                  <span className="accum-label">{planSnapshot ? "Starting FC (snapshot)" : "Current FC"}</span>
                   <span className="accum-val accent">{fmtFull(fc)}</span>
                 </div>
                 <div className="accum-row">
@@ -1067,7 +1294,7 @@ export default function ConstructionPlanner({ inv, setInv }) {
                   </span>
                 </div>
                 <div className="accum-row">
-                  <span className="accum-label">Current RFC</span>
+                  <span className="accum-label">{planSnapshot ? "Starting RFC (snapshot)" : "Current RFC"}</span>
                   <span className="accum-val accent">{fmtFull(rfc)}</span>
                 </div>
                 <div className="accum-row">
@@ -1091,22 +1318,60 @@ export default function ConstructionPlanner({ inv, setInv }) {
               </div>
             </div>
 
-            {/* RFC tier info */}
+            {/* Daily accumulation table */}
             <div>
-              <div className="sec-head">Refine tier status</div>
-              <div className="accum-card">
-                <div style={{marginTop:0}}>
-                  <div style={{fontSize:10,color:C.textDim,marginBottom:8,fontFamily:"Space Mono,monospace",letterSpacing:1}}>REFINE TIER TABLE</div>
-                  {RFC_TIERS.map(t => (
-                    <div key={t.tier} style={{display:"flex",alignItems:"center",gap:10,padding:"5px 0",borderBottom:`1px solid ${C.border}`,fontSize:12}}>
-                      <span style={{width:24,fontFamily:"Space Mono,monospace",fontWeight:700,color:C.textDim}}>{t.tier}</span>
-                      <span style={{color:C.textDim,fontSize:10,fontFamily:"Space Mono,monospace",width:60}}>#{t.min}–{t.max}</span>
-                      <span style={{color:C.accent,fontFamily:"Space Mono,monospace"}}>{t.fcPer} FC</span>
-                      <span style={{color:C.textDim,fontSize:10}}>→</span>
-                      <span style={{color:C.amber,fontFamily:"Space Mono,monospace"}}>{t.rfcPer} RFC</span>
-                    </div>
-                  ))}
-                </div>
+              <div className="sec-head">Day-by-day accumulation</div>
+              <div style={{overflowY:"auto",maxHeight:420,border:`1px solid ${C.border}`,borderRadius:8}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                  <thead>
+                    <tr style={{background:C.surface,position:"sticky",top:0,zIndex:1}}>
+                      <th style={{padding:"6px 8px",textAlign:"left",fontSize:9,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:C.textDim,borderBottom:`1px solid ${C.border}`,fontFamily:"Space Mono,monospace"}}>Day</th>
+                      <th style={{padding:"6px 8px",textAlign:"left",fontSize:9,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:C.textDim,borderBottom:`1px solid ${C.border}`,fontFamily:"Space Mono,monospace"}}>Date</th>
+                      <th style={{padding:"6px 8px",textAlign:"right",fontSize:9,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:C.textDim,borderBottom:`1px solid ${C.border}`,fontFamily:"Space Mono,monospace"}}>+FC</th>
+                      <th style={{padding:"6px 8px",textAlign:"right",fontSize:9,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:C.textDim,borderBottom:`1px solid ${C.border}`,fontFamily:"Space Mono,monospace"}}>Total FC</th>
+                      <th style={{padding:"6px 8px",textAlign:"right",fontSize:9,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:C.textDim,borderBottom:`1px solid ${C.border}`,fontFamily:"Space Mono,monospace"}}>+RFC</th>
+                      <th style={{padding:"6px 8px",textAlign:"right",fontSize:9,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:C.textDim,borderBottom:`1px solid ${C.border}`,fontFamily:"Space Mono,monospace"}}>Total RFC</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {accumRows.map(row => (
+                      <tr key={row.day}
+                        style={{
+                          background: row.isToday ? C.accentBg : "transparent",
+                          opacity: row.isPast ? 0.45 : 1,
+                          borderLeft: row.isToday ? `3px solid ${C.accent}` : "3px solid transparent",
+                        }}>
+                        <td style={{padding:"5px 8px",fontFamily:"Space Mono,monospace",color: row.isToday ? C.accent : C.textSec,fontWeight:row.isToday?700:400}}>
+                          {row.isToday ? "▶ " : ""}{row.day}
+                        </td>
+                        <td style={{padding:"5px 8px",fontFamily:"Space Mono,monospace",color:C.textDim,fontSize:10}}>{row.date}</td>
+                        <td style={{padding:"5px 8px",textAlign:"right",color:C.green,fontFamily:"Space Mono,monospace"}}>+{fmt(row.dailyFC)}</td>
+                        <td style={{padding:"5px 8px",textAlign:"right",color:C.accent,fontFamily:"Space Mono,monospace",fontWeight:600}}>{fmt(row.runningFC)}</td>
+                        <td style={{padding:"5px 8px",textAlign:"right",color:C.amber,fontFamily:"Space Mono,monospace"}}>+{row.dailyRFC}</td>
+                        <td style={{padding:"5px 8px",textAlign:"right",color:C.amber,fontFamily:"Space Mono,monospace",fontWeight:600}}>{fmt(row.runningRFC)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          {/* RFC tier info */}
+          <div>
+            <div className="sec-head">Refine tier status</div>
+            <div className="accum-card">
+              <div style={{marginTop:0}}>
+                <div style={{fontSize:10,color:C.textDim,marginBottom:8,fontFamily:"Space Mono,monospace",letterSpacing:1}}>REFINE TIER TABLE</div>
+                {RFC_TIERS.map(t => (
+                  <div key={t.tier} style={{display:"flex",alignItems:"center",gap:10,padding:"5px 0",borderBottom:`1px solid ${C.border}`,fontSize:12}}>
+                    <span style={{width:24,fontFamily:"Space Mono,monospace",fontWeight:700,color:C.textDim}}>{t.tier}</span>
+                    <span style={{color:C.textDim,fontSize:10,fontFamily:"Space Mono,monospace",width:60}}>#{t.min}–{t.max}</span>
+                    <span style={{color:C.accent,fontFamily:"Space Mono,monospace"}}>{t.fcPer} FC</span>
+                    <span style={{color:C.textDim,fontSize:10}}>→</span>
+                    <span style={{color:C.amber,fontFamily:"Space Mono,monospace"}}>{t.rfcPer} RFC</span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>

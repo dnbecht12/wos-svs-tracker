@@ -1,18 +1,19 @@
 import React, { useState, useMemo } from "react";
 import { buildCycles, getCurrentCycleNum, fmtDate, cycleLabelFull } from "./svsCalendar.js";
 
-const C = {
-  bg:"#0a0c10", surface:"#111418", card:"#161b22", border:"#21262d", borderHi:"#30363d",
-  accent:"#e36b1a", accentDim:"#7d3a0d", accentBg:"#1a1008",
-  textPri:"#e6edf3", textSec:"#8b949e", textDim:"#484f58",
-  svs:"#e8ff4a", svsDim:"#7a8a14", svsBg:"#15190a",
-  koi:"#4ab8ff", koiDim:"#1a5080", koiBg:"#041420",
-};
+const C = new Proxy({}, { get(_, key) { return `var(--c-${key})`; } });
+// Semantic week colors mapped to theme vars
+const C_SVS_COLOR = "var(--c-accent)";
+const C_SVS_DIM   = "var(--c-accentDim)";
+const C_SVS_BG    = "var(--c-accentBg)";
+const C_KOI_COLOR = "var(--c-blue)";
+const C_KOI_DIM   = "var(--c-blueDim)";
+const C_KOI_BG    = "var(--c-blueBg)";
 
 const STYLE = `
 @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;500;600;700;800&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
-.cal{font-family:'Syne',sans-serif;color:${C.textPri};background:${C.bg};min-height:100vh}
+.cal{font-family:'Syne',sans-serif;color:${C.textPri};background:var(--c-bg);min-height:100vh}
 .cal-top{background:${C.surface};border-bottom:1px solid ${C.border};padding:20px 28px;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
 .cal-title{font-size:20px;font-weight:800}.cal-title span{color:${C.accent}}
 .cal-sub{font-size:12px;color:${C.textSec};margin-top:3px}
@@ -25,8 +26,8 @@ const STYLE = `
 .legend{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
 .leg-item{display:flex;align-items:center;gap:6px;font-size:11px;color:${C.textSec}}
 .leg-dot{width:12px;height:12px;border-radius:3px;flex-shrink:0}
-.leg-svs{background:${C.svsBg};border:1px solid ${C.svsDim};box-shadow:0 0 6px ${C.svsDim}}
-.leg-koi{background:${C.koiBg};border:1px solid ${C.koiDim};box-shadow:0 0 6px ${C.koiDim}}
+.leg-svs{background:var(--c-accentBg);border:1px solid var(--c-accentDim);box-shadow:0 0 6px var(--c-accentDim)}
+.leg-koi{background:var(--c-blueBg);border:1px solid var(--c-blueDim);box-shadow:0 0 6px var(--c-blueDim)}
 .leg-prep{background:${C.card};border:1px solid ${C.border}}
 .cycle-block{display:flex;flex-direction:column;gap:8px}
 .cycle-hd{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;font-family:'Space Mono',monospace;color:${C.textDim};display:flex;align-items:center;gap:8px;padding-bottom:4px}
@@ -35,27 +36,27 @@ const STYLE = `
 .wk{border-radius:10px;padding:14px 16px;border:1px solid ${C.border};transition:border-color .15s}
 .wk.prep{background:${C.card}}
 .wk.prep:hover{border-color:${C.borderHi}}
-.wk.koi{background:${C.koiBg};border:1.5px solid ${C.koiDim};box-shadow:0 0 10px ${C.koiDim}55}
-.wk.svs{background:${C.svsBg};border:1.5px solid ${C.svsDim};box-shadow:0 0 14px ${C.svsDim}66}
+.wk.koi{background:var(--c-blueBg);border:1.5px solid var(--c-blueDim);box-shadow:0 0 10px var(--c-blueDim)55}
+.wk.svs{background:var(--c-accentBg);border:1.5px solid var(--c-accentDim);box-shadow:0 0 14px var(--c-accentDim)66}
 .wk.current{outline:2px solid ${C.accent};outline-offset:3px}
 .wk-badge{font-size:9px;font-weight:700;font-family:'Space Mono',monospace;padding:2px 7px;border-radius:4px;display:inline-block;margin-bottom:6px}
-.badge-svs{background:${C.svsBg};color:${C.svs};border:1px solid ${C.svsDim}}
-.badge-koi{background:${C.koiBg};color:${C.koi};border:1px solid ${C.koiDim}}
+.badge-svs{background:var(--c-accentBg);color:var(--c-accent);border:1px solid var(--c-accentDim)}
+.badge-koi{background:var(--c-blueBg);color:var(--c-blue);border:1px solid var(--c-blueDim)}
 .badge-prep{background:${C.card};color:${C.textDim};border:1px solid ${C.border}}
 .badge-now{float:right;background:${C.accentBg};color:${C.accent};border:1px solid ${C.accentDim};padding:2px 6px;border-radius:4px;font-size:8px;font-family:'Space Mono',monospace;font-weight:700;margin-top:2px}
 .wk-dates{font-size:11px;font-weight:700;font-family:'Space Mono',monospace;margin-bottom:3px}
-.wk-dates.svs{color:${C.svs}}
-.wk-dates.koi{color:${C.koi}}
+.wk-dates.svs{color:var(--c-accent)}
+.wk-dates.koi{color:var(--c-blue)}
 .wk-dates.prep{color:${C.textSec}}
 .wk-lbl{font-size:11px;font-weight:600;color:${C.textSec}}
-.wk-lbl.svs{color:${C.svs};opacity:.85}
-.wk-lbl.koi{color:${C.koi};opacity:.85}
+.wk-lbl.svs{color:var(--c-accent);opacity:.85}
+.wk-lbl.koi{color:var(--c-blue);opacity:.85}
 .day-pips{margin-top:10px;display:flex;gap:3px}
 .pip{width:22px;height:22px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;font-family:'Space Mono',monospace;border:1px solid ${C.border};background:${C.surface};color:${C.textDim}}
 .pip.today{background:${C.accentBg};border-color:${C.accentDim};color:${C.accent};font-weight:700}
 .pip.past{opacity:.3}
-.pip.svs-pip{background:${C.svsBg};border-color:${C.svsDim};color:${C.svs}}
-.pip.koi-pip{background:${C.koiBg};border-color:${C.koiDim};color:${C.koi}}
+.pip.svs-pip{background:var(--c-accentBg);border-color:var(--c-accentDim);color:var(--c-accent)}
+.pip.koi-pip{background:var(--c-blueBg);border-color:var(--c-blueDim);color:var(--c-blue)}
 @media(max-width:700px){.week-row{grid-template-columns:1fr 1fr}}
 @media(max-width:420px){.week-row{grid-template-columns:1fr}}
 `;

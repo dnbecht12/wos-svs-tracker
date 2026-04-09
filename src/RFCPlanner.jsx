@@ -99,26 +99,18 @@ function latestPlanKey(baseName, existingKeys) {
   return matches[matches.length - 1] || null;
 }
 
-const C = {
-  bg:"#0a0c10", surface:"#111418", card:"#161b22", border:"#21262d", borderHi:"#30363d",
-  accent:"#e36b1a", accentDim:"#7d3a0d", accentBg:"#1a1008",
-  blue:"#388bfd", blueBg:"#0c1929", blueDim:"#1f4b8c",
-  green:"#3fb950", greenBg:"#0a1f0e", greenDim:"#1a5c26",
-  red:"#f85149",
-  amber:"#d29922", amberBg:"#1a1408",
-  teal:"#2ea8b0", tealBg:"#0a1e20",
-  purple:"#a371f7", purpleBg:"#1a1030",
-  textPri:"#e6edf3", textSec:"#8b949e", textDim:"#484f58",
-  // Week 4 = SvS: neon yellow glow
-  svs:"#e8ff4a", svsDim:"#7a8a14", svsBg:"#15190a",
-  // Week 2 = KOI: neon blue glow
-  koi:"#4ab8ff", koiDim:"#1a5080", koiBg:"#041420",
-};
+const C = new Proxy({}, { get(_, key) { return `var(--c-${key})`; } });
+// Extra semantic colors not in main theme — fall back gracefully
+const C_SVS    = "var(--c-accent)";
+const C_SVS_BG = "var(--c-accentBg)";
+const C_KOI    = "var(--c-blue)";
+const C_KOI_BG = "var(--c-blueBg)";
+
 
 const STYLE = `
 @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;500;600;700;800&display=swap');
 *{box-sizing:border-box;margin:0;padding:0}
-.rp{font-family:'Syne',sans-serif;color:${C.textPri};background:${C.bg};min-height:100vh}
+.rp{font-family:'Syne',sans-serif;color:${C.textPri};background:var(--c-bg);min-height:100vh}
 .rp-top{background:${C.surface};border-bottom:1px solid ${C.border};padding:20px 28px}
 .rp-title-row{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:12px}
 .rp-title{font-size:20px;font-weight:800}.rp-title span{color:${C.accent}}
@@ -162,10 +154,10 @@ const STYLE = `
 .day-table{background:${C.card};border:1px solid ${C.border};border-radius:12px;overflow:hidden}
 
 /* Week 2 (KOI) — neon blue outline */
-.day-table.wk2{border:1.5px solid ${C.koiDim};box-shadow:0 0 16px ${C.koiDim}66,inset 0 0 12px ${C.koiDim}18}
+.day-table.wk2{border:1.5px solid var(--c-blueDim);box-shadow:0 0 16px var(--c-blueDim)66,inset 0 0 12px var(--c-blueDim)18}
 
 /* Week 4 (SvS) — neon yellow outline */
-.day-table.wk4{border:1.5px solid ${C.svsDim};box-shadow:0 0 18px ${C.svsDim}88,inset 0 0 14px ${C.svsDim}18}
+.day-table.wk4{border:1.5px solid var(--c-accentDim);box-shadow:0 0 18px var(--c-accentDim)88,inset 0 0 14px var(--c-accentDim)18}
 
 .dt-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
 table.dt{border-collapse:collapse;font-size:12px;width:100%;min-width:680px}
@@ -185,7 +177,7 @@ table.dt th.r{text-align:right}
 table.dt td{padding:0;border-bottom:1px solid ${C.border};border-right:1px solid ${C.border};vertical-align:middle;height:36px}
 table.dt td:last-child{border-right:none}
 table.dt tr:last-child td{border-bottom:none}
-table.dt tr:hover td{background:rgba(255,255,255,0.018)}
+table.dt tr:hover td{background:var(--c-hover)}
 table.dt tr.mon-row td{background:rgba(56,139,253,0.05)}
 
 .cp{padding:0 10px;display:flex;align-items:center;height:36px;font-family:'Space Mono',monospace;font-size:11px}
@@ -203,8 +195,8 @@ td.ec select.mon-sel{color:${C.accent};font-weight:700}
 .tp1{background:${C.blueBg};color:${C.blue};border:1px solid ${C.blueDim}}
 .tp2{background:${C.accentBg};color:${C.accent};border:1px solid ${C.accentDim}}
 .tp3{background:${C.amberBg};color:${C.amber};border:1px solid #7d5a0d}
-.tp4{background:${C.tealBg};color:${C.teal};border:1px solid #0f5a60}
-.tp5{background:${C.purpleBg};color:${C.purple}}
+.tp4{background:var(--c-blueBg);color:var(--c-blue);border:1px solid #0f5a60}
+.tp5{background:var(--c-accentBg);color:var(--c-accent)}
 
 .dc{display:flex;align-items:center;gap:5px;padding:0 10px;height:36px;white-space:nowrap}
 .dn{font-weight:700;color:${C.textPri};font-family:'Space Mono',monospace;font-size:11px;min-width:16px;text-align:right;flex-shrink:0}
@@ -214,8 +206,8 @@ td.ec select.mon-sel{color:${C.accent};font-weight:700}
 /* Week divider rows — each week is its own table, so the divider is the table's label */
 .wk-label{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;font-family:'Space Mono',monospace;padding:6px 0 8px;display:flex;align-items:center;gap:8px}
 .wk-label::after{content:'';flex:1;height:1px;background:${C.border}}
-.wk-label.wk-svs{color:${C.svs}}
-.wk-label.wk-koi{color:${C.koi}}
+.wk-label.wk-svs{color:var(--c-accent)}
+.wk-label.wk-koi{color:var(--c-blue)}
 .wk-label.wk-prep{color:${C.textDim}}
 
 /* tfoot */
@@ -402,7 +394,7 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
               </div>
               <div className="date-ctrl">
                 <span className="date-lbl">Plan starts</span>
-                <span className="date-inp" style={{color:"#8b949e",cursor:"default"}}>
+                <span className="date-inp" style={{color:"var(--c-textSec)",cursor:"default"}}>
                   {startDate ? fmtDate(startDate) : "—"}
                 </span>
               </div>
@@ -464,7 +456,7 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
             </div>
             <div className="stile">
               <div className="sl">Total RFC earned</div>
-              <div className="sv" style={{color:C.teal}}>{fmtN(totals.rfcRec)}</div>
+              <div className="sv" style={{color:C.blue}}>{fmtN(totals.rfcRec)}</div>
               <div className="ss">28-day total</div>
             </div>
             <div className="stile">
@@ -580,7 +572,7 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
                                 </div>
                               </td>
                               <td>
-                                <div className="cp r" style={{color:r.rfcEarned>0?C.teal:C.textDim,fontWeight:700}}>
+                                <div className="cp r" style={{color:r.rfcEarned>0?C.blue:C.textDim,fontWeight:700}}>
                                   {r.rfcEarned>0?fmtN(r.rfcEarned):"—"}
                                 </div>
                               </td>
@@ -612,8 +604,8 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
 
           <div className="note">
             <strong>Tier</strong> is auto-calculated per-refine from your spreadsheet lookup table (O13:T112).
-            <strong style={{color:C.svs}}> Week 4 = SvS week</strong> (neon yellow outline).
-            <strong style={{color:C.koi}}> Week 2 = King of Icefield</strong> (neon blue outline).
+            <strong style={{color:C.accent}}> Week 4 = SvS week</strong> (neon yellow outline).
+            <strong style={{color:C.blue}}> Week 2 = King of Icefield</strong> (neon blue outline).
             Monday resets weekly refine count. Use <strong>Set Monday refines to</strong> for Favorites or any value 1–120.
           </div>
 

@@ -87,6 +87,28 @@ export async function charSaveBuildings(characterId, buildings) {
   );
 }
 
+// ─── Plan snapshot helpers (stored in characters.plan_snapshot) ───────────────
+
+export async function savePlanSnapshot(characterId, snapshot) {
+  if (!characterId) return;
+  const { error } = await supabase
+    .from("characters")
+    .update({ plan_snapshot: snapshot })
+    .eq("id", characterId);
+  if (error) console.error("[savePlanSnapshot]", error.message);
+}
+
+export async function loadPlanSnapshot(characterId) {
+  if (!characterId) return null;
+  const { data, error } = await supabase
+    .from("characters")
+    .select("plan_snapshot")
+    .eq("id", characterId)
+    .single();
+  if (error || !data) return null;
+  return data.plan_snapshot || null;
+}
+
 // ─── Character management helpers ─────────────────────────────────────────────
 
 export async function fetchCharacters(userId) {

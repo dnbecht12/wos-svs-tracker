@@ -3,33 +3,86 @@ import ConstructionPlanner from "./ConstructionPlanner.jsx";
 import RFCPlanner from "./RFCPlanner.jsx";
 import SvSCalendar from "./SvSCalendar.jsx";
 import { useAuth } from "./useAuth.js";
-import { useCharacters, charLoadInventory, charSaveInventory, charLoadPlans, charSavePlan, charDeletePlan } from "./useCharacters.js";
+import { useCharacters, charLoadInventory, charSaveInventory, charLoadPlans, charSavePlan, charDeletePlan, savePlanSnapshot, loadPlanSnapshot } from "./useCharacters.js";
 
 // ─── Theme & Design System ────────────────────────────────────────────────────
-const COLORS = {
-  bg:        "#0a0c10",
-  surface:   "#111418",
-  card:      "#161b22",
-  border:    "#21262d",
-  borderHi:  "#30363d",
-  accent:    "#e36b1a",
-  accentDim: "#7d3a0d",
-  accentBg:  "#1a1008",
-  blue:      "#388bfd",
-  blueDim:   "#1f4b8c",
-  blueBg:    "#0c1929",
-  green:     "#3fb950",
-  greenDim:  "#1a5c26",
-  greenBg:   "#0a1f0e",
-  red:       "#f85149",
-  redDim:    "#7d1f1a",
-  redBg:     "#1f0c0b",
-  amber:     "#d29922",
-  amberBg:   "#1a1408",
-  textPri:   "#e6edf3",
-  textSec:   "#8b949e",
-  textDim:   "#484f58",
+// ─── Theme System ─────────────────────────────────────────────────────────────
+
+const THEMES = {
+  dark: {
+    bg:        "#0a0c10",
+    surface:   "#111418",
+    card:      "#161b22",
+    border:    "#21262d",
+    borderHi:  "#30363d",
+    accent:    "#e36b1a",
+    accentDim: "#7d3a0d",
+    accentBg:  "#1a1008",
+    blue:      "#388bfd",
+    blueDim:   "#1f4b8c",
+    blueBg:    "#0c1929",
+    green:     "#3fb950",
+    greenDim:  "#1a5c26",
+    greenBg:   "#0a1f0e",
+    red:       "#f85149",
+    redDim:    "#7d1f1a",
+    redBg:     "#1f0c0b",
+    amber:     "#d29922",
+    amberBg:   "#1a1408",
+    textPri:   "#e6edf3",
+    textSec:   "#8b949e",
+    textDim:   "#484f58",
+    hover:     "rgba(255,255,255,0.04)",
+    btnText:   "#0a0c10",
+  },
+  light: {
+    bg:        "#f4f5f7",
+    surface:   "#ffffff",
+    card:      "#ffffff",
+    border:    "#d0d7de",
+    borderHi:  "#afb8c1",
+    accent:    "#c85a0f",
+    accentDim: "#e36b1a",
+    accentBg:  "#fdf0e8",
+    blue:      "#0969da",
+    blueDim:   "#54aeff",
+    blueBg:    "#ddf4ff",
+    green:     "#1a7f37",
+    greenDim:  "#2da44e",
+    greenBg:   "#dafbe1",
+    red:       "#cf222e",
+    redDim:    "#ff8182",
+    redBg:     "#ffebe9",
+    amber:     "#9a6700",
+    amberBg:   "#fff8c5",
+    textPri:   "#1f2328",
+    textSec:   "#57606a",
+    textDim:   "#8c959f",
+    hover:     "rgba(0,0,0,0.04)",
+    btnText:   "#ffffff",
+  },
 };
+
+// Detect system preference
+function getSystemTheme() {
+  return window.matchMedia?.("(prefers-color-scheme: light)").matches ? "light" : "dark";
+}
+
+// Apply theme by setting CSS variables on :root
+function applyTheme(theme) {
+  const colors = THEMES[theme] || THEMES.dark;
+  const root = document.documentElement;
+  Object.entries(colors).forEach(([k, v]) => root.style.setProperty(`--c-${k}`, v));
+  root.setAttribute("data-theme", theme);
+}
+
+// COLORS proxy — always reads the current CSS variable values at render time
+// Used for inline styles throughout the app
+const COLORS = new Proxy({}, {
+  get(_, key) {
+    return `var(--c-${key})`;
+  }
+});
 
 const css = (strings, ...vals) => strings.reduce((a, s, i) => a + s + (vals[i] ?? ""), "");
 
@@ -49,7 +102,44 @@ function useLocalStorage(key, initial) {
   return [val, set];
 }
 
-// ─── Initial Data — blank slate for new users ────────────────────────────────
+// ─── Theme Hook ───────────────────────────────────────────────────────────────
+function useTheme() {
+  const [theme, setThemeRaw] = useState(() => {
+    try {
+      const saved = localStorage.getItem("wos-theme");
+      if (saved === "light" || saved === "dark") return saved;
+    } catch {}
+    return getSystemTheme();
+  });
+
+  // Apply on mount and whenever theme changes
+  useEffect(() => {
+    applyTheme(theme);
+  }, [theme]);
+
+  // Also listen for system preference changes (when set to "auto")
+  useEffect(() => {
+    const mq = window.matchMedia("(prefers-color-scheme: light)");
+    const handler = () => {
+      const saved = localStorage.getItem("wos-theme");
+      if (!saved) setThemeRaw(getSystemTheme());
+    };
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+
+  const setTheme = (t) => {
+    try { localStorage.setItem("wos-theme", t); } catch {}
+    setThemeRaw(t);
+  };
+
+  const resetToSystem = () => {
+    try { localStorage.removeItem("wos-theme"); } catch {}
+    setThemeRaw(getSystemTheme());
+  };
+
+  return { theme, setTheme, resetToSystem };
+}
 const INITIAL_INVENTORY = {
   fireCrystals:    0,
   refinedFC:       0,
@@ -61,14 +151,13 @@ const INITIAL_INVENTORY = {
   // Hero gear
   mithril:         0,
   stones:          0,
-  mythicGear:      0,       // Consumable Mythic Gear
-  mythicGenShards: 0,       // Mythic General Shards
-  // War Academy
+  mythicGear:      0,
+  mythicGenShards: 0,
+  // Research (War Academy)
   shards:          0,
   steel:           0,
   dailyIntel:      0,
-  weeklyPack:      false,
-  labyrinthWeekly: 0,
+  steelHourlyRate: 0,
   // Experts
   books:           0,
   generalSigils:   0,
@@ -88,10 +177,6 @@ const INITIAL_INVENTORY = {
   charmDesigns:    0,
   charmGuides:     0,
   charmSecrets:    0,
-  // Skill settings
-  agnesSkillLevel: 1,
-  zinmanSkillLevel:1,
-  zinmanBonus:     0,
 };
 
 // ─── Helpers to read building costs dynamically from Construction Planner state ─
@@ -227,6 +312,9 @@ function sortHeroesByType(heroes) {
     return a.name.localeCompare(b.name);
   });
 }
+function sortHeroesByName(heroes) {
+  return [...heroes].sort((a, b) => a.name.localeCompare(b.name));
+}
 function sortHeroesByGen(heroes) {
   const typeOrder = { Infantry:0, Lancer:1, Marksman:2 };
   return [...heroes].sort((a,b) => {
@@ -347,21 +435,55 @@ function defaultHeroState(type) {
 // ─── HeroesPage ───────────────────────────────────────────────────────────────
 
 function HeroesPage({ genFilter, setGenFilter, heroStats, setHeroStats }) {
-  const [sortBy, setSortBy] = useLocalStorage("heroes-sort", "quality");
+  const [sortBy,    setSortBy]    = useLocalStorage("heroes-sort",      "quality");
+  const [favorites, setFavorites] = useLocalStorage("heroes-favorites", []); // array of hero names, max 6
   const C = COLORS;
 
   const maxGenIdx = GEN_ORDER.indexOf(genFilter);
-  const visible = HERO_ROSTER.filter(h => GEN_ORDER.indexOf(h.gen) <= maxGenIdx);
+  const visible   = HERO_ROSTER.filter(h => GEN_ORDER.indexOf(h.gen) <= maxGenIdx);
 
   const sorted = sortBy === "quality" ? sortHeroesByQuality(visible)
                : sortBy === "type"    ? sortHeroesByType(visible)
-               : sortHeroesByGen(visible);
+               : sortBy === "gen"     ? sortHeroesByGen(visible)
+               : sortBy === "hero"    ? sortHeroesByName(visible)
+               : sortHeroesByQuality(visible);
+
+  // Favorites in same sort order as roster
+  const favHeroes = sorted.filter(h => favorites.includes(h.name));
 
   const updateStat = (heroName, field, value) => {
     setHeroStats(prev => ({
       ...prev,
       [heroName]: { ...(prev[heroName] || defaultHeroStats()), [field]: value },
     }));
+  };
+
+  const toggleFavorite = (heroName) => {
+    setFavorites(prev => {
+      if (prev.includes(heroName)) return prev.filter(n => n !== heroName);
+      if (prev.length >= 6) return prev; // max 6
+      return [...prev, heroName];
+    });
+  };
+
+  const setAllLevelsMax = () => {
+    setHeroStats(prev => {
+      const next = { ...prev };
+      visible.forEach(h => {
+        next[h.name] = { ...(next[h.name] || defaultHeroStats()), level: 80 };
+      });
+      return next;
+    });
+  };
+
+  const setAllSkillsMax = () => {
+    setHeroStats(prev => {
+      const next = { ...prev };
+      visible.forEach(h => {
+        next[h.name] = { ...(next[h.name] || defaultHeroStats()), expS1:5, expS2:5, expS3:5, expdS1:5, expdS2:5, expdS3:5 };
+      });
+      return next;
+    });
   };
 
   const qualityColor = q => q === "SSR" ? C.accent : q === "SR" ? C.blue : C.textSec;
@@ -379,101 +501,176 @@ function HeroesPage({ genFilter, setGenFilter, heroStats, setHeroStats }) {
   };
   const tdS = { padding:"6px 10px", borderBottom:`1px solid ${C.border}`, fontSize:12, color:C.textSec, verticalAlign:"middle" };
 
-  const skillOpts = Array.from({length:6}, (_,i) => i);   // 0–5
-  const levelOpts = Array.from({length:81},(_,i) => i);   // 0–80
-  const widgetOpts= Array.from({length:11},(_,i) => i);   // 0–10
+  const skillOpts  = Array.from({length:6},  (_,i) => i);
+  const levelOpts  = Array.from({length:81}, (_,i) => i);
+  const widgetOpts = Array.from({length:11}, (_,i) => i);
+
+  const btnStyle = (active) => ({
+    padding:"6px 12px", borderRadius:6, fontSize:11, fontWeight:700,
+    cursor:"pointer", fontFamily:"Syne,sans-serif", border:"none",
+    background: active ? C.accent : C.card,
+    color: active ? "#0a0c10" : C.textSec,
+    transition:"all 0.15s",
+  });
+
+  // Reusable hero table rows
+  const HeroRow = ({ hero, isFav }) => {
+    const stats = heroStats[hero.name] || defaultHeroStats();
+    const isFavorited = favorites.includes(hero.name);
+    return (
+      <tr key={hero.name} style={{background: isFav ? `rgba(227,107,26,0.04)` : "transparent"}}>
+        {/* Favorite star */}
+        <td style={{...tdS,width:28,textAlign:"center",padding:"6px 4px"}}>
+          <span
+            onClick={() => toggleFavorite(hero.name)}
+            title={isFavorited ? "Remove from favorites" : favorites.length >= 6 ? "Max 6 favorites" : "Add to favorites"}
+            style={{
+              cursor: !isFavorited && favorites.length >= 6 ? "not-allowed" : "pointer",
+              fontSize:14, color: isFavorited ? C.accent : C.textDim,
+              opacity: !isFavorited && favorites.length >= 6 ? 0.3 : 1,
+              userSelect:"none",
+            }}>
+            ★
+          </span>
+        </td>
+        <td style={{...tdS,fontWeight:700,color:C.textPri,whiteSpace:"nowrap"}}>{hero.name}</td>
+        <td style={{...tdS,color:typeColor(hero.type),fontWeight:600}}>{hero.type}</td>
+        <td style={{...tdS,color:C.textDim,fontFamily:"'Space Mono',monospace",fontSize:10}}>{hero.gen}</td>
+        <td style={{...tdS,fontWeight:700,color:qualityColor(hero.quality)}}>{hero.quality}</td>
+        <td style={{...tdS,textAlign:"center"}}>
+          <select value={stats.level} onChange={e => updateStat(hero.name,"level",Number(e.target.value))} style={sel}>
+            {levelOpts.map(v => <option key={v} value={v}>{v}</option>)}
+          </select>
+        </td>
+        {["expS1","expS2","expS3"].map(f => (
+          <td key={f} style={{...tdS,textAlign:"center"}}>
+            <select value={stats[f]} onChange={e => updateStat(hero.name,f,Number(e.target.value))} style={sel}>
+              {skillOpts.map(v => <option key={v} value={v}>{v}</option>)}
+            </select>
+          </td>
+        ))}
+        {["expdS1","expdS2","expdS3"].map(f => (
+          <td key={f} style={{...tdS,textAlign:"center"}}>
+            <select value={stats[f]} onChange={e => updateStat(hero.name,f,Number(e.target.value))} style={sel}>
+              {skillOpts.map(v => <option key={v} value={v}>{v}</option>)}
+            </select>
+          </td>
+        ))}
+        <td style={{...tdS,textAlign:"center"}}>
+          <select value={stats.widget} onChange={e => updateStat(hero.name,"widget",Number(e.target.value))} style={sel}>
+            {widgetOpts.map(v => <option key={v} value={v}>{v}</option>)}
+          </select>
+        </td>
+      </tr>
+    );
+  };
+
+  const sortableThS = (col) => ({
+    ...thS,
+    cursor: "pointer",
+    color: sortBy === col ? C.accent : C.textDim,
+    userSelect: "none",
+  });
+
+  const SortLabel = ({ col, label }) => (
+    <span style={{display:"inline-flex",alignItems:"center",gap:4}}>
+      {label}
+      <span style={{fontSize:9, opacity: sortBy === col ? 1 : 0.3}}>▼</span>
+    </span>
+  );
+
+  const TableHeader = () => (
+    <thead>
+      <tr>
+        <th style={{...thS,width:28,padding:"8px 4px"}}/>
+        <th style={sortableThS("hero")} onClick={() => setSortBy("hero")}>
+          <SortLabel col="hero" label="Hero" />
+        </th>
+        <th style={sortableThS("type")} onClick={() => setSortBy("type")}>
+          <SortLabel col="type" label="Type" />
+        </th>
+        <th style={sortableThS("gen")} onClick={() => setSortBy("gen")}>
+          <SortLabel col="gen" label="Gen" />
+        </th>
+        <th style={sortableThS("quality")} onClick={() => setSortBy("quality")}>
+          <SortLabel col="quality" label="Quality" />
+        </th>
+        <th style={thS}>Level</th>
+        <th style={{...thS,textAlign:"center"}} colSpan={3}>Exploration Skills</th>
+        <th style={{...thS,textAlign:"center"}} colSpan={3}>Expedition Skills</th>
+        <th style={thS}>Widget</th>
+      </tr>
+      <tr>
+        {Array(6).fill(null).map((_,i) => <th key={i} style={{...thS,paddingTop:2,paddingBottom:6}}/>)}
+        {["S1","S2","S3","S1","S2","S3"].map((s,i) => (
+          <th key={i} style={{...thS,paddingTop:2,paddingBottom:6,textAlign:"center",fontSize:9}}>{s}</th>
+        ))}
+        <th style={{...thS,paddingTop:2,paddingBottom:6}}/>
+      </tr>
+    </thead>
+  );
 
   return (
     <div className="fade-in">
-      <div className="card">
-        <div className="card-header" style={{flexWrap:"wrap",gap:12}}>
-          <div className="card-title">Hero Roster</div>
-          <div style={{display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}}>
-            {/* Gen filter — shared with Hero Gear */}
-            <div style={{display:"flex",alignItems:"center",gap:6}}>
-              <span style={{fontSize:11,color:C.textDim,fontFamily:"'Space Mono',monospace"}}>Generation</span>
-              <select value={genFilter} onChange={e => setGenFilter(e.target.value)} style={{...sel,fontSize:12,padding:"4px 8px"}}>
-                {GEN_ORDER.map(g => <option key={g} value={g}>{g} &amp; below</option>)}
-              </select>
-            </div>
-            {/* Sort */}
-            <div style={{display:"flex",alignItems:"center",gap:6}}>
-              <span style={{fontSize:11,color:C.textDim,fontFamily:"'Space Mono',monospace"}}>Sort by</span>
-              <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={{...sel,fontSize:12,padding:"4px 8px"}}>
-                <option value="quality">Quality</option>
+
+      {/* Controls bar */}
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10,marginBottom:14}}>
+        <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
+          {/* Gen filter */}
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <span style={{fontSize:11,color:C.textDim,fontFamily:"'Space Mono',monospace"}}>Generation</span>
+            <select value={genFilter} onChange={e => setGenFilter(e.target.value)} style={{...sel,fontSize:12,padding:"4px 8px"}}>
+              {GEN_ORDER.map(g => <option key={g} value={g}>{g} &amp; below</option>)}
+            </select>
+          </div>
+          {/* Sort */}
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <span style={{fontSize:11,color:C.textDim,fontFamily:"'Space Mono',monospace"}}>Sort by</span>
+            <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={{...sel,fontSize:12,padding:"4px 8px"}}>
+              <option value="quality">Quality</option>
                 <option value="type">Troop Type</option>
                 <option value="gen">Generation</option>
-              </select>
-            </div>
+                <option value="hero">Hero Name</option>
+            </select>
           </div>
         </div>
+        {/* Set-all buttons */}
+        <div style={{display:"flex",gap:8}}>
+          <button style={btnStyle(false)} onClick={setAllLevelsMax}>Set All Levels → 80</button>
+          <button style={btnStyle(false)} onClick={setAllSkillsMax}>Set All Skills → 5</button>
+        </div>
+      </div>
 
+      {/* Favorites table */}
+      {favHeroes.length > 0 && (
+        <div className="card" style={{marginBottom:16}}>
+          <div className="card-header">
+            <div className="card-title">★ Favorites ({favHeroes.length}/6)</div>
+          </div>
+          <div style={{overflowX:"auto"}}>
+            <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+              <TableHeader />
+              <tbody>
+                {favHeroes.map(hero => <HeroRow key={hero.name} hero={hero} isFav={true} />)}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Full roster table */}
+      <div className="card">
+        <div className="card-header">
+          <div className="card-title">Hero Roster</div>
+          <span style={{fontSize:11,color:C.textDim,fontFamily:"'Space Mono',monospace"}}>
+            Click ★ to favorite (max 6)
+          </span>
+        </div>
         <div style={{overflowX:"auto"}}>
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
-            <thead>
-              <tr>
-                <th style={thS}>Hero</th>
-                <th style={thS}>Type</th>
-                <th style={thS}>Gen</th>
-                <th style={thS}>Quality</th>
-                <th style={thS}>Level</th>
-                <th style={{...thS,textAlign:"center"}} colSpan={3}>Exploration Skills</th>
-                <th style={{...thS,textAlign:"center"}} colSpan={3}>Expedition Skills</th>
-                <th style={thS}>Widget</th>
-              </tr>
-              <tr>
-                {/* Empty cells for first 5 cols */}
-                {Array(5).fill(null).map((_,i) => <th key={i} style={{...thS,paddingTop:2,paddingBottom:6}}/>)}
-                {["S1","S2","S3","S1","S2","S3"].map((s,i) => (
-                  <th key={i} style={{...thS,paddingTop:2,paddingBottom:6,textAlign:"center",fontSize:9}}>{s}</th>
-                ))}
-                <th style={{...thS,paddingTop:2,paddingBottom:6}}/>
-              </tr>
-            </thead>
+            <TableHeader />
             <tbody>
-              {sorted.map(hero => {
-                const stats = heroStats[hero.name] || defaultHeroStats();
-                return (
-                  <tr key={hero.name} style={{background:"transparent"}}>
-                    <td style={{...tdS,fontWeight:700,color:C.textPri,whiteSpace:"nowrap"}}>{hero.name}</td>
-                    <td style={{...tdS,color:typeColor(hero.type),fontWeight:600}}>{hero.type}</td>
-                    <td style={{...tdS,color:C.textDim,fontFamily:"'Space Mono',monospace",fontSize:10}}>{hero.gen}</td>
-                    <td style={{...tdS,fontWeight:700,color:qualityColor(hero.quality)}}>{hero.quality}</td>
-
-                    {/* Level */}
-                    <td style={{...tdS,textAlign:"center"}}>
-                      <select value={stats.level} onChange={e => updateStat(hero.name,"level",Number(e.target.value))} style={sel}>
-                        {levelOpts.map(v => <option key={v} value={v}>{v}</option>)}
-                      </select>
-                    </td>
-
-                    {/* Exploration S1 S2 S3 */}
-                    {["expS1","expS2","expS3"].map(f => (
-                      <td key={f} style={{...tdS,textAlign:"center"}}>
-                        <select value={stats[f]} onChange={e => updateStat(hero.name,f,Number(e.target.value))} style={sel}>
-                          {skillOpts.map(v => <option key={v} value={v}>{v}</option>)}
-                        </select>
-                      </td>
-                    ))}
-
-                    {/* Expedition S1 S2 S3 */}
-                    {["expdS1","expdS2","expdS3"].map(f => (
-                      <td key={f} style={{...tdS,textAlign:"center"}}>
-                        <select value={stats[f]} onChange={e => updateStat(hero.name,f,Number(e.target.value))} style={sel}>
-                          {skillOpts.map(v => <option key={v} value={v}>{v}</option>)}
-                        </select>
-                      </td>
-                    ))}
-
-                    {/* Widget — synced with Hero Gear */}
-                    <td style={{...tdS,textAlign:"center"}}>
-                      <select value={stats.widget} onChange={e => updateStat(hero.name,"widget",Number(e.target.value))} style={sel}>
-                        {widgetOpts.map(v => <option key={v} value={v}>{v}</option>)}
-                      </select>
-                    </td>
-                  </tr>
-                );
-              })}
+              {sorted.map(hero => <HeroRow key={hero.name} hero={hero} isFav={false} />)}
             </tbody>
           </table>
         </div>
@@ -683,7 +880,7 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats })
 
                   return (
                     <tr key={`${slot.slotId}-${gearSlot}`}
-                        style={{background: slotIdx % 2 === 0 ? "transparent" : "rgba(255,255,255,0.01)"}}>
+                        style={{background: slotIdx % 2 === 0 ? "transparent" : "var(--c-surface)"}}>
 
                       {/* Type — only on first row of each hero */}
                       {slotIdx === 0 && (
@@ -840,10 +1037,10 @@ const GLOBAL_STYLE = `
   @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;500;600;700;800&display=swap');
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   html { font-size: 15px; }
-  body { background: ${COLORS.bg}; color: ${COLORS.textPri}; font-family: 'Syne', sans-serif; -webkit-font-smoothing: antialiased; min-height: 100vh; }
+  body { background: var(--c-bg); color: var(--c-textPri); font-family: 'Syne', sans-serif; -webkit-font-smoothing: antialiased; min-height: 100vh; }
   ::-webkit-scrollbar { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track { background: ${COLORS.surface}; }
-  ::-webkit-scrollbar-thumb { background: ${COLORS.borderHi}; border-radius: 3px; }
+  ::-webkit-scrollbar-track { background: var(--c-surface); }
+  ::-webkit-scrollbar-thumb { background: var(--c-borderHi); border-radius: 3px; }
   input[type=number] { -moz-appearance: textfield; }
   input[type=number]::-webkit-outer-spin-button,
   input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
@@ -851,121 +1048,121 @@ const GLOBAL_STYLE = `
   .app { display: flex; min-height: 100vh; }
 
   /* Sidebar */
-  .sidebar { width: 220px; min-width: 220px; background: ${COLORS.surface}; border-right: 1px solid ${COLORS.border}; display: flex; flex-direction: column; padding: 0; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
-  .sidebar-logo { padding: 20px 20px 16px; border-bottom: 1px solid ${COLORS.border}; }
-  .sidebar-logo .wos { font-family: 'Space Mono', monospace; font-size: 11px; color: ${COLORS.accent}; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 2px; }
-  .sidebar-logo h1 { font-size: 15px; font-weight: 800; color: ${COLORS.textPri}; line-height: 1.2; }
-  .sidebar-logo h1 span { color: ${COLORS.accent}; }
+  .sidebar { width: 220px; min-width: 220px; background: var(--c-surface); border-right: 1px solid var(--c-border); display: flex; flex-direction: column; padding: 0; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+  .sidebar-logo { padding: 20px 20px 16px; border-bottom: 1px solid var(--c-border); }
+  .sidebar-logo .wos { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--c-accent); letter-spacing: 3px; text-transform: uppercase; margin-bottom: 2px; }
+  .sidebar-logo h1 { font-size: 15px; font-weight: 800; color: var(--c-textPri); line-height: 1.2; }
+  .sidebar-logo h1 span { color: var(--c-accent); }
   .sidebar-nav { padding: 12px 8px; flex: 1; }
-  .nav-section { font-size: 10px; font-weight: 700; color: ${COLORS.textDim}; letter-spacing: 2px; text-transform: uppercase; padding: 12px 12px 6px; }
-  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; color: ${COLORS.textSec}; transition: all 0.15s; border: 1px solid transparent; margin-bottom: 1px; }
-  .nav-item:hover { color: ${COLORS.textPri}; background: ${COLORS.card}; }
-  .nav-item.active { color: ${COLORS.accent}; background: ${COLORS.accentBg}; border-color: ${COLORS.accentDim}; }
+  .nav-section { font-size: 10px; font-weight: 700; color: var(--c-textSec); letter-spacing: 2px; text-transform: uppercase; padding: 12px 12px 6px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--c-textPri); transition: all 0.15s; border: 1px solid transparent; margin-bottom: 1px; }
+  .nav-item:hover { color: var(--c-textPri); background: var(--c-card); }
+  .nav-item.active { color: var(--c-accent); background: var(--c-accentBg); border-color: var(--c-accentDim); }
   .nav-item .nav-icon { font-size: 15px; width: 18px; text-align: center; font-family: 'Space Mono', monospace; }
-  .nav-badge { margin-left: auto; font-size: 10px; font-family: 'Space Mono', monospace; background: ${COLORS.accentBg}; color: ${COLORS.accent}; border: 1px solid ${COLORS.accentDim}; padding: 1px 6px; border-radius: 3px; }
-  .sidebar-footer { padding: 16px 20px; border-top: 1px solid ${COLORS.border}; font-size: 11px; color: ${COLORS.textDim}; font-family: 'Space Mono', monospace; }
+  .nav-badge { margin-left: auto; font-size: 10px; font-family: 'Space Mono', monospace; background: var(--c-accentBg); color: var(--c-accent); border: 1px solid var(--c-accentDim); padding: 1px 6px; border-radius: 3px; }
+  .sidebar-footer { padding: 16px 20px; border-top: 1px solid var(--c-border); font-size: 11px; color: var(--c-textDim); font-family: 'Space Mono', monospace; }
 
   /* Main content */
   .main { flex: 1; overflow-x: hidden; }
-  .page-header { padding: 28px 32px 20px; border-bottom: 1px solid ${COLORS.border}; background: ${COLORS.surface}; position: sticky; top: 0; z-index: 10; }
+  .page-header { padding: 28px 32px 20px; border-bottom: 1px solid var(--c-border); background: var(--c-surface); position: sticky; top: 0; z-index: 10; }
   .page-header-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
-  .page-title { font-size: 22px; font-weight: 800; color: ${COLORS.textPri}; }
-  .page-title span { color: ${COLORS.accent}; }
-  .page-sub { font-size: 13px; color: ${COLORS.textSec}; margin-top: 4px; }
-  .last-saved { font-size: 11px; font-family: 'Space Mono', monospace; color: ${COLORS.textDim}; }
+  .page-title { font-size: 22px; font-weight: 800; color: var(--c-textPri); }
+  .page-title span { color: var(--c-accent); }
+  .page-sub { font-size: 13px; color: var(--c-textSec); margin-top: 4px; }
+  .last-saved { font-size: 11px; font-family: 'Space Mono', monospace; color: var(--c-textDim); }
   .page-body { padding: 28px 32px; }
 
   /* Cards */
-  .card { background: ${COLORS.card}; border: 1px solid ${COLORS.border}; border-radius: 10px; }
-  .card-header { padding: 16px 20px; border-bottom: 1px solid ${COLORS.border}; display: flex; align-items: center; justify-content: space-between; }
-  .card-title { font-size: 13px; font-weight: 700; color: ${COLORS.textPri}; letter-spacing: 0.5px; text-transform: uppercase; }
-  .card-sub { font-size: 12px; color: ${COLORS.textSec}; margin-top: 2px; }
+  .card { background: var(--c-card); border: 1px solid var(--c-border); border-radius: 10px; }
+  .card-header { padding: 16px 20px; border-bottom: 1px solid var(--c-border); display: flex; align-items: center; justify-content: space-between; }
+  .card-title { font-size: 13px; font-weight: 700; color: var(--c-textPri); letter-spacing: 0.5px; text-transform: uppercase; }
+  .card-sub { font-size: 12px; color: var(--c-textSec); margin-top: 2px; }
   .card-body { padding: 20px; }
 
   /* Stat grid */
   .stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-bottom: 24px; }
-  .stat-card { background: ${COLORS.card}; border: 1px solid ${COLORS.border}; border-radius: 8px; padding: 14px 16px; transition: border-color 0.15s; }
-  .stat-card:hover { border-color: ${COLORS.borderHi}; }
-  .stat-label { font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: ${COLORS.textSec}; margin-bottom: 8px; }
-  .stat-value { font-size: 24px; font-weight: 800; font-family: 'Space Mono', monospace; color: ${COLORS.textPri}; line-height: 1; }
-  .stat-value.positive { color: ${COLORS.green}; }
-  .stat-value.negative { color: ${COLORS.red}; }
-  .stat-value.accent { color: ${COLORS.accent}; }
-  .stat-sub { font-size: 11px; color: ${COLORS.textSec}; margin-top: 5px; font-family: 'Space Mono', monospace; }
+  .stat-card { background: var(--c-card); border: 1px solid var(--c-border); border-radius: 8px; padding: 14px 16px; transition: border-color 0.15s; }
+  .stat-card:hover { border-color: var(--c-borderHi); }
+  .stat-label { font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--c-textSec); margin-bottom: 8px; }
+  .stat-value { font-size: 24px; font-weight: 800; font-family: 'Space Mono', monospace; color: var(--c-textPri); line-height: 1; }
+  .stat-value.positive { color: var(--c-green); }
+  .stat-value.negative { color: var(--c-red); }
+  .stat-value.accent { color: var(--c-accent); }
+  .stat-sub { font-size: 11px; color: var(--c-textSec); margin-top: 5px; font-family: 'Space Mono', monospace; }
 
   /* Resource input row */
   .res-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
-  .res-item { display: flex; align-items: center; gap: 10px; background: ${COLORS.surface}; border: 1px solid ${COLORS.border}; border-radius: 8px; padding: 10px 14px; transition: border-color 0.15s; }
-  .res-item:focus-within { border-color: ${COLORS.accent}; }
-  .res-icon { font-size: 18px; width: 24px; text-align: center; flex-shrink: 0; font-family: 'Space Mono', monospace; font-size: 13px; color: ${COLORS.textDim}; }
-  .res-label { font-size: 12px; font-weight: 600; color: ${COLORS.textSec}; flex: 1; min-width: 0; }
-  .res-input { width: 90px; background: transparent; border: none; outline: none; font-family: 'Space Mono', monospace; font-size: 14px; font-weight: 700; color: ${COLORS.textPri}; text-align: right; }
-  .res-input::placeholder { color: ${COLORS.textDim}; }
+  .res-item { display: flex; align-items: center; gap: 10px; background: var(--c-surface); border: 1px solid var(--c-border); border-radius: 8px; padding: 10px 14px; transition: border-color 0.15s; }
+  .res-item:focus-within { border-color: var(--c-accent); }
+  .res-icon { font-size: 18px; width: 24px; text-align: center; flex-shrink: 0; font-family: 'Space Mono', monospace; font-size: 13px; color: var(--c-textSec); }
+  .res-label { font-size: 12px; font-weight: 600; color: var(--c-textPri); flex: 1; min-width: 0; }
+  .res-input { width: 90px; background: transparent; border: none; outline: none; font-family: 'Space Mono', monospace; font-size: 14px; font-weight: 700; color: var(--c-textPri); text-align: right; }
+  .res-input::placeholder { color: var(--c-textDim); }
 
   /* Section divider */
-  .section-label { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: ${COLORS.textDim}; margin-bottom: 12px; margin-top: 24px; display: flex; align-items: center; gap: 8px; }
-  .section-label::after { content: ''; flex: 1; height: 1px; background: ${COLORS.border}; }
+  .section-label { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--c-textDim); margin-bottom: 12px; margin-top: 24px; display: flex; align-items: center; gap: 8px; }
+  .section-label::after { content: ''; flex: 1; height: 1px; background: var(--c-border); }
 
   /* Construction table */
   .table-wrap { overflow-x: auto; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th { text-align: left; padding: 8px 12px; font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: ${COLORS.textDim}; border-bottom: 1px solid ${COLORS.border}; white-space: nowrap; }
-  td { padding: 11px 12px; border-bottom: 1px solid ${COLORS.border}; color: ${COLORS.textSec}; vertical-align: middle; }
+  th { text-align: left; padding: 8px 12px; font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--c-textDim); border-bottom: 1px solid var(--c-border); white-space: nowrap; }
+  td { padding: 11px 12px; border-bottom: 1px solid var(--c-border); color: var(--c-textSec); vertical-align: middle; }
   tr:last-child td { border-bottom: none; }
-  tr:hover td { background: rgba(255,255,255,0.02); }
+  tr:hover td { background: var(--c-hover, rgba(0,0,0,0.03)); }
   td.mono { font-family: 'Space Mono', monospace; font-size: 12px; }
-  td.pri { color: ${COLORS.textPri}; font-weight: 600; }
-  td.green { color: ${COLORS.green}; font-family: 'Space Mono', monospace; }
-  td.red { color: ${COLORS.red}; font-family: 'Space Mono', monospace; }
-  td.amber { color: ${COLORS.amber}; font-family: 'Space Mono', monospace; }
-  td.accent { color: ${COLORS.accent}; font-family: 'Space Mono', monospace; }
+  td.pri { color: var(--c-textPri); font-weight: 600; }
+  td.green { color: var(--c-green); font-family: 'Space Mono', monospace; }
+  td.red { color: var(--c-red); font-family: 'Space Mono', monospace; }
+  td.amber { color: var(--c-amber); font-family: 'Space Mono', monospace; }
+  td.accent { color: var(--c-accent); font-family: 'Space Mono', monospace; }
 
   /* Badge */
   .badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; font-family: 'Space Mono', monospace; }
-  .badge-green { background: ${COLORS.greenBg}; color: ${COLORS.green}; border: 1px solid ${COLORS.greenDim}; }
-  .badge-red { background: ${COLORS.redBg}; color: ${COLORS.red}; border: 1px solid ${COLORS.redDim}; }
-  .badge-amber { background: ${COLORS.amberBg}; color: ${COLORS.amber}; }
-  .badge-blue { background: ${COLORS.blueBg}; color: ${COLORS.blue}; border: 1px solid ${COLORS.blueDim}; }
-  .badge-accent { background: ${COLORS.accentBg}; color: ${COLORS.accent}; border: 1px solid ${COLORS.accentDim}; }
+  .badge-green { background: var(--c-greenBg); color: var(--c-green); border: 1px solid var(--c-greenDim); }
+  .badge-red { background: var(--c-redBg); color: var(--c-red); border: 1px solid var(--c-redDim); }
+  .badge-amber { background: var(--c-amberBg); color: var(--c-amber); }
+  .badge-blue { background: var(--c-blueBg); color: var(--c-blue); border: 1px solid var(--c-blueDim); }
+  .badge-accent { background: var(--c-accentBg); color: var(--c-accent); border: 1px solid var(--c-accentDim); }
 
   /* Progress bar */
-  .progress-wrap { background: ${COLORS.border}; border-radius: 4px; height: 6px; overflow: hidden; }
+  .progress-wrap { background: var(--c-border); border-radius: 4px; height: 6px; overflow: hidden; }
   .progress-bar { height: 100%; border-radius: 4px; transition: width 0.3s ease; }
 
   /* Toggle */
-  .toggle { position: relative; display: inline-flex; align-items: center; cursor: pointer; gap: 8px; font-size: 13px; color: ${COLORS.textSec}; }
+  .toggle { position: relative; display: inline-flex; align-items: center; cursor: pointer; gap: 8px; font-size: 13px; color: var(--c-textSec); }
   .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
-  .toggle-track { width: 36px; height: 20px; background: ${COLORS.border}; border-radius: 10px; transition: background 0.2s; position: relative; flex-shrink: 0; }
-  .toggle input:checked ~ .toggle-track { background: ${COLORS.accent}; }
+  .toggle-track { width: 36px; height: 20px; background: var(--c-border); border-radius: 10px; transition: background 0.2s; position: relative; flex-shrink: 0; }
+  .toggle input:checked ~ .toggle-track { background: var(--c-accent); }
   .toggle-thumb { position: absolute; top: 3px; left: 3px; width: 14px; height: 14px; background: white; border-radius: 50%; transition: transform 0.2s; }
   .toggle input:checked ~ .toggle-track .toggle-thumb { transform: translateX(16px); }
 
   /* Buttons */
   .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.15s; border: 1px solid; font-family: 'Syne', sans-serif; }
-  .btn-accent { background: ${COLORS.accent}; color: #0a0c10; border-color: ${COLORS.accent}; }
+  .btn-accent { background: var(--c-accent); color: var(--c-btnText); border-color: var(--c-accent); }
   .btn-accent:hover { background: #f07d2e; border-color: #f07d2e; }
-  .btn-ghost { background: transparent; color: ${COLORS.textSec}; border-color: ${COLORS.border}; }
-  .btn-ghost:hover { color: ${COLORS.textPri}; border-color: ${COLORS.borderHi}; background: ${COLORS.surface}; }
+  .btn-ghost { background: transparent; color: var(--c-textSec); border-color: var(--c-border); }
+  .btn-ghost:hover { color: var(--c-textPri); border-color: var(--c-borderHi); background: var(--c-surface); }
 
   /* Expert cards */
   .expert-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
-  .expert-card { background: ${COLORS.card}; border: 1px solid ${COLORS.border}; border-radius: 10px; overflow: hidden; transition: border-color 0.15s; }
-  .expert-card:hover { border-color: ${COLORS.borderHi}; }
-  .expert-head { padding: 14px 16px; border-bottom: 1px solid ${COLORS.border}; display: flex; align-items: center; gap: 12px; }
-  .expert-avatar { width: 38px; height: 38px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; font-family: 'Space Mono', monospace; background: ${COLORS.accentBg}; color: ${COLORS.accent}; border: 1px solid ${COLORS.accentDim}; flex-shrink: 0; }
-  .expert-name { font-size: 15px; font-weight: 700; color: ${COLORS.textPri}; }
-  .expert-bonus { font-size: 11px; color: ${COLORS.textSec}; margin-top: 2px; }
+  .expert-card { background: var(--c-card); border: 1px solid var(--c-border); border-radius: 10px; overflow: hidden; transition: border-color 0.15s; }
+  .expert-card:hover { border-color: var(--c-borderHi); }
+  .expert-head { padding: 14px 16px; border-bottom: 1px solid var(--c-border); display: flex; align-items: center; gap: 12px; }
+  .expert-avatar { width: 38px; height: 38px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; font-family: 'Space Mono', monospace; background: var(--c-accentBg); color: var(--c-accent); border: 1px solid var(--c-accentDim); flex-shrink: 0; }
+  .expert-name { font-size: 15px; font-weight: 700; color: var(--c-textPri); }
+  .expert-bonus { font-size: 11px; color: var(--c-textSec); margin-top: 2px; }
   .expert-body { padding: 12px 16px; }
-  .expert-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; font-size: 12px; color: ${COLORS.textSec}; border-bottom: 1px solid ${COLORS.border}; }
+  .expert-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; font-size: 12px; color: var(--c-textSec); border-bottom: 1px solid var(--c-border); }
   .expert-row:last-child { border-bottom: none; }
-  .expert-val { font-family: 'Space Mono', monospace; font-size: 12px; color: ${COLORS.textPri}; font-weight: 700; }
+  .expert-val { font-family: 'Space Mono', monospace; font-size: 12px; color: var(--c-textPri); font-weight: 700; }
 
   /* SVS schedule */
-  .svs-row { display: flex; align-items: center; gap: 14px; padding: 12px 0; border-bottom: 1px solid ${COLORS.border}; }
+  .svs-row { display: flex; align-items: center; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--c-border); }
   .svs-row:last-child { border-bottom: none; }
-  .svs-day { width: 90px; font-size: 13px; font-weight: 700; color: ${COLORS.textPri}; flex-shrink: 0; }
+  .svs-day { width: 90px; font-size: 13px; font-weight: 700; color: var(--c-textPri); flex-shrink: 0; }
   .svs-bar-wrap { flex: 1; }
-  .svs-pts { font-family: 'Space Mono', monospace; font-size: 13px; color: ${COLORS.accent}; width: 90px; text-align: right; flex-shrink: 0; }
+  .svs-pts { font-family: 'Space Mono', monospace; font-size: 13px; color: var(--c-accent); width: 90px; text-align: right; flex-shrink: 0; }
 
   /* Responsive */
   @media (max-width: 768px) {
@@ -987,82 +1184,82 @@ const GLOBAL_STYLE = `
   }
   .hamburger {
     display: none; align-items: center; justify-content: center;
-    width: 36px; height: 36px; background: ${COLORS.card}; border: 1px solid ${COLORS.border};
+    width: 36px; height: 36px; background: var(--c-card); border: 1px solid var(--c-border);
     border-radius: 7px; cursor: pointer; flex-direction: column; gap: 5px; flex-shrink: 0;
   }
   .hamburger span {
     display: block; width: 18px; height: 2px;
-    background: ${COLORS.textSec}; border-radius: 2px; transition: all 0.2s;
+    background: var(--c-textSec); border-radius: 2px; transition: all 0.2s;
   }
-  .hamburger:hover span { background: ${COLORS.textPri}; }
+  .hamburger:hover span { background: var(--c-textPri); }
 
   /* Animations */
   @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
   .fade-in { animation: fadeIn 0.25s ease forwards; }
 
   /* Auth panel */
-  .auth-panel { padding: 14px 12px; border-top: 1px solid ${COLORS.border}; }
-  .auth-user-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 6px; background: ${COLORS.card}; border: 1px solid ${COLORS.border}; margin-bottom: 8px; }
-  .auth-avatar { width: 28px; height: 28px; border-radius: 50%; background: ${COLORS.accentBg}; border: 1px solid ${COLORS.accentDim}; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: ${COLORS.accent}; flex-shrink: 0; font-family: 'Space Mono', monospace; }
-  .auth-email { font-size: 11px; color: ${COLORS.textSec}; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
-  .auth-signout { font-size: 10px; color: ${COLORS.textDim}; cursor: pointer; padding: 2px 6px; border-radius: 4px; border: 1px solid ${COLORS.border}; background: transparent; font-family: 'Space Mono', monospace; transition: all 0.15s; }
-  .auth-signout:hover { color: ${COLORS.red}; border-color: ${COLORS.redDim}; }
-  .auth-sync-badge { display: flex; align-items: center; gap: 5px; font-size: 10px; color: ${COLORS.green}; font-family: 'Space Mono', monospace; padding: 2px 0; margin-bottom: 4px; }
-  .auth-sync-dot { width: 6px; height: 6px; border-radius: 50%; background: ${COLORS.green}; animation: pulse 2s infinite; }
+  .auth-panel { padding: 14px 12px; border-top: 1px solid var(--c-border); }
+  .auth-user-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 6px; background: var(--c-card); border: 1px solid var(--c-border); margin-bottom: 8px; }
+  .auth-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--c-accentBg); border: 1px solid var(--c-accentDim); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: var(--c-accent); flex-shrink: 0; font-family: 'Space Mono', monospace; }
+  .auth-email { font-size: 11px; color: var(--c-textSec); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  .auth-signout { font-size: 10px; color: var(--c-textDim); cursor: pointer; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--c-border); background: transparent; font-family: 'Space Mono', monospace; transition: all 0.15s; }
+  .auth-signout:hover { color: var(--c-red); border-color: var(--c-redDim); }
+  .auth-sync-badge { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--c-green); font-family: 'Space Mono', monospace; padding: 2px 0; margin-bottom: 4px; }
+  .auth-sync-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--c-green); animation: pulse 2s infinite; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
   .auth-form { display: flex; flex-direction: column; gap: 7px; }
-  .auth-inp { background: ${COLORS.card}; border: 1px solid ${COLORS.border}; border-radius: 6px; padding: 7px 10px; font-family: 'Space Mono', monospace; font-size: 12px; color: ${COLORS.textPri}; outline: none; width: 100%; transition: border-color 0.15s; }
-  .auth-inp:focus { border-color: ${COLORS.accent}; }
-  .auth-inp::placeholder { color: ${COLORS.textDim}; font-size: 11px; }
+  .auth-inp { background: var(--c-card); border: 1px solid var(--c-border); border-radius: 6px; padding: 7px 10px; font-family: 'Space Mono', monospace; font-size: 12px; color: var(--c-textPri); outline: none; width: 100%; transition: border-color 0.15s; }
+  .auth-inp:focus { border-color: var(--c-accent); }
+  .auth-inp::placeholder { color: var(--c-textDim); font-size: 11px; }
   .auth-btn { padding: 8px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: 'Syne', sans-serif; border: none; transition: all 0.15s; width: 100%; }
-  .auth-btn-primary { background: ${COLORS.accent}; color: #0a0c10; }
+  .auth-btn-primary { background: var(--c-accent); color: var(--c-btnText); }
   .auth-btn-primary:hover { opacity: 0.9; }
   .auth-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-  .auth-btn-ghost { background: transparent; color: ${COLORS.textDim}; border: 1px solid ${COLORS.border}; font-size: 11px; padding: 5px; }
-  .auth-btn-ghost:hover { color: ${COLORS.textSec}; border-color: ${COLORS.borderHi}; }
-  .auth-error { font-size: 10px; color: ${COLORS.red}; font-family: 'Space Mono', monospace; padding: 5px 8px; background: ${COLORS.redBg}; border-radius: 4px; border: 1px solid ${COLORS.redDim}; line-height: 1.4; }
-  .auth-toggle { font-size: 11px; color: ${COLORS.textDim}; text-align: center; }
-  .auth-toggle span { color: ${COLORS.accent}; text-decoration: underline; cursor: pointer; }
-  .auth-title { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: ${COLORS.textDim}; margin-bottom: 8px; font-family: 'Space Mono', monospace; }
+  .auth-btn-ghost { background: transparent; color: var(--c-textDim); border: 1px solid var(--c-border); font-size: 11px; padding: 5px; }
+  .auth-btn-ghost:hover { color: var(--c-textSec); border-color: var(--c-borderHi); }
+  .auth-error { font-size: 10px; color: var(--c-red); font-family: 'Space Mono', monospace; padding: 5px 8px; background: var(--c-redBg); border-radius: 4px; border: 1px solid var(--c-redDim); line-height: 1.4; }
+  .auth-toggle { font-size: 11px; color: var(--c-textDim); text-align: center; }
+  .auth-toggle span { color: var(--c-accent); text-decoration: underline; cursor: pointer; }
+  .auth-title { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--c-textDim); margin-bottom: 8px; font-family: 'Space Mono', monospace; }
 
   /* Character switcher */
   .char-switcher { padding: 10px 10px 0; }
-  .char-select { width: 100%; background: ${COLORS.card}; border: 1px solid ${COLORS.border}; border-radius: 7px; color: ${COLORS.textPri}; font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 600; padding: 8px 10px; cursor: pointer; outline: none; transition: border-color 0.15s; }
-  .char-select:focus { border-color: ${COLORS.accent}; }
-  .char-select option { background: ${COLORS.card}; }
+  .char-select { width: 100%; background: var(--c-card); border: 1px solid var(--c-border); border-radius: 7px; color: var(--c-textPri); font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 600; padding: 8px 10px; cursor: pointer; outline: none; transition: border-color 0.15s; }
+  .char-select:focus { border-color: var(--c-accent); }
+  .char-select option { background: var(--c-card); }
 
   /* Modal overlay */
   .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; }
-  .modal { background: ${COLORS.card}; border: 1px solid ${COLORS.borderHi}; border-radius: 14px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; box-shadow: 0 24px 80px rgba(0,0,0,0.6); }
-  .modal-header { padding: 20px 24px 16px; border-bottom: 1px solid ${COLORS.border}; display: flex; align-items: center; justify-content: space-between; }
-  .modal-title { font-size: 15px; font-weight: 800; color: ${COLORS.textPri}; }
-  .modal-close { background: none; border: none; color: ${COLORS.textDim}; cursor: pointer; font-size: 18px; line-height: 1; padding: 4px; }
-  .modal-close:hover { color: ${COLORS.textPri}; }
+  .modal { background: var(--c-card); border: 1px solid var(--c-borderHi); border-radius: 14px; width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto; box-shadow: 0 24px 80px rgba(0,0,0,0.6); }
+  .modal-header { padding: 20px 24px 16px; border-bottom: 1px solid var(--c-border); display: flex; align-items: center; justify-content: space-between; }
+  .modal-title { font-size: 15px; font-weight: 800; color: var(--c-textPri); }
+  .modal-close { background: none; border: none; color: var(--c-textDim); cursor: pointer; font-size: 18px; line-height: 1; padding: 4px; }
+  .modal-close:hover { color: var(--c-textPri); }
   .modal-body { padding: 20px 24px; }
   .modal-section { margin-bottom: 24px; }
   .modal-section:last-child { margin-bottom: 0; }
-  .modal-section-title { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: ${COLORS.textDim}; margin-bottom: 12px; font-family: 'Space Mono', monospace; }
-  .modal-inp { background: ${COLORS.surface}; border: 1px solid ${COLORS.border}; border-radius: 7px; padding: 8px 12px; font-family: 'Space Mono', monospace; font-size: 12px; color: ${COLORS.textPri}; outline: none; width: 100%; transition: border-color 0.15s; box-sizing: border-box; }
-  .modal-inp:focus { border-color: ${COLORS.accent}; }
-  .modal-inp::placeholder { color: ${COLORS.textDim}; }
+  .modal-section-title { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--c-textDim); margin-bottom: 12px; font-family: 'Space Mono', monospace; }
+  .modal-inp { background: var(--c-surface); border: 1px solid var(--c-border); border-radius: 7px; padding: 8px 12px; font-family: 'Space Mono', monospace; font-size: 12px; color: var(--c-textPri); outline: none; width: 100%; transition: border-color 0.15s; box-sizing: border-box; }
+  .modal-inp:focus { border-color: var(--c-accent); }
+  .modal-inp::placeholder { color: var(--c-textDim); }
   .modal-btn { padding: 9px 16px; border-radius: 7px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: 'Syne', sans-serif; border: none; transition: all 0.15s; }
-  .modal-btn-primary { background: ${COLORS.accent}; color: #0a0c10; }
+  .modal-btn-primary { background: var(--c-accent); color: var(--c-btnText); }
   .modal-btn-primary:hover { opacity: 0.88; }
   .modal-btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
-  .modal-btn-ghost { background: transparent; color: ${COLORS.textSec}; border: 1px solid ${COLORS.border}; }
-  .modal-btn-ghost:hover { border-color: ${COLORS.borderHi}; color: ${COLORS.textPri}; }
-  .modal-btn-danger { background: ${COLORS.redBg}; color: ${COLORS.red}; border: 1px solid ${COLORS.redDim}; }
-  .modal-btn-danger:hover { background: ${COLORS.red}; color: #fff; }
-  .modal-error { font-size: 11px; color: ${COLORS.red}; font-family: 'Space Mono', monospace; padding: 7px 10px; background: ${COLORS.redBg}; border-radius: 5px; border: 1px solid ${COLORS.redDim}; margin-top: 8px; }
-  .modal-success { font-size: 11px; color: ${COLORS.green}; font-family: 'Space Mono', monospace; padding: 7px 10px; background: ${COLORS.greenBg}; border-radius: 5px; border: 1px solid ${COLORS.greenDim}; margin-top: 8px; }
-  .char-list-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: ${COLORS.surface}; border: 1px solid ${COLORS.border}; border-radius: 8px; margin-bottom: 8px; }
-  .char-list-item.is-active { border-color: ${COLORS.accentDim}; background: ${COLORS.accentBg}; }
-  .char-avatar-sm { width: 30px; height: 30px; border-radius: 50%; background: ${COLORS.card}; border: 1px solid ${COLORS.border}; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: ${COLORS.accent}; flex-shrink: 0; font-family: 'Space Mono', monospace; }
-  .char-name-text { font-size: 13px; font-weight: 700; color: ${COLORS.textPri}; }
-  .char-state-text { font-size: 10px; color: ${COLORS.textDim}; font-family: 'Space Mono', monospace; }
-  .profile-btn-wrap { display: flex; align-items: center; gap: 8px; padding: 12px 12px; cursor: pointer; border-top: 1px solid ${COLORS.border}; transition: background 0.15s; }
-  .profile-btn-wrap:hover { background: rgba(255,255,255,0.03); }
-  .profile-avatar { width: 28px; height: 28px; border-radius: 50%; background: ${COLORS.accentBg}; border: 1px solid ${COLORS.accentDim}; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: ${COLORS.accent}; flex-shrink: 0; font-family: 'Space Mono', monospace; }
+  .modal-btn-ghost { background: transparent; color: var(--c-textSec); border: 1px solid var(--c-border); }
+  .modal-btn-ghost:hover { border-color: var(--c-borderHi); color: var(--c-textPri); }
+  .modal-btn-danger { background: var(--c-redBg); color: var(--c-red); border: 1px solid var(--c-redDim); }
+  .modal-btn-danger:hover { background: var(--c-red); color: #fff; }
+  .modal-error { font-size: 11px; color: var(--c-red); font-family: 'Space Mono', monospace; padding: 7px 10px; background: var(--c-redBg); border-radius: 5px; border: 1px solid var(--c-redDim); margin-top: 8px; }
+  .modal-success { font-size: 11px; color: var(--c-green); font-family: 'Space Mono', monospace; padding: 7px 10px; background: var(--c-greenBg); border-radius: 5px; border: 1px solid var(--c-greenDim); margin-top: 8px; }
+  .char-list-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; background: var(--c-surface); border: 1px solid var(--c-border); border-radius: 8px; margin-bottom: 8px; }
+  .char-list-item.is-active { border-color: var(--c-accentDim); background: var(--c-accentBg); }
+  .char-avatar-sm { width: 30px; height: 30px; border-radius: 50%; background: var(--c-card); border: 1px solid var(--c-border); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: var(--c-accent); flex-shrink: 0; font-family: 'Space Mono', monospace; }
+  .char-name-text { font-size: 13px; font-weight: 700; color: var(--c-textPri); }
+  .char-state-text { font-size: 10px; color: var(--c-textDim); font-family: 'Space Mono', monospace; }
+  .profile-btn-wrap { display: flex; align-items: center; gap: 8px; padding: 12px 12px; cursor: pointer; border-top: 1px solid var(--c-border); transition: background 0.15s; }
+  .profile-btn-wrap:hover { background: var(--c-hover, rgba(0,0,0,0.03)); }
+  .profile-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--c-accentBg); border: 1px solid var(--c-accentDim); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: var(--c-accent); flex-shrink: 0; font-family: 'Space Mono', monospace; }
 `;
 
 // ─── Profile Management Modal ─────────────────────────────────────────────────
@@ -1072,6 +1269,7 @@ function ProfileModal({ open, onClose, initialSection="account",
   addCharacter, removeCharacter, renameCharacter, makeDefault, switchCharacter,
   changePassword, requestDeleteAccount, confirmDeleteAccount,
   charError, clearCharError, authError, clearAuthError,
+  theme, setTheme, resetToSystem,
 }) {
   const [section, setSection]       = useState(initialSection);
   const [msg, setMsg]               = useState("");
@@ -1237,6 +1435,35 @@ function ProfileModal({ open, onClose, initialSection="account",
           {/* ── Account tab ── */}
           {section === "account" && (
             <>
+              <div className="modal-section">
+                <div className="modal-section-title">Appearance</div>
+                <p style={{fontSize:12,color:C.textSec,marginBottom:12}}>Choose your preferred color theme. Auto follows your system setting.</p>
+                <div style={{display:"flex",gap:8}}>
+                  {[
+                    {id:"auto",  label:"Auto"},
+                    {id:"dark",  label:"🌙 Dark"},
+                    {id:"light", label:"☀️ Light"},
+                  ].map(opt => {
+                    const isActive = opt.id === "auto"
+                      ? !localStorage.getItem("wos-theme")
+                      : theme === opt.id && localStorage.getItem("wos-theme") === opt.id;
+                    return (
+                      <button key={opt.id}
+                        className="modal-btn"
+                        onClick={() => opt.id === "auto" ? resetToSystem() : setTheme(opt.id)}
+                        style={{
+                          background: isActive ? C.accent : "transparent",
+                          color: isActive ? "#0a0c10" : C.textSec,
+                          border: `1px solid ${isActive ? C.accent : C.border}`,
+                          flex:1,
+                        }}>
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div className="modal-section">
                 <div className="modal-section-title">Signed in as</div>
                 <div style={{fontSize:13,color:C.textPri,fontFamily:"Space Mono,monospace"}}>{user?.email || "Discord user"}</div>
@@ -1457,116 +1684,75 @@ function SectionLabel({ children }) {
 function InventoryPage({ inv, setInv }) {
   const update = (field, val) => setInv(p => ({ ...p, [field]: val }));
 
+  const Section = ({ title, sub, children }) => (
+    <div className="card" style={{marginBottom:16}}>
+      <div className="card-header">
+        <div>
+          <div className="card-title">{title}</div>
+          {sub && <div className="card-sub">{sub}</div>}
+        </div>
+      </div>
+      <div className="card-body">
+        <div className="res-grid">{children}</div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="fade-in">
 
-      {/* 1. Construction Resources */}
-      <div className="card">
-        <div className="card-header">
-          <div>
-            <div className="card-title">Construction Resources</div>
-            <div className="card-sub">Fire Crystals &amp; Refined FC — your core building currency</div>
-          </div>
-        </div>
-        <div className="card-body">
-          <div className="res-grid">
-            <ResInput label="Fire Crystals" icon="FC" field="fireCrystals" value={inv.fireCrystals} onChange={update} color={COLORS.accent} />
-            <ResInput label="Refined FC" icon="RF" field="refinedFC" value={inv.refinedFC} onChange={update} color={COLORS.accent} />
-            <ResInput label="Agnes Skill Level" icon="AG" field="agnesSkillLevel" value={inv.agnesSkillLevel} onChange={update} />
-            <ResInput label="Zinman Skill Level" icon="ZN" field="zinmanSkillLevel" value={inv.zinmanSkillLevel} onChange={update} />
-          </div>
-        </div>
-      </div>
+      <Section title="Construction Resources" sub="Fire Crystals & Refined FC — your core building currency">
+        <ResInput label="Fire Crystals" icon="FC" field="fireCrystals" value={inv.fireCrystals} onChange={update} color={COLORS.accent} />
+        <ResInput label="Refined FC"    icon="RF" field="refinedFC"    value={inv.refinedFC}    onChange={update} color={COLORS.accent} />
+      </Section>
 
-      {/* 2. Raw Materials */}
-      <SectionLabel>Raw Materials</SectionLabel>
-      <div className="card">
-        <div className="card-body">
-          <div className="res-grid">
-            <ResInput label="Meat"  icon="MT" field="meat" value={inv.meat ?? 0} onChange={update} color={COLORS.green} />
-            <ResInput label="Wood"  icon="WD" field="wood" value={inv.wood ?? 0} onChange={update} color={COLORS.green} />
-            <ResInput label="Coal"  icon="CL" field="coal" value={inv.coal ?? 0} onChange={update} color={COLORS.green} />
-            <ResInput label="Iron"  icon="IR" field="iron" value={inv.iron ?? 0} onChange={update} color={COLORS.green} />
-          </div>
-        </div>
-      </div>
+      <Section title="Raw Materials" sub="Basic resources — Meat, Wood, Coal, Iron">
+        <ResInput label="Meat" icon="MT" field="meat" value={inv.meat ?? 0} onChange={update} color={COLORS.green} />
+        <ResInput label="Wood" icon="WD" field="wood" value={inv.wood ?? 0} onChange={update} color={COLORS.green} />
+        <ResInput label="Coal" icon="CL" field="coal" value={inv.coal ?? 0} onChange={update} color={COLORS.green} />
+        <ResInput label="Iron" icon="IR" field="iron" value={inv.iron ?? 0} onChange={update} color={COLORS.green} />
+      </Section>
 
-      {/* 3. War Academy */}
-      <SectionLabel>War Academy</SectionLabel>
-      <div className="card">
-        <div className="card-body">
-          <div className="res-grid">
-            <ResInput label="Shards" icon="SH" field="shards" value={inv.shards} onChange={update} color={COLORS.green} />
-            <ResInput label="Steel" icon="SL" field="steel" value={inv.steel} onChange={update} color={COLORS.green} />
-            <ResInput label="Daily Intel" icon="IN" field="dailyIntel" value={inv.dailyIntel} onChange={update} />
-            <ResInput label="Labyrinth (weekly)" icon="LB" field="labyrinthWeekly" value={inv.labyrinthWeekly} onChange={update} />
-          </div>
-          <div style={{ marginTop: 16 }}>
-            <label className="toggle">
-              <input type="checkbox" checked={inv.weeklyPack} onChange={e => update("weeklyPack", e.target.checked)} />
-              <div className="toggle-track"><div className="toggle-thumb" /></div>
-              Weekly pack active (adds shards)
-            </label>
-          </div>
-        </div>
-      </div>
+      <Section title="Research" sub="Shards, Steel & daily accumulation rates">
+        <ResInput label="Shards"               icon="SH" field="shards"          value={inv.shards}               onChange={update} color={COLORS.blue} />
+        <ResInput label="Steel"                icon="SL" field="steel"           value={inv.steel}                onChange={update} color={COLORS.blue} />
+        <ResInput label="Daily Intel (shards)" icon="IN" field="dailyIntel"      value={inv.dailyIntel}           onChange={update} />
+        <ResInput label="Steel / Hour"         icon="S/" field="steelHourlyRate" value={inv.steelHourlyRate ?? 0} onChange={update} />
+      </Section>
 
-      {/* 4. Hero Level & Gear Materials */}
-      <SectionLabel>Hero Level &amp; Gear Materials</SectionLabel>
-      <div className="card">
-        <div className="card-body">
-          <div className="res-grid">
-            <ResInput label="Stones"                  icon="ST" field="stones"          value={inv.stones}                    onChange={update} color={COLORS.blue} />
-            <ResInput label="Mithril"                 icon="MI" field="mithril"         value={inv.mithril}                   onChange={update} color={COLORS.blue} />
-            <ResInput label="Consumable Mythic Gear"  icon="MG" field="mythicGear"      value={inv.mythicGear}                onChange={update} color={COLORS.blue} />
-            <ResInput label="Mythic General Shards"   icon="MS" field="mythicGenShards" value={inv.mythicGenShards ?? 0}     onChange={update} color={COLORS.blue} />
-          </div>
-        </div>
-      </div>
+      <Section title="Hero Level & Gear Materials" sub="Stones, Mithril & Mythic materials">
+        <ResInput label="Stones"                 icon="ST" field="stones"          value={inv.stones}                onChange={update} color={COLORS.blue} />
+        <ResInput label="Mithril"                icon="MI" field="mithril"         value={inv.mithril}               onChange={update} color={COLORS.blue} />
+        <ResInput label="Consumable Mythic Gear" icon="MG" field="mythicGear"      value={inv.mythicGear}            onChange={update} color={COLORS.blue} />
+        <ResInput label="Mythic General Shards"  icon="MS" field="mythicGenShards" value={inv.mythicGenShards ?? 0}  onChange={update} color={COLORS.blue} />
+      </Section>
 
-      {/* 5. Expert Resources */}
-      <SectionLabel>Expert Resources</SectionLabel>
-      <div className="card">
-        <div className="card-body">
-          <div className="res-grid">
-            <ResInput label="Books of Knowledge" icon="BK" field="books"          value={inv.books}                onChange={update} color={COLORS.amber} />
-            <ResInput label="General Sigils"     icon="GS" field="generalSigils"  value={inv.generalSigils}        onChange={update} color={COLORS.amber} />
-            <ResInput label="Cyrille Sigils"     icon="CY" field="cyrilleSigils"  value={inv.cyrilleSigils  ?? 0}  onChange={update} color={COLORS.amber} />
-            <ResInput label="Agnes Sigils"       icon="AN" field="agnesSigils"    value={inv.agnesSigils    ?? 0}  onChange={update} color={COLORS.amber} />
-            <ResInput label="Romulus Sigils"     icon="RO" field="romulusSigils"  value={inv.romulusSigils  ?? 0}  onChange={update} color={COLORS.amber} />
-            <ResInput label="Holger Sigils"      icon="HO" field="holgerSigils"   value={inv.holgerSigils   ?? 0}  onChange={update} color={COLORS.amber} />
-            <ResInput label="Fabian Sigils"      icon="FA" field="fabianSigils"   value={inv.fabianSigils   ?? 0}  onChange={update} color={COLORS.amber} />
-            <ResInput label="Baldur Sigils"      icon="BA" field="baldurSigils"   value={inv.baldurSigils   ?? 0}  onChange={update} color={COLORS.amber} />
-            <ResInput label="Valeria Sigils"     icon="VA" field="valeriaSigils"  value={inv.valeriaSigils  ?? 0}  onChange={update} color={COLORS.amber} />
-            <ResInput label="Ronne Sigils"       icon="RN" field="ronneSigils"    value={inv.ronneSigils    ?? 0}  onChange={update} color={COLORS.amber} />
-          </div>
-        </div>
-      </div>
+      <Section title="Expert Resources" sub="Books of Knowledge & Expert Sigils">
+        <ResInput label="Books of Knowledge" icon="BK" field="books"          value={inv.books}                onChange={update} color={COLORS.amber} />
+        <ResInput label="General Sigils"     icon="GS" field="generalSigils"  value={inv.generalSigils}        onChange={update} color={COLORS.amber} />
+        <ResInput label="Cyrille Sigils"     icon="CY" field="cyrilleSigils"  value={inv.cyrilleSigils  ?? 0}  onChange={update} color={COLORS.amber} />
+        <ResInput label="Agnes Sigils"       icon="AN" field="agnesSigils"    value={inv.agnesSigils    ?? 0}  onChange={update} color={COLORS.amber} />
+        <ResInput label="Romulus Sigils"     icon="RO" field="romulusSigils"  value={inv.romulusSigils  ?? 0}  onChange={update} color={COLORS.amber} />
+        <ResInput label="Holger Sigils"      icon="HO" field="holgerSigils"   value={inv.holgerSigils   ?? 0}  onChange={update} color={COLORS.amber} />
+        <ResInput label="Fabian Sigils"      icon="FA" field="fabianSigils"   value={inv.fabianSigils   ?? 0}  onChange={update} color={COLORS.amber} />
+        <ResInput label="Baldur Sigils"      icon="BA" field="baldurSigils"   value={inv.baldurSigils   ?? 0}  onChange={update} color={COLORS.amber} />
+        <ResInput label="Valeria Sigils"     icon="VA" field="valeriaSigils"  value={inv.valeriaSigils  ?? 0}  onChange={update} color={COLORS.amber} />
+        <ResInput label="Ronne Sigils"       icon="RN" field="ronneSigils"    value={inv.ronneSigils    ?? 0}  onChange={update} color={COLORS.amber} />
+      </Section>
 
-      {/* 6. Chief Gear Materials */}
-      <SectionLabel>Chief Gear Materials</SectionLabel>
-      <div className="card">
-        <div className="card-body">
-          <div className="res-grid">
-            <ResInput label="Plans"  icon="PL" field="chiefPlans"  value={inv.chiefPlans}  onChange={update} />
-            <ResInput label="Polish" icon="PO" field="chiefPolish" value={inv.chiefPolish} onChange={update} />
-            <ResInput label="Alloy"  icon="AL" field="chiefAlloy"  value={inv.chiefAlloy}  onChange={update} />
-            <ResInput label="Amber"  icon="AM" field="chiefAmber"  value={inv.chiefAmber}  onChange={update} />
-          </div>
-        </div>
-      </div>
+      <Section title="Chief Gear Materials" sub="Plans, Polish, Alloy & Amber">
+        <ResInput label="Plans"  icon="PL" field="chiefPlans"  value={inv.chiefPlans}  onChange={update} />
+        <ResInput label="Polish" icon="PO" field="chiefPolish" value={inv.chiefPolish} onChange={update} />
+        <ResInput label="Alloy"  icon="AL" field="chiefAlloy"  value={inv.chiefAlloy}  onChange={update} />
+        <ResInput label="Amber"  icon="AM" field="chiefAmber"  value={inv.chiefAmber}  onChange={update} />
+      </Section>
 
-      {/* 7. Chief Charm Materials */}
-      <SectionLabel>Chief Charm Materials</SectionLabel>
-      <div className="card">
-        <div className="card-body">
-          <div className="res-grid">
-            <ResInput label="Designs" icon="DS" field="charmDesigns" value={inv.charmDesigns} onChange={update} />
-            <ResInput label="Guides"  icon="GD" field="charmGuides"  value={inv.charmGuides}  onChange={update} />
-            <ResInput label="Secrets" icon="SC" field="charmSecrets" value={inv.charmSecrets} onChange={update} />
-          </div>
-        </div>
-      </div>
+      <Section title="Chief Charm Materials" sub="Designs, Guides & Secrets">
+        <ResInput label="Designs" icon="DS" field="charmDesigns" value={inv.charmDesigns} onChange={update} />
+        <ResInput label="Guides"  icon="GD" field="charmGuides"  value={inv.charmGuides}  onChange={update} />
+        <ResInput label="Secrets" icon="SC" field="charmSecrets" value={inv.charmSecrets} onChange={update} />
+      </Section>
+
     </div>
   );
 }
@@ -1759,7 +1945,7 @@ function WarAcademyPage({ inv }) {
   const shardsNeeded = 918;
   const shardsBalance = inv.shards - shardsNeeded;
   // daily shards accumulation
-  const dailyShards = inv.dailyIntel + (inv.weeklyPack ? 14 : 0) + Math.round(inv.labyrinthWeekly / 7);
+  const dailyShards = inv.dailyIntel ?? 0;
   const daysToGoal = shardsBalance < 0 ? Math.ceil(Math.abs(shardsBalance) / dailyShards) : 0;
 
   return (
@@ -1827,9 +2013,9 @@ export class ErrorBoundary extends Component {
   static getDerivedStateFromError(e) { return { error: e }; }
   render() {
     if (this.state.error) return (
-      <div style={{padding:40,fontFamily:"Space Mono,monospace",color:"#f85149",background:"#0a0c10",minHeight:"100vh"}}>
-        <div style={{fontSize:14,marginBottom:8,color:"#e6edf3"}}>Something went wrong loading the app.</div>
-        <div style={{fontSize:12,color:"#8b949e",marginBottom:16}}>Error: {this.state.error?.message}</div>
+      <div style={{padding:40,fontFamily:"Space Mono,monospace",color:"#f85149",background:"var(--c-bg, #0a0c10)",minHeight:"100vh"}}>
+        <div style={{fontSize:14,marginBottom:8,color:"var(--c-textPri, #e6edf3)"}}>Something went wrong loading the app.</div>
+        <div style={{fontSize:12,color:"var(--c-textSec, #8b949e)",marginBottom:16}}>Error: {this.state.error?.message}</div>
         <button onClick={()=>window.location.reload()}
           style={{padding:"8px 16px",background:"#e36b1a",color:"#0a0c10",border:"none",borderRadius:6,cursor:"pointer",fontWeight:700}}>
           Reload
@@ -1864,6 +2050,7 @@ const PAGE_TITLES = {
   alliance:     { title: "Alliance Scores", sub: "SvS prep scores and historical results" },};
 
 export default function App() {
+  const { theme, setTheme, resetToSystem } = useTheme();
   const { user, loading: authLoading, error: authError, signUp, signIn, signInWithDiscord, signOut,
           changePassword, requestDeleteAccount, confirmDeleteAccount, clearError } = useAuth();
 
@@ -1876,6 +2063,7 @@ export default function App() {
   const [page,          setPage]         = useState("inventory");
   const [inv,           setInvRaw]       = useLocalStorage("wos-svs-inventory", INITIAL_INVENTORY);
   const [savedPlans,    setSavedPlans]   = useLocalStorage("wos-rfc-saved-plans", {});
+  const [planSnapshot,  setPlanSnapshot] = useState(null); // per-character, loaded from Supabase
   // Shared hero state — gen filter and hero stats synced between HeroesPage and HeroGearPage
   const [genFilter,   setGenFilter]  = useLocalStorage("hg-gen-filter", "Gen 9");
   const [heroStats,   setHeroStats]  = useLocalStorage("hg-hero-stats", defaultAllHeroStats());
@@ -1908,9 +2096,10 @@ export default function App() {
 
     (async () => {
       setSyncing(true);
-      const [cloudInv, cloudPlans] = await Promise.all([
+      const [cloudInv, cloudPlans, cloudSnapshot] = await Promise.all([
         charLoadInventory(activeCharId),
         charLoadPlans(activeCharId),
+        loadPlanSnapshot(activeCharId),
       ]);
 
       if (!cloudInv) {
@@ -1929,6 +2118,7 @@ export default function App() {
         if (cloudPlans && Object.keys(cloudPlans).length > 0) setSavedPlans(cloudPlans);
         else setSavedPlans({});
       }
+      setPlanSnapshot(cloudSnapshot || null);
       setSyncing(false);
     })();
   }, [user, activeCharId]);
@@ -1950,6 +2140,48 @@ export default function App() {
   }, [user, activeCharId]);
 
   useEffect(() => { setSavedAt(new Date().toLocaleTimeString()); }, []);
+
+  // ── Plan snapshot: set starting inventory ────────────────────────────────────
+  const handleSetSnapshot = useCallback(() => {
+    const snapshot = {
+      fc:            invRef.current.fireCrystals ?? 0,
+      rfc:           invRef.current.refinedFC    ?? 0,
+      shards:        invRef.current.shards       ?? 0,
+      steel:         invRef.current.steel        ?? 0,
+      dailyIntel:    invRef.current.dailyIntel   ?? 0,
+      steelHourlyRate: invRef.current.steelHourlyRate ?? 0,
+      setAt:         new Date().toISOString(),
+    };
+    setPlanSnapshot(snapshot);
+    if (user && activeCharId) savePlanSnapshot(activeCharId, snapshot);
+  }, [user, activeCharId]);
+
+  // ── Update plan: mid-cycle refresh ───────────────────────────────────────────
+  // Called by ConstructionPlanner with today's day-index in the RFC planner
+  const handleUpdatePlan = useCallback((rfcDayIdx, newFC, newRFC) => {
+    // Update snapshot with today's values
+    const snapshot = {
+      ...(planSnapshot || {}),
+      fc:    newFC,
+      rfc:   newRFC,
+      setAt: new Date().toISOString(),
+    };
+    setPlanSnapshot(snapshot);
+    if (user && activeCharId) savePlanSnapshot(activeCharId, snapshot);
+
+    // Write into RFC planner actuals for today's day
+    if (rfcDayIdx >= 0 && rfcDayIdx < 28) {
+      try {
+        const existing = JSON.parse(localStorage.getItem("rfc-actuals2") || "null") || [];
+        const next = existing.map((d, i) =>
+          i === rfcDayIdx ? { ...d, rfcUsed: 0, _fcOverride: newFC, _rfcOverride: newRFC } : d
+        );
+        localStorage.setItem("rfc-actuals2", JSON.stringify(next));
+        // Also update live inv so the RFC planner reads the new RFC balance
+        setInv(p => ({ ...p, fireCrystals: newFC, refinedFC: newRFC }));
+      } catch {}
+    }
+  }, [user, activeCharId, planSnapshot, setInv]);
 
   // ── Plan handlers ─────────────────────────────────────────────────────────────
   const handleSavePlan = useCallback((key, plan) => {
@@ -2035,6 +2267,9 @@ export default function App() {
           clearCharError={clearCharError}
           authError={authError}
           clearAuthError={clearError}
+          theme={theme}
+          setTheme={setTheme}
+          resetToSystem={resetToSystem}
         />
       )}
 
@@ -2156,6 +2391,33 @@ export default function App() {
               </button>
             </div>
           )}
+
+          {/* Theme toggle — always visible */}
+          <div style={{display:"flex",alignItems:"center",gap:4,padding:"8px 12px",borderTop:`1px solid ${COLORS.border}`}}>
+            <span style={{fontSize:10,color:COLORS.textDim,fontFamily:"Space Mono,monospace",marginRight:4,whiteSpace:"nowrap"}}>Theme</span>
+            {[
+              { id:"auto",  label:"Auto" },
+              { id:"dark",  label:"🌙"   },
+              { id:"light", label:"☀️"   },
+            ].map(opt => {
+              const isActive = opt.id === "auto"
+                ? !localStorage.getItem("wos-theme")
+                : theme === opt.id && localStorage.getItem("wos-theme") === opt.id;
+              return (
+                <button key={opt.id}
+                  onClick={() => opt.id === "auto" ? resetToSystem() : setTheme(opt.id)}
+                  style={{
+                    flex:1, padding:"4px 0", border:`1px solid ${isActive ? COLORS.accent : COLORS.border}`,
+                    borderRadius:5, background: isActive ? COLORS.accentBg : "transparent",
+                    color: isActive ? COLORS.accent : COLORS.textDim,
+                    fontSize:11, cursor:"pointer", fontFamily:"Space Mono,monospace",
+                    transition:"all 0.15s",
+                  }}>
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
         </aside>
 
         <main className="main">
@@ -2190,7 +2452,10 @@ export default function App() {
 
           <div className="page-body">
             {page === "inventory"    && <InventoryPage    inv={inv} setInv={setInv} />}
-            {page === "construction" && <ConstructionPlanner inv={inv} setInv={setInv} />}
+            {page === "construction" && <ConstructionPlanner inv={inv} setInv={setInv}
+                planSnapshot={planSnapshot}
+                onSetSnapshot={handleSetSnapshot}
+                onUpdatePlan={handleUpdatePlan} />}
             {page === "rfc-planner"  && <RFCPlanner inv={inv} setInv={setInv}
                 savedPlans={user ? savedPlans : {}}
                 onSavePlan={user ? handleSavePlan : ()=>{}}
