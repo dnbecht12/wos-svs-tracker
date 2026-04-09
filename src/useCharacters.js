@@ -10,7 +10,6 @@ export async function charLoadInventory(characterId) {
     .select("data")
     .eq("character_id", characterId)
     .maybeSingle();
-  console.log("[charLoadInventory]", characterId, "data:", data, "error:", error?.message);
   if (!error && data) return data.data;
   return null;
 }
@@ -19,12 +18,10 @@ export async function charSaveInventory(characterId, inv) {
   if (!characterId) return;
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
-  const { error } = await supabase.from("inventory").upsert(
+  await supabase.from("inventory").upsert(
     { character_id: characterId, data: inv, updated_at: new Date().toISOString() },
     { onConflict: "character_id" }
   );
-  if (error) console.error("[charSaveInventory] error:", error.message, error.details, error.hint);
-  else console.log("[charSaveInventory] saved ok for", characterId, "fc=", inv?.fireCrystals);
 }
 
 export async function charLoadPlans(characterId) {
