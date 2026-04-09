@@ -757,11 +757,32 @@ const GLOBAL_STYLE = `
 
   /* Responsive */
   @media (max-width: 768px) {
-    .sidebar { display: none; }
+    .sidebar {
+      position: fixed; top: 0; left: 0; height: 100vh; z-index: 150;
+      transform: translateX(-100%); transition: transform 0.25s ease;
+      box-shadow: 4px 0 24px rgba(0,0,0,0.5);
+    }
+    .sidebar.open { transform: translateX(0); }
+    .sidebar-overlay { display: block !important; }
     .page-body { padding: 16px; }
-    .page-header { padding: 16px; }
+    .page-header { padding: 14px 16px; }
     .stat-grid { grid-template-columns: repeat(2, 1fr); }
+    .hamburger { display: flex !important; }
   }
+  .sidebar-overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    z-index: 149; cursor: pointer;
+  }
+  .hamburger {
+    display: none; align-items: center; justify-content: center;
+    width: 36px; height: 36px; background: ${COLORS.card}; border: 1px solid ${COLORS.border};
+    border-radius: 7px; cursor: pointer; flex-direction: column; gap: 5px; flex-shrink: 0;
+  }
+  .hamburger span {
+    display: block; width: 18px; height: 2px;
+    background: ${COLORS.textSec}; border-radius: 2px; transition: all 0.2s;
+  }
+  .hamburger:hover span { background: ${COLORS.textPri}; }
 
   /* Animations */
   @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
@@ -1608,7 +1629,7 @@ export default function App() {
   const [savedAt,       setSavedAt]      = useState(null);
   const [loadedPlanKey, setLoadedPlanKey]= useState(null);
   const [syncing,       setSyncing]      = useState(false);
-  const [profileOpen,   setProfileOpen]  = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profileSection,setProfileSection]=useState("account");
   const [savePlanPopup, setSavePlanPopup]= useState({ open:false, defaultName:"", mode:"over" });
 
@@ -1767,7 +1788,10 @@ export default function App() {
       />
 
       <div className="app">
-        <aside className="sidebar">
+        {/* Mobile overlay — closes sidebar when tapped */}
+        <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />
+
+        <aside className={`sidebar${sidebarOpen ? " open" : ""}`}>
           <div className="sidebar-logo">
             <div className="wos">WoS · SvS</div>
             <h1>Planning<br /><span>Tracker</span></h1>
@@ -1807,7 +1831,7 @@ export default function App() {
                   <div
                     key={p.id}
                     className={clsx("nav-item", page === p.id && !loadedPlanKey && "active")}
-                    onClick={() => { setLoadedPlanKey(null); setPage(p.id); }}
+                    onClick={() => { setLoadedPlanKey(null); setPage(p.id); setSidebarOpen(false); }}
                   >
                     <span className="nav-icon">{p.icon}</span>
                     {p.label}
@@ -1825,7 +1849,7 @@ export default function App() {
                   <div key={key}
                     className={clsx("nav-item", loadedPlanKey === key && "active")}
                     style={{justifyContent:"space-between", paddingRight:6}}
-                    onClick={() => handleLoadPlan(key)}
+                    onClick={() => { handleLoadPlan(key); setSidebarOpen(false); }}}
                   >
                     <span style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
                       <span className="nav-icon" style={{flexShrink:0}}>[P]</span>
@@ -1878,14 +1902,20 @@ export default function App() {
         <main className="main">
           <div className="page-header">
             <div className="page-header-row">
-              <div>
-                <div className="page-title">
-                  {title.split(" ").map((w,i) => i===0
-                    ? <span key={i}>{w} </span>
-                    : <span key={i} style={{color:COLORS.accent}}>{w} </span>)}
+              <div style={{display:"flex",alignItems:"center",gap:12}}>
+                {/* Hamburger — mobile only */}
+                <div className="hamburger" onClick={() => setSidebarOpen(s => !s)}>
+                  <span/><span/><span/>
                 </div>
-                <div className="page-sub">
-                  {loadedPlanKey ? `Editing saved plan: ${loadedPlanKey}` : sub}
+                <div>
+                  <div className="page-title">
+                    {title.split(" ").map((w,i) => i===0
+                      ? <span key={i}>{w} </span>
+                      : <span key={i} style={{color:COLORS.accent}}>{w} </span>)}
+                  </div>
+                  <div className="page-sub">
+                    {loadedPlanKey ? `Editing saved plan: ${loadedPlanKey}` : sub}
+                  </div>
                 </div>
               </div>
               <div style={{display:"flex",alignItems:"center",gap:12}}>
