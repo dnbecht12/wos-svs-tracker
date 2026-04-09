@@ -1193,10 +1193,18 @@ function AuthPanel({ user, loading, error, signUp, signIn, signInWithDiscord, cl
 function ResInput({ label, icon, field, value, onChange, color }) {
   const [editing, setEditing] = useState(false);
   const [raw,     setRaw]     = useState("");
+
   const handleFocus  = () => { setEditing(true); setRaw(value === 0 ? "" : String(value)); };
-  const handleBlur   = () => { setEditing(false); const n = parseInt(raw.replace(/,/g, ""), 10); onChange(field, isNaN(n) ? 0 : Math.max(0, n)); };
-  const handleChange = e => setRaw(e.target.value.replace(/[^0-9,]/g, ""));
-  const handleKey    = e => { if (e.key === "Enter") e.target.blur(); };
+  const handleBlur   = () => { setEditing(false); };
+  const handleChange = e => {
+    const cleaned = e.target.value.replace(/[^0-9,]/g, "");
+    setRaw(cleaned);
+    // Update parent state immediately on every keystroke
+    const n = parseInt(cleaned.replace(/,/g, ""), 10);
+    onChange(field, isNaN(n) ? 0 : Math.max(0, n));
+  };
+  const handleKey = e => { if (e.key === "Enter") e.target.blur(); };
+
   return (
     <div className="res-item" style={color ? { borderColor: color + "40" } : {}}>
       <div className="res-icon">{icon}</div>
@@ -1662,23 +1670,24 @@ export default function App() {
   const [profileSection, setProfileSection]= useState("account");
   const [savePlanPopup, setSavePlanPopup]= useState({ open:false, defaultName:"", mode:"over" });
 
-  const syncTimer  = useRef(null);
-  const prevCharId = useRef(null);
+  const syncTimer   = useRef(null);
+  const prevCharId  = useRef(null);
+  const invRef      = useRef(inv);
 
-  // ── Load data when active character changes ──────────────────────────────────
-  // ── Flush save immediately (used before character switch) ────────────────────
-  const flushSave = useCallback(async (charId, currentInv) => {
+  // Keep invRef in sync with inv state
+  useEffect(() => { invRef.current = inv; }, [inv]);
+
+  // ── Flush pending save immediately before character switch ───────────────────
+  const flushSave = useCallback(async (charId) => {
     if (!user || !charId) return;
     clearTimeout(syncTimer.current);
-    await charSaveInventory(charId, currentInv);
+    syncTimer.current = null;
+    await charSaveInventory(charId, invRef.current);
   }, [user]);
 
+  // ── Load data whenever activeCharId changes ───────────────────────────────────
   useEffect(() => {
     if (!user || !activeCharId) return;
-    // Always reload when activeCharId changes — don't skip on prevCharId match
-    // (prevCharId is only used to prevent double-load on initial mount)
-    if (activeCharId === prevCharId.current) return;
-    prevCharId.current = activeCharId;
 
     (async () => {
       setSyncing(true);
@@ -1687,20 +1696,22 @@ export default function App() {
         charLoadPlans(activeCharId),
       ]);
 
-      const isNewChar = !cloudInv;
-      if (isNewChar) {
+      if (!cloudInv) {
+        // Brand-new character with no saved data yet
         if (characters.length <= 1) {
+          // First character — seed from local if guest had data
           const localHasData = Object.keys(INITIAL_INVENTORY).some(k => {
-            const d = INITIAL_INVENTORY[k], c = inv[k];
+            const d = INITIAL_INVENTORY[k], c = invRef.current[k];
             return typeof d === "boolean" ? c !== d : c !== 0;
           });
-          if (localHasData) await charSaveInventory(activeCharId, inv);
+          if (localHasData) await charSaveInventory(activeCharId, invRef.current);
         } else {
           setInvRaw(INITIAL_INVENTORY);
           setSavedPlans({});
         }
       } else {
-        if (cloudInv) setInvRaw(cloudInv);
+        // Always load from cloud — this is the source of truth
+        setInvRaw(cloudInv);
         if (cloudPlans && Object.keys(cloudPlans).length > 0) setSavedPlans(cloudPlans);
         else setSavedPlans({});
       }
@@ -1709,9 +1720,7 @@ export default function App() {
   }, [user, activeCharId]);
 
   // ── Reset when user signs out ────────────────────────────────────────────────
-  useEffect(() => {
-    if (!user) { prevCharId.current = null; }
-  }, [user]);
+  useEffect(() => { if (!user) { invRef.current = INITIAL_INVENTORY; } }, [user]);
 
   // ── Debounced cloud save on inv change ────────────────────────────────────────
   const setInv = useCallback((valOrFn) => {
@@ -1804,7 +1813,7 @@ export default function App() {
           removeCharacter={removeCharacter}
           renameCharacter={renameCharacter}
           makeDefault={makeDefault}
-          switchCharacter={async (id) => { await flushSave(activeCharId, inv); prevCharId.current = null; switchCharacter(id); }}
+          switchCharacter={async (id) => { await flushSave(activeCharId); switchCharacter(id); }}
           changePassword={changePassword}
           requestDeleteAccount={requestDeleteAccount}
           confirmDeleteAccount={confirmDeleteAccount}
@@ -1844,8 +1853,7 @@ export default function App() {
                     setProfileSection("characters");
                     setProfileOpen(true);
                   } else {
-                    await flushSave(activeCharId, inv);
-                    prevCharId.current = null;
+                    await flushSave(activeCharId);
                     switchCharacter(val);
                   }
                 }}>
