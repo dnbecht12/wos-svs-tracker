@@ -5,27 +5,13 @@ import { supabase } from "./supabase.js";
 
 export async function charLoadInventory(characterId) {
   if (!characterId) return null;
-  // Try new character_id-based row first
   const { data, error } = await supabase
     .from("inventory")
     .select("data")
     .eq("character_id", characterId)
     .maybeSingle();
+  console.log("[charLoadInventory]", characterId, "data:", data, "error:", error?.message);
   if (!error && data) return data.data;
-
-  // Fallback: try old id-based row (migration path for existing users)
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-  const { data: old } = await supabase
-    .from("inventory")
-    .select("data")
-    .eq("id", user.id)
-    .maybeSingle();
-  if (old) {
-    // Migrate: re-save under character_id so future loads work
-    await charSaveInventory(characterId, old.data);
-    return old.data;
-  }
   return null;
 }
 
@@ -33,10 +19,12 @@ export async function charSaveInventory(characterId, inv) {
   if (!characterId) return;
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
-  await supabase.from("inventory").upsert(
+  const { error } = await supabase.from("inventory").upsert(
     { character_id: characterId, data: inv, updated_at: new Date().toISOString() },
     { onConflict: "character_id" }
   );
+  if (error) console.error("[charSaveInventory] error:", error.message, error.details, error.hint);
+  else console.log("[charSaveInventory] saved ok for", characterId, "fc=", inv?.fireCrystals);
 }
 
 export async function charLoadPlans(characterId) {
