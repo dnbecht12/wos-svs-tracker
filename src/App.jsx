@@ -327,8 +327,27 @@ function sortHeroesByGen(heroes) {
 }
 
 // Default stats for a single hero in the Heroes module
+// Star options: 0, 0.1, 0.2 ... 0.5, 1, 1.1 ... 5.5
+const STAR_OPTS = [];
+for (let s = 0; s <= 5; s++) {
+  for (let sub = 0; sub <= 5; sub++) {
+    STAR_OPTS.push(parseFloat((s + sub * 0.1).toFixed(1)));
+  }
+}
+STAR_OPTS.push(5.5); // max
+
 function defaultHeroStats() {
-  return { level:0, expS1:0, expS2:0, expS3:0, expdS1:0, expdS2:0, expdS3:0, widget:0 };
+  return {
+    level: 0, stars: 0, widget: 0,
+    expS1: 0, expS2: 0, expS3: 0,
+    expdS1: 0, expdS2: 0, expdS3: 0,
+    // Exploration base stats
+    heroAtk: 0, heroDef: 0, heroHp: 0,
+    escorts: 0, troopCap: 0,
+    escortHp: 0, escortDef: 0, escortAtk: 0,
+    // Expedition base stats
+    infAtk: 0, infDef: 0, infLeth: 0, infHp: 0,
+  };
 }
 
 // Build default heroStats map: { heroName: { level, expS1..., widget } }
@@ -434,12 +453,170 @@ function defaultHeroState(type) {
 
 // ─── HeroesPage ───────────────────────────────────────────────────────────────
 
+// ─── Hero Profile Modal ───────────────────────────────────────────────────────
+
+function HeroProfileModal({ hero, stats, onUpdate, onClose }) {
+  const C = COLORS;
+  if (!hero) return null;
+
+  const local = { ...defaultHeroStats(), ...stats };
+  const set = (field, val) => onUpdate(hero.name, field, val);
+
+  const qualityColor = q => q === "SSR" ? C.accent : q === "SR" ? C.blue : C.textSec;
+  const typeColor    = t => t === "Infantry" ? C.green : t === "Lancer" ? C.blue : C.amber;
+
+  const sel = {
+    background: C.card, border: `1px solid ${C.border}`, borderRadius: 5,
+    color: C.textPri, fontSize: 12, padding: "4px 8px",
+    fontFamily: "'Space Mono',monospace", outline: "none", cursor: "pointer",
+  };
+
+  const statInp = (field) => (
+    <input
+      type="number" min={0}
+      defaultValue={local[field] || 0}
+      onBlur={e => set(field, parseFloat(e.target.value) || 0)}
+      onKeyDown={e => { if (e.key === "Enter") e.target.blur(); }}
+      style={{...sel, width: "100%", textAlign: "right", padding: "5px 8px"}}
+    />
+  );
+
+  const StatSection = ({ title, fields }) => (
+    <div style={{marginBottom: 20}}>
+      <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase",
+        color:C.textDim,fontFamily:"'Space Mono',monospace",marginBottom:10,
+        paddingBottom:6,borderBottom:`1px solid ${C.border}`}}>{title}</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+        {fields.map(([label, field]) => (
+          <div key={field}>
+            <div style={{fontSize:11,color:C.textSec,marginBottom:4}}>{label}</div>
+            {statInp(field)}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  const skillOpts  = Array.from({length:6},  (_,i) => i);
+  const levelOpts  = Array.from({length:81}, (_,i) => i);
+  const widgetOpts = Array.from({length:11}, (_,i) => i);
+
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="modal" style={{maxWidth:560}}>
+        {/* Header */}
+        <div className="modal-header">
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <div style={{width:40,height:40,borderRadius:"50%",background:C.accentBg,
+              border:`2px solid ${C.accentDim}`,display:"flex",alignItems:"center",
+              justifyContent:"center",fontSize:14,fontWeight:800,color:C.accent}}>
+              {hero.name[0]}
+            </div>
+            <div>
+              <div style={{fontSize:16,fontWeight:800,color:C.textPri}}>{hero.name}</div>
+              <div style={{display:"flex",gap:8,marginTop:2}}>
+                <span style={{fontSize:11,fontWeight:700,color:typeColor(hero.type)}}>{hero.type}</span>
+                <span style={{fontSize:11,color:C.textDim}}>·</span>
+                <span style={{fontSize:11,color:C.textDim,fontFamily:"'Space Mono',monospace"}}>{hero.gen}</span>
+                <span style={{fontSize:11,color:C.textDim}}>·</span>
+                <span style={{fontSize:11,fontWeight:700,color:qualityColor(hero.quality)}}>{hero.quality}</span>
+              </div>
+            </div>
+          </div>
+          <button className="modal-close" onClick={onClose}>✕</button>
+        </div>
+
+        <div className="modal-body" style={{maxHeight:"75vh",overflowY:"auto"}}>
+
+          {/* Core stats row */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:20}}>
+            <div>
+              <div style={{fontSize:11,color:C.textSec,marginBottom:4}}>Level</div>
+              <select value={local.level} onChange={e => set("level", Number(e.target.value))} style={{...sel,width:"100%"}}>
+                {levelOpts.map(v => <option key={v} value={v}>{v}</option>)}
+              </select>
+            </div>
+            <div>
+              <div style={{fontSize:11,color:C.textSec,marginBottom:4}}>Stars</div>
+              <select value={local.stars} onChange={e => set("stars", parseFloat(e.target.value))} style={{...sel,width:"100%"}}>
+                {STAR_OPTS.map(v => <option key={v} value={v}>{"★".repeat(Math.floor(v))}{v % 1 > 0 ? `+${Math.round((v%1)*10)}/5` : ""} ({v})</option>)}
+              </select>
+            </div>
+            <div>
+              <div style={{fontSize:11,color:C.textSec,marginBottom:4}}>Widget</div>
+              <select value={local.widget} onChange={e => set("widget", Number(e.target.value))} style={{...sel,width:"100%"}}>
+                {widgetOpts.map(v => <option key={v} value={v}>{v}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Skills */}
+          <div style={{marginBottom:20}}>
+            <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase",
+              color:C.textDim,fontFamily:"'Space Mono',monospace",marginBottom:10,
+              paddingBottom:6,borderBottom:`1px solid ${C.border}`}}>Skills</div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+              <div>
+                <div style={{fontSize:11,fontWeight:600,color:C.textSec,marginBottom:8}}>Exploration</div>
+                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                  {[["S1","expS1"],["S2","expS2"],["S3","expS3"]].map(([label,field]) => (
+                    <div key={field} style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                      <span style={{fontSize:12,color:C.textSec}}>{label}</span>
+                      <select value={local[field]} onChange={e => set(field, Number(e.target.value))} style={sel}>
+                        {skillOpts.map(v => <option key={v} value={v}>{v}</option>)}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div style={{fontSize:11,fontWeight:600,color:C.textSec,marginBottom:8}}>Expedition</div>
+                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                  {[["S1","expdS1"],["S2","expdS2"],["S3","expdS3"]].map(([label,field]) => (
+                    <div key={field} style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                      <span style={{fontSize:12,color:C.textSec}}>{label}</span>
+                      <select value={local[field]} onChange={e => set(field, Number(e.target.value))} style={sel}>
+                        {skillOpts.map(v => <option key={v} value={v}>{v}</option>)}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Base stats */}
+          <StatSection title="Exploration Base Stats" fields={[
+            ["Hero Attack",     "heroAtk"],
+            ["Hero Defense",    "heroDef"],
+            ["Hero Health",     "heroHp"],
+            ["Escorts",         "escorts"],
+            ["Troop Capacity",  "troopCap"],
+            ["Escort Health",   "escortHp"],
+            ["Escort Defense",  "escortDef"],
+            ["Escort Attack",   "escortAtk"],
+          ]} />
+
+          <StatSection title="Expedition Base Stats" fields={[
+            ["Infantry Attack",    "infAtk"],
+            ["Infantry Defense",   "infDef"],
+            ["Infantry Lethality", "infLeth"],
+            ["Infantry Health",    "infHp"],
+          ]} />
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function HeroesPage({ genFilter, setGenFilter, heroStats, setHeroStats }) {
   const [sortBy,      setSortBy]      = useLocalStorage("heroes-sort",      "quality");
   const [favorites,   setFavorites]   = useLocalStorage("heroes-favorites", []);
-  const [filterType,  setFilterType]  = useState(""); // Infantry | Lancer | Marksman | ""
-  const [filterGen,   setFilterGen]   = useState(""); // specific gen or ""
-  const [filterName,  setFilterName]  = useState(""); // text search
+  const [filterType,  setFilterType]  = useState("");
+  const [filterGen,   setFilterGen]   = useState("");
+  const [filterName,  setFilterName]  = useState("");
+  const [profileHero, setProfileHero] = useState(null);
   const C = COLORS;
 
   const maxGenIdx = GEN_ORDER.indexOf(genFilter);
@@ -546,10 +723,21 @@ function HeroesPage({ genFilter, setGenFilter, heroStats, setHeroStats }) {
             ★
           </span>
         </td>
-        <td style={{...tdS,fontWeight:700,color:C.textPri,whiteSpace:"nowrap"}}>{hero.name}</td>
+        {/* Clickable hero name */}
+        <td style={{...tdS,fontWeight:700,color:C.accent,whiteSpace:"nowrap",cursor:"pointer",textDecoration:"underline",textDecorationStyle:"dotted",textUnderlineOffset:3}}
+          onClick={() => setProfileHero(hero)}
+          title="View hero profile">
+          {hero.name}
+        </td>
         <td style={{...tdS,color:typeColor(hero.type),fontWeight:600}}>{hero.type}</td>
         <td style={{...tdS,color:C.textDim,fontFamily:"'Space Mono',monospace",fontSize:10}}>{hero.gen}</td>
         <td style={{...tdS,fontWeight:700,color:qualityColor(hero.quality)}}>{hero.quality}</td>
+        {/* Stars */}
+        <td style={{...tdS,textAlign:"center"}}>
+          <select value={stats.stars ?? 0} onChange={e => updateStat(hero.name,"stars",parseFloat(e.target.value))} style={sel}>
+            {STAR_OPTS.map(v => <option key={v} value={v}>{v}</option>)}
+          </select>
+        </td>
         <td style={{...tdS,textAlign:"center"}}>
           <select value={stats.level} onChange={e => updateStat(hero.name,"level",Number(e.target.value))} style={sel}>
             {levelOpts.map(v => <option key={v} value={v}>{v}</option>)}
@@ -608,6 +796,36 @@ function HeroesPage({ genFilter, setGenFilter, heroStats, setHeroStats }) {
         <th style={sortableThS("quality")} onClick={() => setSortBy("quality")}>
           <SortLabel col="quality" label="Quality" />
         </th>
+        <th style={thS}>Stars</th>
+        <th style={thS}>Level</th>
+        <th style={{...thS,textAlign:"center"}} colSpan={3}>Exploration Skills</th>
+        <th style={{...thS,textAlign:"center"}} colSpan={3}>Expedition Skills</th>
+        <th style={thS}>Widget</th>
+      </tr>
+      <tr>
+        {Array(7).fill(null).map((_,i) => <th key={i} style={{...thS,paddingTop:2,paddingBottom:6}}/>)}
+        {["S1","S2","S3","S1","S2","S3"].map((s,i) => (
+          <th key={i} style={{...thS,paddingTop:2,paddingBottom:6,textAlign:"center",fontSize:9}}>{s}</th>
+        ))}
+        <th style={{...thS,paddingTop:2,paddingBottom:6}}/>
+      </tr>
+    </thead>
+  );
+    <thead>
+      <tr>
+        <th style={{...thS,width:28,padding:"8px 4px"}}/>
+        <th style={sortableThS("hero")} onClick={() => setSortBy("hero")}>
+          <SortLabel col="hero" label="Hero" />
+        </th>
+        <th style={sortableThS("type")} onClick={() => setSortBy("type")}>
+          <SortLabel col="type" label="Type" />
+        </th>
+        <th style={sortableThS("gen")} onClick={() => setSortBy("gen")}>
+          <SortLabel col="gen" label="Gen" />
+        </th>
+        <th style={sortableThS("quality")} onClick={() => setSortBy("quality")}>
+          <SortLabel col="quality" label="Quality" />
+        </th>
         <th style={thS}>Level</th>
         <th style={{...thS,textAlign:"center"}} colSpan={3}>Exploration Skills</th>
         <th style={{...thS,textAlign:"center"}} colSpan={3}>Expedition Skills</th>
@@ -625,6 +843,16 @@ function HeroesPage({ genFilter, setGenFilter, heroStats, setHeroStats }) {
 
   return (
     <div className="fade-in">
+
+      {/* Hero Profile Modal */}
+      {profileHero && (
+        <HeroProfileModal
+          hero={profileHero}
+          stats={heroStats[profileHero.name] || defaultHeroStats()}
+          onUpdate={updateStat}
+          onClose={() => setProfileHero(null)}
+        />
+      )}
 
       {/* Controls bar */}
       <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",gap:10,marginBottom:14}}>
