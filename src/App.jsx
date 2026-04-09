@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo, Component } from "react";
+import { createPortal } from "react-dom";
 import ConstructionPlanner from "./ConstructionPlanner.jsx";
 import RFCPlanner from "./RFCPlanner.jsx";
 import SvSCalendar from "./SvSCalendar.jsx";
@@ -501,7 +502,7 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose }) {
   const levelOpts  = Array.from({length:81}, (_,i) => i);
   const widgetOpts = Array.from({length:11}, (_,i) => i);
 
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal" style={{maxWidth:560}}>
         {/* Header */}
@@ -606,7 +607,8 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose }) {
 
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -814,16 +816,6 @@ function HeroesPage({ genFilter, setGenFilter, heroStats, setHeroStats }) {
 
   return (
     <div className="fade-in">
-
-      {/* Hero Profile Modal */}
-      {profileHero && (
-        <HeroProfileModal
-          hero={profileHero}
-          stats={heroStats[profileHero.name] || defaultHeroStats()}
-          onUpdate={updateStat}
-          onClose={() => setProfileHero(null)}
-        />
-      )}
 
       {/* Controls bar */}
       <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",gap:10,marginBottom:14}}>
@@ -2332,6 +2324,7 @@ export default function App() {
   // Shared hero state — gen filter and hero stats synced between HeroesPage and HeroGearPage
   const [genFilter,   setGenFilter]  = useLocalStorage("hg-gen-filter", "Gen 9");
   const [heroStats,   setHeroStats]  = useLocalStorage("hg-hero-stats", defaultAllHeroStats());
+  const [profileHero, setProfileHero] = useState(null);
   const [savedAt,       setSavedAt]      = useState(null);
   const [loadedPlanKey, setLoadedPlanKey]= useState(null);
   const [syncing,       setSyncing]      = useState(false);
@@ -2535,6 +2528,19 @@ export default function App() {
           theme={theme}
           setTheme={setTheme}
           resetToSystem={resetToSystem}
+        />
+      )}
+
+      {/* Hero Profile Modal — rendered at top level so fixed positioning isn't clipped */}
+      {profileHero && (
+        <HeroProfileModal
+          hero={profileHero}
+          stats={heroStats[profileHero.name] || defaultHeroStats()}
+          onUpdate={(heroName, field, val) => setHeroStats(prev => ({
+            ...prev,
+            [heroName]: { ...(prev[heroName] || defaultHeroStats()), [field]: val },
+          }))}
+          onClose={() => setProfileHero(null)}
         />
       )}
 
