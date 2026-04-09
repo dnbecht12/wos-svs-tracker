@@ -44,14 +44,16 @@ function calcRefines(weekCumulativeSoFar, count) {
   if (count <= 0) return { fcBurn:0, rfcEarned:0, tierAtStart:null, tierAfter:null, endCumulative:weekCumulativeSoFar };
   let fcBurn=0, rfcEarned=0, tierAtStart=null, tierAfter=null;
   for (let i=0; i<count; i++) {
-    const row = REFINE_TABLE[Math.min(weekCumulativeSoFar+i, REFINE_TABLE.length-1)];
+    const idx = Math.min(Math.max(weekCumulativeSoFar+i, 0), REFINE_TABLE.length-1);
+    const row = REFINE_TABLE[idx];
+    if (!row) continue;
     if (i===0) tierAtStart = row.tier;
     tierAfter = row.tier;
     fcBurn    += row.fc;
     rfcEarned += row.rfc;
   }
-  // Tier AFTER this day's refines = tier of the next refine to be done
-  const nextRow = REFINE_TABLE[Math.min(weekCumulativeSoFar+count, REFINE_TABLE.length-1)];
+  const nextIdx = Math.min(Math.max(weekCumulativeSoFar+count, 0), REFINE_TABLE.length-1);
+  const nextRow = REFINE_TABLE[nextIdx];
   const tierEndOfDay = nextRow ? nextRow.tier : tierAfter;
   return { fcBurn, rfcEarned, tierAtStart, tierAfter: tierEndOfDay, endCumulative: weekCumulativeSoFar+count };
 }

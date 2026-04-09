@@ -272,7 +272,8 @@ const RFC_TIERS = [
 ];
 
 function getRFCTier(refineCount) {
-  return RFC_TIERS.find(t => refineCount >= t.min && refineCount <= t.max) || RFC_TIERS[4];
+  const rc = Math.max(1, Math.min(100, refineCount || 1));
+  return RFC_TIERS.find(t => rc >= t.min && rc <= t.max) || RFC_TIERS[RFC_TIERS.length - 1];
 }
 
 // SVS weekly refine schedule (day-of-week -> weekly refine count range)

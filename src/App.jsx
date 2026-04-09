@@ -1630,37 +1630,45 @@ function AuthPanel({ user, loading, error, signUp, signIn, signInWithDiscord, cl
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function ResInput({ label, icon, field, value, onChange, color }) {
-  const [focused, setFocused] = useState(false);
+  const [localVal, setLocalVal] = useState(value);
+  const [focused,  setFocused]  = useState(false);
+
+  const prevValue = useRef(value);
+  useEffect(() => {
+    if (prevValue.current !== value) {
+      prevValue.current = value;
+      setLocalVal(value);
+    }
+  }, [value]);
+
+  const handleFocus = () => setFocused(true);
+
+  const handleBlur = () => {
+    setFocused(false);
+    prevValue.current = localVal;
+    onChange(field, localVal);
+  };
+
+  const handleChange = e => {
+    const n = parseInt(e.target.value, 10);
+    setLocalVal(isNaN(n) ? 0 : Math.max(0, n));
+  };
 
   return (
     <div className="res-item" style={color ? { borderColor: color + "40" } : {}}>
       <div className="res-icon">{icon}</div>
       <div className="res-label">{label}</div>
-      {focused ? (
-        <input
-          className="res-input"
-          type="number"
-          min={0}
-          autoFocus
-          defaultValue={value || ""}
-          onChange={e => {
-            const n = parseInt(e.target.value, 10);
-            onChange(field, isNaN(n) ? 0 : Math.max(0, n));
-          }}
-          onBlur={() => setFocused(false)}
-          onKeyDown={e => { if (e.key === "Enter") e.target.blur(); }}
-          style={color ? { color } : {}}
-        />
-      ) : (
-        <input
-          className="res-input"
-          type="text"
-          readOnly
-          value={value === 0 ? "0" : Number(value).toLocaleString()}
-          onFocus={() => setFocused(true)}
-          style={{cursor:"text", ...(color ? { color } : {})}}
-        />
-      )}
+      <input
+        className="res-input"
+        type={focused ? "number" : "text"}
+        min={0}
+        value={focused ? localVal : (localVal === 0 ? "0" : Number(localVal).toLocaleString())}
+        onChange={handleChange}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
+        onKeyDown={e => { if (e.key === "Enter") e.target.blur(); }}
+        style={color ? { color } : {}}
+      />
     </div>
   );
 }
