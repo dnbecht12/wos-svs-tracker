@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { buildCycles, getCurrentCycleNum, getCycleStartDate, fmtDate as fmtDateCal, cycleLabelFull } from "./svsCalendar.js";
 
 // ─── Exact building data from Misc. Data Tables AO3:BE399 ────────────────────
@@ -348,6 +348,29 @@ const fmt = n => {
 };
 
 const fmtFull = n => typeof n === "number" ? Math.round(n).toLocaleString() : "—";
+
+// Number input that displays commas but parses raw number on change
+function NumInput({ value, onChange, className, style, min = 0 }) {
+  const [editing, setEditing] = React.useState(false);
+  const [raw,     setRaw]     = React.useState("");
+  const handleFocus = () => { setEditing(true); setRaw(value === 0 ? "" : String(value)); };
+  const handleBlur  = () => { setEditing(false); const n = parseInt(raw.replace(/,/g,""),10); onChange(isNaN(n) ? 0 : Math.max(min, n)); };
+  const handleChange = e => setRaw(e.target.value.replace(/[^0-9,]/g,""));
+  const handleKey    = e => { if (e.key === "Enter") e.target.blur(); };
+  return (
+    <input
+      className={className}
+      style={style}
+      type="text"
+      inputMode="numeric"
+      value={editing ? raw : (value === 0 ? "0" : value.toLocaleString())}
+      onFocus={handleFocus}
+      onBlur={handleBlur}
+      onChange={handleChange}
+      onKeyDown={handleKey}
+    />
+  );
+}
 
 const STYLE = `
 @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;500;600;700;800&display=swap');
@@ -797,18 +820,18 @@ export default function ConstructionPlanner({ inv, setInv }) {
             <div className="settings-grid">
               <div className="inp-group">
                 <label className="inp-label">Current FC</label>
-                <input className="inp-field" type="number" value={fc} min={0}
-                  onChange={e => setFC(Number(e.target.value))} />
+                <NumInput className="inp-field" value={fc} min={0}
+                  onChange={v => setFC(v)} />
               </div>
               <div className="inp-group">
                 <label className="inp-label">Current Refined FC</label>
-                <input className="inp-field" type="number" value={rfc} min={0}
-                  onChange={e => setRFC(Number(e.target.value))} />
+                <NumInput className="inp-field" value={rfc} min={0}
+                  onChange={v => setRFC(v)} />
               </div>
               <div className="inp-group">
                 <label className="inp-label">Daily FC income</label>
-                <input className="inp-field" type="number" value={dailyFCIncome} min={0}
-                  onChange={e => persist(setDailyFCIncome,"cp-dailyfc")(Number(e.target.value))} />
+                <NumInput className="inp-field" value={dailyFCIncome} min={0}
+                  onChange={v => persist(setDailyFCIncome,"cp-dailyfc")(v)} />
               </div>
               <div className="inp-group">
                 <label className="inp-label">Agnes skill level (1–8)</label>
@@ -1072,11 +1095,7 @@ export default function ConstructionPlanner({ inv, setInv }) {
             <div>
               <div className="sec-head">Refine tier status</div>
               <div className="accum-card">
-                <div className="accum-row" style={{paddingBottom:12,borderBottom:`1px solid ${C.border}`}}>
-                  <span className="accum-label">RFC/day from refining</span>
-                  <span className="accum-val">{Math.round((dailyFCIncome / getRFCTier(1).fcPer) * getRFCTier(1).rfcPer)}</span>
-                </div>
-                <div style={{marginTop:14}}>
+                <div style={{marginTop:0}}>
                   <div style={{fontSize:10,color:C.textDim,marginBottom:8,fontFamily:"Space Mono,monospace",letterSpacing:1}}>REFINE TIER TABLE</div>
                   {RFC_TIERS.map(t => (
                     <div key={t.tier} style={{display:"flex",alignItems:"center",gap:10,padding:"5px 0",borderBottom:`1px solid ${C.border}`,fontSize:12}}>
@@ -1089,42 +1108,6 @@ export default function ConstructionPlanner({ inv, setInv }) {
                   ))}
                 </div>
               </div>
-            </div>
-          </div>
-
-          {/* SVS point projections */}
-          <div>
-            <div className="sec-head">Projected SVS points — construction only</div>
-            <div className="svs-grid">
-              <div className="svs-day-card svs-active">
-                <div className="svs-day-name">Monday (FC burns)</div>
-                <div className="svs-pts-val">{fmt(svsMonPts)}</div>
-                <div className="svs-pts-sub">main construction day</div>
-              </div>
-              <div className="svs-day-card svs-active">
-                <div className="svs-day-name">Monday (RFC burns)</div>
-                <div className="svs-pts-val">{fmt(svsRfcPts)}</div>
-                <div className="svs-pts-sub">refinement pts</div>
-              </div>
-              <div className="svs-day-card">
-                <div className="svs-day-name">Total construction</div>
-                <div className="svs-pts-val">{fmt(svsTotalPts)}</div>
-                <div className="svs-pts-sub">construction pts</div>
-              </div>
-              <div className="svs-day-card">
-                <div className="svs-day-name">FC burn rate</div>
-                <div className="svs-pts-val" style={{color:C.blue}}>{fmt(Math.round(SvS_FC_POINTS_PER_FC))}</div>
-                <div className="svs-pts-sub">pts per FC burned</div>
-              </div>
-              <div className="svs-day-card">
-                <div className="svs-day-name">FC available SVS day</div>
-                <div className="svs-pts-val" style={{color:C.textPri}}>{fmt(projectedFC)}</div>
-                <div className="svs-pts-sub">{fcBalance >= 0 ? `${fmt(fcBalance)} surplus` : `${fmt(Math.abs(fcBalance))} short`}</div>
-              </div>
-            </div>
-            <div className="note-box" style={{marginTop:12}}>
-              <strong>Note:</strong> Points shown are for construction FC burns only. Add Expert Sigils (~25,700 pts Tue/Wed),
-              Hero Gear upgrades, and WA upgrades to get your full SvS total.
             </div>
           </div>
 

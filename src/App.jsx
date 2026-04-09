@@ -1657,8 +1657,17 @@ export default function App() {
   const prevCharId = useRef(null);
 
   // ── Load data when active character changes ──────────────────────────────────
+  // ── Flush save immediately (used before character switch) ────────────────────
+  const flushSave = useCallback(async (charId, currentInv) => {
+    if (!user || !charId) return;
+    clearTimeout(syncTimer.current);
+    await charSaveInventory(charId, currentInv);
+  }, [user]);
+
   useEffect(() => {
     if (!user || !activeCharId) return;
+    // Always reload when activeCharId changes — don't skip on prevCharId match
+    // (prevCharId is only used to prevent double-load on initial mount)
     if (activeCharId === prevCharId.current) return;
     prevCharId.current = activeCharId;
 
@@ -1671,7 +1680,6 @@ export default function App() {
 
       const isNewChar = !cloudInv;
       if (isNewChar) {
-        // Brand-new character — seed with local data if it's the first character
         if (characters.length <= 1) {
           const localHasData = Object.keys(INITIAL_INVENTORY).some(k => {
             const d = INITIAL_INVENTORY[k], c = inv[k];
@@ -1679,7 +1687,6 @@ export default function App() {
           });
           if (localHasData) await charSaveInventory(activeCharId, inv);
         } else {
-          // New additional character — reset to blank
           setInvRaw(INITIAL_INVENTORY);
           setSavedPlans({});
         }
@@ -1788,7 +1795,7 @@ export default function App() {
           removeCharacter={removeCharacter}
           renameCharacter={renameCharacter}
           makeDefault={makeDefault}
-          switchCharacter={(id) => { switchCharacter(id); prevCharId.current = null; }}
+          switchCharacter={async (id) => { await flushSave(activeCharId, inv); prevCharId.current = null; switchCharacter(id); }}
           changePassword={changePassword}
           requestDeleteAccount={requestDeleteAccount}
           confirmDeleteAccount={confirmDeleteAccount}
@@ -1822,14 +1829,15 @@ export default function App() {
             <div className="char-switcher">
               <select className="char-select"
                 value={activeCharId || ""}
-                onChange={e => {
+                onChange={async e => {
                   const val = e.target.value;
                   if (val === "__manage__") {
                     setProfileSection("characters");
                     setProfileOpen(true);
                   } else {
-                    switchCharacter(val);
+                    await flushSave(activeCharId, inv);
                     prevCharId.current = null;
+                    switchCharacter(val);
                   }
                 }}>
                 {characters.map(c => (
