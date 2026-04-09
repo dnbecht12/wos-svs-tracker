@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, Component } from "react";
 import ConstructionPlanner from "./ConstructionPlanner.jsx";
 import RFCPlanner from "./RFCPlanner.jsx";
 import SvSCalendar from "./SvSCalendar.jsx";
@@ -1591,6 +1591,25 @@ function WarAcademyPage({ inv }) {
 }
 
 
+
+// ─── Error Boundary ───────────────────────────────────────────────────────────
+export class ErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(e) { return { error: e }; }
+  render() {
+    if (this.state.error) return (
+      <div style={{padding:40,fontFamily:"Space Mono,monospace",color:"#f85149",background:"#0a0c10",minHeight:"100vh"}}>
+        <div style={{fontSize:14,marginBottom:8,color:"#e6edf3"}}>Something went wrong loading the app.</div>
+        <div style={{fontSize:12,color:"#8b949e",marginBottom:16}}>Error: {this.state.error?.message}</div>
+        <button onClick={()=>window.location.reload()}
+          style={{padding:"8px 16px",background:"#e36b1a",color:"#0a0c10",border:"none",borderRadius:6,cursor:"pointer",fontWeight:700}}>
+          Reload
+        </button>
+      </div>
+    );
+    return this.props.children;
+  }
+}
 
 // ─── Layout / Nav ─────────────────────────────────────────────────────────────
 const PAGES = [

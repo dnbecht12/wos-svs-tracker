@@ -128,9 +128,12 @@ export function useCharacters(user) {
     setLoadingChars(true);
     fetchCharacters(user.id).then(chars => {
       setCharacters(chars);
-      // Set active to default, or first character
       const def = chars.find(c => c.is_default) || chars[0];
       if (def) setActiveCharId(def.id);
+      setLoadingChars(false);
+    }).catch(() => {
+      // Supabase error (e.g. table not ready) — degrade gracefully
+      setCharacters([]);
       setLoadingChars(false);
     });
   }, [user]);
