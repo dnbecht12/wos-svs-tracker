@@ -150,54 +150,105 @@ function getInventoryBuildingTotals() {
   }
 }
 
-// ─── Hero Gear Data ───────────────────────────────────────────────────────────
-
+// ─── Hero Roster (from whiteout_survival_heroes_v2.xlsx) ─────────────────────
 const HERO_ROSTER = [
-  { name:"Jeronimo",   type:"Infantry", gen:"Gen 1" },
-  { name:"Natalia",    type:"Infantry", gen:"Gen 1" },
-  { name:"Flint",      type:"Infantry", gen:"Gen 2" },
-  { name:"Logan",      type:"Infantry", gen:"Gen 3" },
-  { name:"Ahmose",     type:"Infantry", gen:"Gen 4" },
-  { name:"Hector",     type:"Infantry", gen:"Gen 5" },
-  { name:"Wu Ming",    type:"Infantry", gen:"Gen 6" },
-  { name:"Edith",      type:"Infantry", gen:"Gen 7" },
-  { name:"Gatot",      type:"Infantry", gen:"Gen 8" },
-  { name:"Magnus",     type:"Infantry", gen:"Gen 9" },
-  { name:"Sergey",     type:"Infantry", gen:"Base"  },
-  { name:"Eugene",     type:"Infantry", gen:"Base"  },
-  { name:"Smith",      type:"Infantry", gen:"Base"  },
-  { name:"Molly",      type:"Lancer",   gen:"Gen 1" },
-  { name:"Philly",     type:"Lancer",   gen:"Gen 2" },
-  { name:"Mia",        type:"Lancer",   gen:"Gen 3" },
-  { name:"Reina",      type:"Lancer",   gen:"Gen 4" },
-  { name:"Norah",      type:"Lancer",   gen:"Gen 5" },
-  { name:"Renee",      type:"Lancer",   gen:"Gen 6" },
-  { name:"Gordon",     type:"Lancer",   gen:"Gen 7" },
-  { name:"Sonya",      type:"Lancer",   gen:"Gen 8" },
-  { name:"Fred",       type:"Lancer",   gen:"Gen 9" },
-  { name:"Jessie",     type:"Lancer",   gen:"Base"  },
-  { name:"Ling Shuang",type:"Lancer",   gen:"Base"  },
-  { name:"Walis Bokan",type:"Lancer",   gen:"Base"  },
-  { name:"Patrick",    type:"Lancer",   gen:"Base"  },
-  { name:"Charlie",    type:"Lancer",   gen:"Base"  },
-  { name:"Zinman",     type:"Marksman", gen:"Gen 1" },
-  { name:"Alonso",     type:"Marksman", gen:"Gen 2" },
-  { name:"Greg",       type:"Marksman", gen:"Gen 3" },
-  { name:"Lynn",       type:"Marksman", gen:"Gen 4" },
-  { name:"Gwen",       type:"Marksman", gen:"Gen 5" },
-  { name:"Wayne",      type:"Marksman", gen:"Gen 6" },
-  { name:"Bradley",    type:"Marksman", gen:"Gen 7" },
-  { name:"Hendrik",    type:"Marksman", gen:"Gen 8" },
-  { name:"Xura",       type:"Marksman", gen:"Gen 9" },
-  { name:"Bahiti",     type:"Marksman", gen:"Base"  },
-  { name:"Jasser",     type:"Marksman", gen:"Base"  },
-  { name:"Seo-yoon",   type:"Marksman", gen:"Base"  },
-  { name:"Gina",       type:"Marksman", gen:"Base"  },
-  { name:"Cloris",     type:"Marksman", gen:"Base"  },
+  // Gen 1–9: all SSR
+  { name:"Jeronimo",   type:"Infantry", gen:"Gen 1", quality:"SSR" },
+  { name:"Natalia",    type:"Infantry", gen:"Gen 1", quality:"SSR" },
+  { name:"Flint",      type:"Infantry", gen:"Gen 2", quality:"SSR" },
+  { name:"Logan",      type:"Infantry", gen:"Gen 3", quality:"SSR" },
+  { name:"Ahmose",     type:"Infantry", gen:"Gen 4", quality:"SSR" },
+  { name:"Hector",     type:"Infantry", gen:"Gen 5", quality:"SSR" },
+  { name:"Wu Ming",    type:"Infantry", gen:"Gen 6", quality:"SSR" },
+  { name:"Edith",      type:"Infantry", gen:"Gen 7", quality:"SSR" },
+  { name:"Gatot",      type:"Infantry", gen:"Gen 8", quality:"SSR" },
+  { name:"Magnus",     type:"Infantry", gen:"Gen 9", quality:"SSR" },
+  { name:"Molly",      type:"Lancer",   gen:"Gen 1", quality:"SSR" },
+  { name:"Philly",     type:"Lancer",   gen:"Gen 2", quality:"SSR" },
+  { name:"Mia",        type:"Lancer",   gen:"Gen 3", quality:"SSR" },
+  { name:"Reina",      type:"Lancer",   gen:"Gen 4", quality:"SSR" },
+  { name:"Norah",      type:"Lancer",   gen:"Gen 5", quality:"SSR" },
+  { name:"Renee",      type:"Lancer",   gen:"Gen 6", quality:"SSR" },
+  { name:"Gordon",     type:"Lancer",   gen:"Gen 7", quality:"SSR" },
+  { name:"Sonya",      type:"Lancer",   gen:"Gen 8", quality:"SSR" },
+  { name:"Fred",       type:"Lancer",   gen:"Gen 9", quality:"SSR" },
+  { name:"Zinman",     type:"Marksman", gen:"Gen 1", quality:"SSR" },
+  { name:"Alonso",     type:"Marksman", gen:"Gen 2", quality:"SSR" },
+  { name:"Greg",       type:"Marksman", gen:"Gen 3", quality:"SSR" },
+  { name:"Lynn",       type:"Marksman", gen:"Gen 4", quality:"SSR" },
+  { name:"Gwen",       type:"Marksman", gen:"Gen 5", quality:"SSR" },
+  { name:"Wayne",      type:"Marksman", gen:"Gen 6", quality:"SSR" },
+  { name:"Bradley",    type:"Marksman", gen:"Gen 7", quality:"SSR" },
+  { name:"Hendrik",    type:"Marksman", gen:"Gen 8", quality:"SSR" },
+  { name:"Xura",       type:"Marksman", gen:"Gen 9", quality:"SSR" },
+  // Base SR
+  { name:"Sergey",     type:"Infantry", gen:"Base",  quality:"SR"  },
+  { name:"Jessie",     type:"Lancer",   gen:"Base",  quality:"SR"  },
+  { name:"Ling Xue",   type:"Lancer",   gen:"Base",  quality:"SR"  },
+  { name:"Patrick",    type:"Lancer",   gen:"Base",  quality:"SR"  },
+  { name:"Walis Bokan",type:"Lancer",   gen:"Base",  quality:"SR"  },
+  { name:"Bahiti",     type:"Marksman", gen:"Base",  quality:"SR"  },
+  { name:"Gina",       type:"Marksman", gen:"Base",  quality:"SR"  },
+  { name:"Jasser",     type:"Marksman", gen:"Base",  quality:"SR"  },
+  { name:"Seo-yoon",   type:"Marksman", gen:"Base",  quality:"SR"  },
+  // Base R
+  { name:"Eugene",     type:"Infantry", gen:"Base",  quality:"R"   },
+  { name:"Smith",      type:"Infantry", gen:"Base",  quality:"R"   },
+  { name:"Charlie",    type:"Lancer",   gen:"Base",  quality:"R"   },
+  { name:"Cloris",     type:"Marksman", gen:"Base",  quality:"R"   },
 ];
 
-// Generation order for cumulative filtering (Base = lowest, Gen 9 = highest)
+// Generation order for cumulative filtering
 const GEN_ORDER = ["Base","Gen 1","Gen 2","Gen 3","Gen 4","Gen 5","Gen 6","Gen 7","Gen 8","Gen 9"];
+const QUALITY_ORDER = ["R","SR","SSR"]; // ascending
+
+// Sort heroes by quality desc, then gen desc, then type (Inf→Lan→Mks), then name asc
+function sortHeroesByQuality(heroes) {
+  const typeOrder = { Infantry:0, Lancer:1, Marksman:2 };
+  return [...heroes].sort((a,b) => {
+    const qDiff = QUALITY_ORDER.indexOf(b.quality) - QUALITY_ORDER.indexOf(a.quality);
+    if (qDiff !== 0) return qDiff;
+    const gDiff = GEN_ORDER.indexOf(b.gen) - GEN_ORDER.indexOf(a.gen);
+    if (gDiff !== 0) return gDiff;
+    const tDiff = typeOrder[a.type] - typeOrder[b.type];
+    if (tDiff !== 0) return tDiff;
+    return a.name.localeCompare(b.name);
+  });
+}
+function sortHeroesByType(heroes) {
+  const typeOrder = { Infantry:0, Lancer:1, Marksman:2 };
+  return [...heroes].sort((a,b) => {
+    const tDiff = typeOrder[a.type] - typeOrder[b.type];
+    if (tDiff !== 0) return tDiff;
+    const qDiff = QUALITY_ORDER.indexOf(b.quality) - QUALITY_ORDER.indexOf(a.quality);
+    if (qDiff !== 0) return qDiff;
+    const gDiff = GEN_ORDER.indexOf(b.gen) - GEN_ORDER.indexOf(a.gen);
+    if (gDiff !== 0) return gDiff;
+    return a.name.localeCompare(b.name);
+  });
+}
+function sortHeroesByGen(heroes) {
+  const typeOrder = { Infantry:0, Lancer:1, Marksman:2 };
+  return [...heroes].sort((a,b) => {
+    const gDiff = GEN_ORDER.indexOf(b.gen) - GEN_ORDER.indexOf(a.gen);
+    if (gDiff !== 0) return gDiff;
+    const tDiff = typeOrder[a.type] - typeOrder[b.type];
+    if (tDiff !== 0) return tDiff;
+    return a.name.localeCompare(b.name);
+  });
+}
+
+// Default stats for a single hero in the Heroes module
+function defaultHeroStats() {
+  return { level:0, expS1:0, expS2:0, expS3:0, expdS1:0, expdS2:0, expdS3:0, widget:0 };
+}
+
+// Build default heroStats map: { heroName: { level, expS1..., widget } }
+function defaultAllHeroStats() {
+  const map = {};
+  HERO_ROSTER.forEach(h => { map[h.name] = defaultHeroStats(); });
+  return map;
+}
 
 // Mithril & Mythic milestone costs for Legendary gear (from AG4:AJ104)
 // Only paid when crossing or landing on these levels
@@ -293,13 +344,153 @@ function defaultHeroState(type) {
   };
 }
 
+// ─── HeroesPage ───────────────────────────────────────────────────────────────
+
+function HeroesPage({ genFilter, setGenFilter, heroStats, setHeroStats }) {
+  const [sortBy, setSortBy] = useLocalStorage("heroes-sort", "quality");
+  const C = COLORS;
+
+  const maxGenIdx = GEN_ORDER.indexOf(genFilter);
+  const visible = HERO_ROSTER.filter(h => GEN_ORDER.indexOf(h.gen) <= maxGenIdx);
+
+  const sorted = sortBy === "quality" ? sortHeroesByQuality(visible)
+               : sortBy === "type"    ? sortHeroesByType(visible)
+               : sortHeroesByGen(visible);
+
+  const updateStat = (heroName, field, value) => {
+    setHeroStats(prev => ({
+      ...prev,
+      [heroName]: { ...(prev[heroName] || defaultHeroStats()), [field]: value },
+    }));
+  };
+
+  const qualityColor = q => q === "SSR" ? C.accent : q === "SR" ? C.blue : C.textSec;
+  const typeColor    = t => t === "Infantry" ? C.green : t === "Lancer" ? C.blue : C.amber;
+
+  const sel = {
+    background:C.card, border:`1px solid ${C.border}`, borderRadius:5,
+    color:C.textPri, fontSize:11, padding:"2px 4px",
+    fontFamily:"'Space Mono',monospace", outline:"none", cursor:"pointer",
+  };
+  const thS = {
+    padding:"8px 10px", fontSize:10, fontWeight:700, letterSpacing:"1px",
+    textTransform:"uppercase", color:C.textDim,
+    borderBottom:`1px solid ${C.border}`, background:C.surface, whiteSpace:"nowrap",
+  };
+  const tdS = { padding:"6px 10px", borderBottom:`1px solid ${C.border}`, fontSize:12, color:C.textSec, verticalAlign:"middle" };
+
+  const skillOpts = Array.from({length:6}, (_,i) => i);   // 0–5
+  const levelOpts = Array.from({length:81},(_,i) => i);   // 0–80
+  const widgetOpts= Array.from({length:11},(_,i) => i);   // 0–10
+
+  return (
+    <div className="fade-in">
+      <div className="card">
+        <div className="card-header" style={{flexWrap:"wrap",gap:12}}>
+          <div className="card-title">Hero Roster</div>
+          <div style={{display:"flex",gap:12,alignItems:"center",flexWrap:"wrap"}}>
+            {/* Gen filter — shared with Hero Gear */}
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              <span style={{fontSize:11,color:C.textDim,fontFamily:"'Space Mono',monospace"}}>Generation</span>
+              <select value={genFilter} onChange={e => setGenFilter(e.target.value)} style={{...sel,fontSize:12,padding:"4px 8px"}}>
+                {GEN_ORDER.map(g => <option key={g} value={g}>{g} &amp; below</option>)}
+              </select>
+            </div>
+            {/* Sort */}
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              <span style={{fontSize:11,color:C.textDim,fontFamily:"'Space Mono',monospace"}}>Sort by</span>
+              <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={{...sel,fontSize:12,padding:"4px 8px"}}>
+                <option value="quality">Quality</option>
+                <option value="type">Troop Type</option>
+                <option value="gen">Generation</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+            <thead>
+              <tr>
+                <th style={thS}>Hero</th>
+                <th style={thS}>Type</th>
+                <th style={thS}>Gen</th>
+                <th style={thS}>Quality</th>
+                <th style={thS}>Level</th>
+                <th style={{...thS,textAlign:"center"}} colSpan={3}>Exploration Skills</th>
+                <th style={{...thS,textAlign:"center"}} colSpan={3}>Expedition Skills</th>
+                <th style={thS}>Widget</th>
+              </tr>
+              <tr>
+                {/* Empty cells for first 5 cols */}
+                {Array(5).fill(null).map((_,i) => <th key={i} style={{...thS,paddingTop:2,paddingBottom:6}}/>)}
+                {["S1","S2","S3","S1","S2","S3"].map((s,i) => (
+                  <th key={i} style={{...thS,paddingTop:2,paddingBottom:6,textAlign:"center",fontSize:9}}>{s}</th>
+                ))}
+                <th style={{...thS,paddingTop:2,paddingBottom:6}}/>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map(hero => {
+                const stats = heroStats[hero.name] || defaultHeroStats();
+                return (
+                  <tr key={hero.name} style={{background:"transparent"}}>
+                    <td style={{...tdS,fontWeight:700,color:C.textPri,whiteSpace:"nowrap"}}>{hero.name}</td>
+                    <td style={{...tdS,color:typeColor(hero.type),fontWeight:600}}>{hero.type}</td>
+                    <td style={{...tdS,color:C.textDim,fontFamily:"'Space Mono',monospace",fontSize:10}}>{hero.gen}</td>
+                    <td style={{...tdS,fontWeight:700,color:qualityColor(hero.quality)}}>{hero.quality}</td>
+
+                    {/* Level */}
+                    <td style={{...tdS,textAlign:"center"}}>
+                      <select value={stats.level} onChange={e => updateStat(hero.name,"level",Number(e.target.value))} style={sel}>
+                        {levelOpts.map(v => <option key={v} value={v}>{v}</option>)}
+                      </select>
+                    </td>
+
+                    {/* Exploration S1 S2 S3 */}
+                    {["expS1","expS2","expS3"].map(f => (
+                      <td key={f} style={{...tdS,textAlign:"center"}}>
+                        <select value={stats[f]} onChange={e => updateStat(hero.name,f,Number(e.target.value))} style={sel}>
+                          {skillOpts.map(v => <option key={v} value={v}>{v}</option>)}
+                        </select>
+                      </td>
+                    ))}
+
+                    {/* Expedition S1 S2 S3 */}
+                    {["expdS1","expdS2","expdS3"].map(f => (
+                      <td key={f} style={{...tdS,textAlign:"center"}}>
+                        <select value={stats[f]} onChange={e => updateStat(hero.name,f,Number(e.target.value))} style={sel}>
+                          {skillOpts.map(v => <option key={v} value={v}>{v}</option>)}
+                        </select>
+                      </td>
+                    ))}
+
+                    {/* Widget — synced with Hero Gear */}
+                    <td style={{...tdS,textAlign:"center"}}>
+                      <select value={stats.widget} onChange={e => updateStat(hero.name,"widget",Number(e.target.value))} style={sel}>
+                        {widgetOpts.map(v => <option key={v} value={v}>{v}</option>)}
+                      </select>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── HeroGearPage ─────────────────────────────────────────────────────────────
 
-function HeroGearPage({ inv }) {
-  const [genFilter, setGenFilter]   = useLocalStorage("hg-gen-filter", "Gen 9");
-  const [heroData,  setHeroData]    = useLocalStorage("hg-heroes",
+function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats }) {
+  const [heroData, setHeroData] = useLocalStorage("hg-heroes",
     HERO_SLOTS.map(s => defaultHeroState(s.type))
   );
+
+  // Currently selected hero names per slot (for deduplication)
+  const selectedHeroes = heroData.map(h => h.hero);
 
   // Update a specific hero slot's hero selection
   const setHero = (slotIdx, heroName) => {
@@ -308,17 +499,29 @@ function HeroGearPage({ inv }) {
     ));
   };
 
-  // Update a gear slot field with goal-floor enforcement
+  // Update a gear slot field with goal-floor enforcement + widget sync to heroStats
   const setSlotField = (heroIdx, slotIdx, field, value) => {
     setHeroData(prev => prev.map((h, hi) => {
       if (hi !== heroIdx) return h;
+
+      // Widget sync: if setting widgetCurrent, also update heroStats for this hero
+      if (field === "widgetCurrent" && slotIdx === 4) {
+        const heroName = h.hero;
+        if (heroName) {
+          setHeroStats(ps => ({
+            ...ps,
+            [heroName]: { ...(ps[heroName] || defaultHeroStats()), widget: value },
+          }));
+        }
+      }
+
       return {
         ...h,
         slots: h.slots.map((s, si) => {
           if (si !== slotIdx) return s;
           const isWidget   = si === 4;
           const isLegendary = s.status === "Legendary";
-          const locked = isWidget || isLegendary; // goals cannot go below current
+          const locked = isWidget || isLegendary;
 
           let updated = { ...s, [field]: value };
 
@@ -358,10 +561,16 @@ function HeroGearPage({ inv }) {
   };
 
   // Filter heroes for a given type by cumulative generation
-  const filteredHeroes = (type) => {
+  const filteredHeroes = (type, currentSlotIdx) => {
     const maxGenIdx = GEN_ORDER.indexOf(genFilter);
+    // Heroes selected in OTHER slots of the same type
+    const usedByOthers = HERO_SLOTS
+      .map((s, i) => i !== currentSlotIdx && s.type === type ? selectedHeroes[i] : null)
+      .filter(Boolean);
     return HERO_ROSTER.filter(h =>
-      h.type === type && GEN_ORDER.indexOf(h.gen) <= maxGenIdx
+      h.type === type &&
+      GEN_ORDER.indexOf(h.gen) <= maxGenIdx &&
+      !usedByOthers.includes(h.name)
     );
   };
 
@@ -448,9 +657,12 @@ function HeroGearPage({ inv }) {
             <tbody>
               {HERO_SLOTS.map((slot, heroIdx) => {
                 const hd      = heroData[heroIdx] || defaultHeroState(slot.type);
-                const heroes  = filteredHeroes(slot.type);
+                const heroes  = filteredHeroes(slot.type, heroIdx);
                 // ensure selected hero is still valid after gen filter change
                 const heroVal = heroes.find(h => h.name === hd.hero) ? hd.hero : (heroes[0]?.name ?? "");
+
+                // Sync widget current from heroStats if available
+                const heroStatsForSlot = heroStats?.[heroVal] || defaultHeroStats();
 
                 return GEAR_SLOTS.map((gearSlot, slotIdx) => {
                   const s        = hd.slots[slotIdx] || {};
@@ -509,7 +721,7 @@ function HeroGearPage({ inv }) {
                       {/* Current: Gear Level */}
                       <td style={{...tdStyle,width:80,textAlign:"center"}}>
                         {isWidget ? (
-                          <select value={s.widgetCurrent ?? 0}
+                          <select value={heroStatsForSlot.widget}
                             onChange={e => setSlotField(heroIdx, slotIdx, "widgetCurrent", Number(e.target.value))}
                             style={sel}>
                             {widgetOpts.map(v => <option key={v} value={v}>{v}</option>)}
@@ -540,7 +752,7 @@ function HeroGearPage({ inv }) {
                           <select value={s.widgetGoal ?? 0}
                             onChange={e => setSlotField(heroIdx, slotIdx, "widgetGoal", Number(e.target.value))}
                             style={sel}>
-                            {widgetOpts.filter(v => v >= (s.widgetCurrent ?? 0)).map(v =>
+                            {widgetOpts.filter(v => v >= heroStatsForSlot.widget).map(v =>
                               <option key={v} value={v}>{v}</option>)}
                           </select>
                         ) : (
@@ -1633,7 +1845,8 @@ const PAGES = [
   { id:"inventory",    label:"Inventory",     icon:"[I]", section:"Resources"   },
   { id:"construction", label:"Construction",  icon:"[B]", section:"Resources"   },
   { id:"rfc-planner",  label:"RFC Planner",   icon:"[R]", section:"Resources"   },
-  { id:"hero-gear",    label:"Hero Gear",     icon:"[H]", section:"Combat"      },
+  { id:"heroes",      label:"Heroes",        icon:"[H]", section:"Combat"      },
+  { id:"hero-gear",   label:"Hero Gear",     icon:"[G]", section:"Combat"      },
   { id:"experts",      label:"Experts",       icon:"[E]", section:"Combat"      },
   { id:"war-academy",  label:"War Academy",   icon:"[W]", section:"Combat"      },
   { id:"svs-calendar", label:"SvS Calendar",  icon:"[C]", section:"Planning"    },
@@ -1643,6 +1856,7 @@ const PAGE_TITLES = {
   inventory:    { title: "Inventory", sub: "Your current stockpile across all resource types" },
   construction: { title: "Construction", sub: "Interactive upgrade planner — set current & goal levels, track accumulation, project SVS points" },
   "rfc-planner":{ title: "RFC Planner",  sub: "28-day day-by-day refining schedule — plan vs actual, running balances, FC income tracking" },
+  heroes:       { title: "Heroes", sub: "Hero roster — levels, skills, and widget tracking" },
   "hero-gear":  { title: "Hero Gear", sub: "Gear upgrade tracker with material costs and SVS points" },
   experts:      { title: "Expert Planner", sub: "Skill levels, sigil costs, and per-day SVS contributions" },
   "war-academy":{ title: "War Academy", sub: "Infantry, Marksman & Lancer squad upgrade tracker" },
@@ -1662,6 +1876,9 @@ export default function App() {
   const [page,          setPage]         = useState("inventory");
   const [inv,           setInvRaw]       = useLocalStorage("wos-svs-inventory", INITIAL_INVENTORY);
   const [savedPlans,    setSavedPlans]   = useLocalStorage("wos-rfc-saved-plans", {});
+  // Shared hero state — gen filter and hero stats synced between HeroesPage and HeroGearPage
+  const [genFilter,   setGenFilter]  = useLocalStorage("hg-gen-filter", "Gen 9");
+  const [heroStats,   setHeroStats]  = useLocalStorage("hg-hero-stats", defaultAllHeroStats());
   const [savedAt,       setSavedAt]      = useState(null);
   const [loadedPlanKey, setLoadedPlanKey]= useState(null);
   const [syncing,       setSyncing]      = useState(false);
@@ -1979,7 +2196,8 @@ export default function App() {
                 onSavePlan={user ? handleSavePlan : ()=>{}}
                 onLoadPlan={handleLoadPlan}
                 openSavePopup={user ? openSavePopup : null} />}
-            {page === "hero-gear"    && <HeroGearPage     inv={inv} />}
+            {page === "heroes"      && <HeroesPage    genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} />}
+            {page === "hero-gear"   && <HeroGearPage  inv={inv} genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} />}
             {page === "experts"      && <ExpertsPage      inv={inv} />}
             {page === "war-academy"  && <WarAcademyPage   inv={inv} />}
             {page === "svs-calendar" && <SvSCalendar />}
