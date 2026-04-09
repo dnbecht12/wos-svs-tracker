@@ -1191,16 +1191,25 @@ function AuthPanel({ user, loading, error, signUp, signIn, signInWithDiscord, cl
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function ResInput({ label, icon, field, value, onChange, color }) {
+  const [editing, setEditing] = useState(false);
+  const [raw,     setRaw]     = useState("");
+  const handleFocus  = () => { setEditing(true); setRaw(value === 0 ? "" : String(value)); };
+  const handleBlur   = () => { setEditing(false); const n = parseInt(raw.replace(/,/g, ""), 10); onChange(field, isNaN(n) ? 0 : Math.max(0, n)); };
+  const handleChange = e => setRaw(e.target.value.replace(/[^0-9,]/g, ""));
+  const handleKey    = e => { if (e.key === "Enter") e.target.blur(); };
   return (
     <div className="res-item" style={color ? { borderColor: color + "40" } : {}}>
       <div className="res-icon">{icon}</div>
       <div className="res-label">{label}</div>
       <input
         className="res-input"
-        type="number"
-        value={value}
-        onChange={e => onChange(field, Number(e.target.value))}
-        min={0}
+        type="text"
+        inputMode="numeric"
+        value={editing ? raw : (value === 0 ? "0" : Number(value).toLocaleString())}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
+        onChange={handleChange}
+        onKeyDown={handleKey}
         style={color ? { color } : {}}
       />
     </div>
