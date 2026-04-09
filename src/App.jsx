@@ -1682,15 +1682,12 @@ export default function App() {
     if (!user || !charId) return;
     clearTimeout(syncTimer.current);
     syncTimer.current = null;
-    console.log("[flushSave] saving charId:", charId, "inv:", invRef.current);
     await charSaveInventory(charId, invRef.current);
-    console.log("[flushSave] done");
   }, [user]);
 
   // ── Load data whenever activeCharId changes ───────────────────────────────────
   useEffect(() => {
     if (!user || !activeCharId) return;
-    console.log("[loadEffect] loading charId:", activeCharId);
 
     (async () => {
       setSyncing(true);
@@ -1698,7 +1695,6 @@ export default function App() {
         charLoadInventory(activeCharId),
         charLoadPlans(activeCharId),
       ]);
-      console.log("[loadEffect] cloudInv:", cloudInv);
 
       if (!cloudInv) {
         if (characters.length <= 1) {
