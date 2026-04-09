@@ -16,21 +16,21 @@ const STYLE = `
 .cal{font-family:'Syne',sans-serif;color:${C.textPri};background:var(--c-bg);min-height:100vh}
 .cal-top{background:${C.surface};border-bottom:1px solid ${C.border};padding:20px 28px;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
 .cal-title{font-size:20px;font-weight:800}.cal-title span{color:${C.accent}}
-.cal-sub{font-size:12px;color:${C.textSec};margin-top:3px}
+.cal-sub{font-size:12px;color:${C.textPri};margin-top:3px}
 .cal-ctrl{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.ctrl-lbl{font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:${C.textDim};font-family:'Space Mono',monospace}
+.ctrl-lbl{font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:${C.textSec};font-family:'Space Mono',monospace}
 .ctrl-sel{background:${C.card};border:1px solid ${C.border};border-radius:6px;padding:6px 10px;font-family:'Space Mono',monospace;font-size:12px;color:${C.textPri};outline:none;cursor:pointer}
 .ctrl-sel:focus{border-color:${C.accent}}
 .ctrl-sel option{background:${C.card}}
 .cal-body{padding:24px 28px;display:flex;flex-direction:column;gap:20px}
 .legend{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
-.leg-item{display:flex;align-items:center;gap:6px;font-size:11px;color:${C.textSec}}
+.leg-item{display:flex;align-items:center;gap:6px;font-size:11px;color:${C.textPri}}
 .leg-dot{width:12px;height:12px;border-radius:3px;flex-shrink:0}
 .leg-svs{background:var(--c-accentBg);border:1px solid var(--c-accentDim);box-shadow:0 0 6px var(--c-accentDim)}
 .leg-koi{background:var(--c-blueBg);border:1px solid var(--c-blueDim);box-shadow:0 0 6px var(--c-blueDim)}
 .leg-prep{background:${C.card};border:1px solid ${C.border}}
 .cycle-block{display:flex;flex-direction:column;gap:8px}
-.cycle-hd{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;font-family:'Space Mono',monospace;color:${C.textDim};display:flex;align-items:center;gap:8px;padding-bottom:4px}
+.cycle-hd{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;font-family:'Space Mono',monospace;color:${C.textSec};display:flex;align-items:center;gap:8px;padding-bottom:4px}
 .cycle-hd::after{content:'';flex:1;height:1px;background:${C.borderHi}}
 .week-row{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
 .wk{border-radius:10px;padding:14px 16px;border:1px solid ${C.border};transition:border-color .15s}
@@ -42,13 +42,13 @@ const STYLE = `
 .wk-badge{font-size:9px;font-weight:700;font-family:'Space Mono',monospace;padding:2px 7px;border-radius:4px;display:inline-block;margin-bottom:6px}
 .badge-svs{background:var(--c-accentBg);color:var(--c-accent);border:1px solid var(--c-accentDim)}
 .badge-koi{background:var(--c-blueBg);color:var(--c-blue);border:1px solid var(--c-blueDim)}
-.badge-prep{background:${C.card};color:${C.textDim};border:1px solid ${C.border}}
+.badge-prep{background:${C.card};color:${C.textSec};border:1px solid ${C.border}}
 .badge-now{float:right;background:${C.accentBg};color:${C.accent};border:1px solid ${C.accentDim};padding:2px 6px;border-radius:4px;font-size:8px;font-family:'Space Mono',monospace;font-weight:700;margin-top:2px}
 .wk-dates{font-size:11px;font-weight:700;font-family:'Space Mono',monospace;margin-bottom:3px}
 .wk-dates.svs{color:var(--c-accent)}
 .wk-dates.koi{color:var(--c-blue)}
-.wk-dates.prep{color:${C.textSec}}
-.wk-lbl{font-size:11px;font-weight:600;color:${C.textSec}}
+.wk-dates.prep{color:${C.textPri}}
+.wk-lbl{font-size:11px;font-weight:600;color:${C.textPri}}
 .wk-lbl.svs{color:var(--c-accent);opacity:.85}
 .wk-lbl.koi{color:var(--c-blue);opacity:.85}
 .day-pips{margin-top:10px;display:flex;gap:3px}

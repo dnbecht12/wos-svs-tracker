@@ -376,7 +376,7 @@ const STYLE = `
 .summary-bar{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
 .s-tile{background:${C.card};border:1px solid ${C.border};border-radius:10px;padding:12px 14px}
 .s-tile:hover{border-color:${C.borderHi}}
-.s-label{font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:${C.textDim};font-family:'Space Mono',monospace;margin-bottom:6px}
+.s-label{font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:${C.textSec};font-family:'Space Mono',monospace;margin-bottom:6px}
 .s-val{font-size:22px;font-weight:800;font-family:'Space Mono',monospace;line-height:1}
 .s-val.accent{color:${C.accent}}
 .s-val.green{color:${C.green}}
@@ -385,24 +385,24 @@ const STYLE = `
 .s-val.teal{color:var(--c-blue)}
 .s-sub{font-size:10px;color:${C.textDim};margin-top:4px;font-family:'Space Mono',monospace}
 /* Sections */
-.sec-head{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${C.textDim};display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.sec-head{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${C.textSec};display:flex;align-items:center;gap:8px;margin-bottom:12px}
 .sec-head::after{content:'';flex:1;height:1px;background:${C.border}}
 /* Settings panel */
 .settings-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
 .inp-group{display:flex;flex-direction:column;gap:5px}
-.inp-label{font-size:11px;font-weight:600;color:${C.textSec};letter-spacing:0.5px}
+.inp-label{font-size:11px;font-weight:600;color:${C.textPri};letter-spacing:0.5px}
 .inp-field{background:${C.surface};border:1px solid ${C.border};border-radius:7px;padding:8px 11px;font-family:'Space Mono',monospace;font-size:13px;color:${C.textPri};outline:none;width:100%;transition:border-color 0.15s}
 .inp-field:focus{border-color:${C.accent}}
 .inp-field option{background:${C.card};color:${C.textPri}}
 /* Building table */
 .bld-table{background:${C.card};border:1px solid ${C.border};border-radius:12px;overflow:hidden}
 .bld-thead{display:grid;grid-template-columns:140px 100px 100px 80px 80px 80px minmax(140px,1fr) minmax(140px,1fr);gap:0;border-bottom:1px solid ${C.border};background:${C.surface}}
-.bld-thead .th{padding:9px 12px;font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:${C.textDim};font-family:'Space Mono',monospace;white-space:nowrap}
+.bld-thead .th{padding:9px 12px;font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:${C.textSec};font-family:'Space Mono',monospace;white-space:nowrap}
 .bld-row-wrap{border-bottom:1px solid ${C.border}}
 .bld-row-wrap:last-child{border-bottom:none}
 .bld-row{display:grid;grid-template-columns:140px 100px 100px 80px 80px 80px minmax(140px,1fr) minmax(140px,1fr);gap:0;align-items:center;transition:background 0.1s}
 .bld-row:hover{background:var(--c-hover)}
-.bld-cell{padding:11px 12px;font-size:13px;color:${C.textSec};vertical-align:middle}
+.bld-cell{padding:11px 12px;font-size:13px;color:${C.textPri};vertical-align:middle}
 .bld-cell.name{font-weight:700;color:${C.textPri};font-size:13px}
 .bld-cell.mono{font-family:'Space Mono',monospace;font-size:12px}
 .bld-cell select{background:${C.surface};border:1px solid ${C.border};border-radius:6px;padding:5px 8px;font-family:'Space Mono',monospace;font-size:12px;color:${C.textPri};outline:none;width:100%;cursor:pointer;transition:border-color 0.15s}
@@ -432,7 +432,7 @@ const STYLE = `
 .accum-card{background:${C.card};border:1px solid ${C.border};border-radius:12px;padding:18px 20px}
 .accum-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid ${C.border};font-size:13px}
 .accum-row:last-child{border-bottom:none}
-.accum-label{color:${C.textSec}}
+.accum-label{color:${C.textPri}}
 .accum-val{font-family:'Space Mono',monospace;font-size:12px;color:${C.textPri};font-weight:700}
 .accum-val.pos{color:${C.green}}
 .accum-val.neg{color:${C.red}}
@@ -442,12 +442,12 @@ const STYLE = `
 .tl-seg{height:8px;border-radius:2px;transition:width 0.4s ease}
 /* Time sub-row */
 .time-row{background:rgba(56,139,253,0.04);border-top:1px solid ${C.border};padding:7px 12px;display:flex;gap:24px;flex-wrap:wrap;align-items:center}
-.time-lbl{font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:${C.textDim};font-family:'Space Mono',monospace;min-width:160px}
+.time-lbl{font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:${C.textSec};font-family:'Space Mono',monospace;min-width:160px}
 .time-val{font-size:12px;font-weight:700;font-family:'Space Mono',monospace}
-.time-orig{color:${C.textSec}}
+.time-orig{color:${C.textPri}}
 .time-actual{color:${C.green}}
 /* Tooltip-like note */
-.note-box{background:${C.accentBg};border:1px solid ${C.accentDim};border-radius:8px;padding:10px 14px;font-size:12px;color:${C.textSec};line-height:1.6}
+.note-box{background:${C.accentBg};border:1px solid ${C.accentDim};border-radius:8px;padding:10px 14px;font-size:12px;color:${C.textPri};line-height:1.6}
 .note-box strong{color:${C.accent}}
 /* Responsive */
 @media(max-width:900px){
@@ -840,7 +840,7 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
           </div>
           <div style={{display:"flex",alignItems:"center",gap:12,flexWrap:"wrap"}}>
             <div style={{display:"flex",flexDirection:"column",gap:3}}>
-              <span style={{fontSize:9,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:C.textDim,fontFamily:"Space Mono,monospace"}}>SvS Cycle</span>
+              <span style={{fontSize:9,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:C.textSec,fontFamily:"Space Mono,monospace"}}>SvS Cycle</span>
               <select
                 value={selectedCycle}
                 onChange={e => { const v=Number(e.target.value); setSelectedCycle(v); saveState("cp-cycle",v); }}
@@ -853,11 +853,11 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
               </select>
             </div>
             <div style={{display:"flex",flexDirection:"column",gap:3}}>
-              <span style={{fontSize:9,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:C.textDim,fontFamily:"Space Mono,monospace"}}>Plan starts</span>
-              <span style={{fontFamily:"Space Mono,monospace",fontSize:12,color:C.textSec,padding:"5px 0"}}>{cycleStartDate}</span>
+              <span style={{fontSize:9,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:C.textSec,fontFamily:"Space Mono,monospace"}}>Plan starts</span>
+              <span style={{fontFamily:"Space Mono,monospace",fontSize:12,color:C.textPri,padding:"5px 0"}}>{cycleStartDate}</span>
             </div>
             <div style={{display:"flex",flexDirection:"column",gap:3}}>
-              <span style={{fontSize:9,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:C.textDim,fontFamily:"Space Mono,monospace"}}>Days to SvS</span>
+              <span style={{fontSize:9,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:C.textSec,fontFamily:"Space Mono,monospace"}}>Days to SvS</span>
               <span style={{fontFamily:"Space Mono,monospace",fontSize:12,fontWeight:700,color:daysToSVS <= 7 ? C.red : daysToSVS <= 14 ? C.amber : C.green,padding:"5px 0"}}>
                 {daysToSVS} day{daysToSVS !== 1 ? "s" : ""}
               </span>
@@ -904,13 +904,13 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
               <div style={{padding:"20px 24px"}}>
 
                 {/* FC / RFC confirmation inputs */}
-                <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",color:C.textDim,fontFamily:"Space Mono,monospace",marginBottom:10}}>Confirm Current Inventory</div>
-                <p style={{fontSize:11,color:C.textSec,marginBottom:12}}>
+                <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",color:C.textSec,fontFamily:"Space Mono,monospace",marginBottom:10}}>Confirm Current Inventory</div>
+                <p style={{fontSize:11,color:C.textPri,marginBottom:12}}>
                   Pre-filled from your Inventory tab. Correct these if needed before confirming.
                 </p>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:20}}>
                   <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                    <label style={{fontSize:11,fontWeight:600,color:C.textSec}}>Fire Crystals (FC)</label>
+                    <label style={{fontSize:11,fontWeight:600,color:C.textPri}}>Fire Crystals (FC)</label>
                     <NumInput className="inp-field"
                       value={modalFC} min={0}
                       onChange={v => setModalFC(v)}
@@ -919,7 +919,7 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
                         color:C.accent,outline:"none",width:"100%",textAlign:"right"}} />
                   </div>
                   <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                    <label style={{fontSize:11,fontWeight:600,color:C.textSec}}>Refined FC (RFC)</label>
+                    <label style={{fontSize:11,fontWeight:600,color:C.textPri}}>Refined FC (RFC)</label>
                     <NumInput className="inp-field"
                       value={modalRFC} min={0}
                       onChange={v => setModalRFC(v)}
@@ -928,12 +928,12 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
                         color:C.amber,outline:"none",width:"100%",textAlign:"right"}} />
                   </div>
                 </div>
-                <p style={{fontSize:11,color:C.textDim,marginBottom:16,fontFamily:"Space Mono,monospace"}}>
+                <p style={{fontSize:11,color:C.textSec,marginBottom:16,fontFamily:"Space Mono,monospace"}}>
                   Will also override Day {rfcTodayIndex + 1} in the RFC Planner.
                 </p>
 
                 {/* Per-building upgrade overrides */}
-                <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",color:C.textDim,fontFamily:"Space Mono,monospace",marginBottom:10}}>Buildings Already Upgraded</div>
+                <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",color:C.textSec,fontFamily:"Space Mono,monospace",marginBottom:10}}>Buildings Already Upgraded</div>
                 <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
                   {buildings.map(b => {
                     const override = upgradeOverrides[b.name] || b.current;
@@ -946,7 +946,7 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
                     return (
                       <div key={b.name} style={{display:"flex",alignItems:"center",gap:10}}>
                         <span style={{fontSize:12,fontWeight:600,color:C.textPri,width:120,flexShrink:0}}>{b.name}</span>
-                        <span style={{fontSize:11,color:C.textDim,fontFamily:"Space Mono,monospace",width:50}}>{b.current}</span>
+                        <span style={{fontSize:11,color:C.textSec,fontFamily:"Space Mono,monospace",width:50}}>{b.current}</span>
                         <span style={{fontSize:11,color:C.textDim}}>→</span>
                         <select value={override}
                           onChange={e => setUpgradeOverrides(prev => ({...prev,[b.name]:e.target.value}))}
@@ -966,7 +966,7 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
                 </div>
 
                 {/* Notes */}
-                <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",color:C.textDim,fontFamily:"Space Mono,monospace",marginBottom:6}}>Notes (optional)</div>
+                <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",color:C.textSec,fontFamily:"Space Mono,monospace",marginBottom:6}}>Notes (optional)</div>
                 <textarea value={updateNote} onChange={e => setUpdateNote(e.target.value)}
                   placeholder="e.g. Bought a 10-pack, completed Embassy FC6 upgrade"
                   style={{width:"100%",background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,
@@ -1042,7 +1042,7 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
               <div className="sec-head" style={{margin:0}}>Inventory &amp; accumulation settings</div>
               {planSnapshot
                 ? <span style={{fontSize:10,color:C.accent,fontFamily:"Space Mono,monospace"}}>Using starting inventory snapshot</span>
-                : <span style={{fontSize:10,color:C.textDim,fontFamily:"Space Mono,monospace"}}>Using live inventory · click 📌 Set Starting Inventory to lock in a baseline</span>
+                : <span style={{fontSize:10,color:C.textSec,fontFamily:"Space Mono,monospace"}}>Using live inventory · click 📌 Set Starting Inventory to lock in a baseline</span>
               }
             </div>
             <div className="settings-grid">
@@ -1086,7 +1086,7 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
                     onChange={e => { const v=Number(e.target.value); setSpeedBuff(v); saveState("cp-speedbuff",v); }}
                     style={{width:100,textAlign:"right"}}
                   />
-                  <span style={{fontSize:12,color:C.textDim,fontFamily:"Space Mono,monospace"}}>%</span>
+                  <span style={{fontSize:12,color:C.textSec,fontFamily:"Space Mono,monospace"}}>%</span>
                   <span style={{fontSize:11,color:C.textSec}}>e.g. enter 91.5 for 91.5% speed</span>
                 </div>
               </div>
@@ -1123,7 +1123,7 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
               <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
                 {/* Set all current */}
                 <div style={{display:"flex",alignItems:"center",gap:6}}>
-                  <span style={{fontSize:11,color:C.textDim,fontFamily:"Space Mono,monospace",whiteSpace:"nowrap"}}>Set all current</span>
+                  <span style={{fontSize:11,color:C.textSec,fontFamily:"Space Mono,monospace",whiteSpace:"nowrap"}}>Set all current</span>
                   <select
                     defaultValue=""
                     onChange={e => {
@@ -1150,7 +1150,7 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
                 </div>
                 {/* Set all goal */}
                 <div style={{display:"flex",alignItems:"center",gap:6}}>
-                  <span style={{fontSize:11,color:C.textDim,fontFamily:"Space Mono,monospace",whiteSpace:"nowrap"}}>Set all goal</span>
+                  <span style={{fontSize:11,color:C.textSec,fontFamily:"Space Mono,monospace",whiteSpace:"nowrap"}}>Set all goal</span>
                   <select
                     defaultValue=""
                     onChange={e => {
@@ -1257,7 +1257,7 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
                 {label:"Iron",          value:materialTotals.iron, color:C.blue,    unit:"M"},
               ].map(({label,value,color,unit})=>(
                 <div key={label} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 14px"}}>
-                  <div style={{fontSize:9,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",color:C.textDim,fontFamily:"Space Mono,monospace",marginBottom:5}}>{label}</div>
+                  <div style={{fontSize:9,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",color:C.textSec,fontFamily:"Space Mono,monospace",marginBottom:5}}>{label}</div>
                   <div style={{fontSize:unit==="FC"||unit==="RFC"?20:18,fontWeight:800,fontFamily:"Space Mono,monospace",lineHeight:1,color}}>
                     {value===0?"—":unit==="M"?fmt(value):fmtFull(value)}
                   </div>

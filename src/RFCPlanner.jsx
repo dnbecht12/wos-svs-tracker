@@ -119,7 +119,7 @@ const STYLE = `
 .rp-sub{font-size:12px;color:${C.textSec};margin-top:3px}
 .header-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .date-ctrl{display:flex;flex-direction:column;gap:3px}
-.date-lbl{font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:${C.textDim};font-family:'Space Mono',monospace}
+.date-lbl{font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:${C.textSec};font-family:'Space Mono',monospace}
 .date-inp{background:${C.card};border:1px solid ${C.border};border-radius:6px;padding:5px 10px;font-family:'Space Mono',monospace;font-size:12px;color:${C.textPri};outline:none;cursor:pointer;transition:border-color .15s}
 .date-inp:focus{border-color:${C.accent}}
 .save-btn{padding:7px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Syne',sans-serif;background:${C.accentBg};color:${C.accent};border:1px solid ${C.accentDim};transition:all .15s;white-space:nowrap}
@@ -131,7 +131,7 @@ const STYLE = `
 .stile{background:${C.card};border:1px solid ${C.border};border-radius:10px;padding:12px 14px;transition:border-color .15s}
 .stile.ed:focus-within{border-color:${C.accent}}
 .stile:not(.ed):hover{border-color:${C.borderHi}}
-.sl{font-size:9px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:${C.textDim};font-family:'Space Mono',monospace;margin-bottom:5px;display:flex;align-items:center;gap:5px}
+.sl{font-size:9px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:${C.textSec};font-family:'Space Mono',monospace;margin-bottom:5px;display:flex;align-items:center;gap:5px}
 .sl-e{font-size:8px;color:${C.accentDim}}
 .sv{font-size:20px;font-weight:800;font-family:'Space Mono',monospace;line-height:1}
 .sv-inp{font-size:20px;font-weight:800;font-family:'Space Mono',monospace;line-height:1;background:transparent;border:none;outline:none;width:100%;color:inherit;-moz-appearance:textfield}
@@ -139,14 +139,14 @@ const STYLE = `
 .ss{font-size:9px;color:${C.textDim};margin-top:4px;font-family:'Space Mono',monospace}
 
 /* Section head */
-.shd{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${C.textDim};display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.shd{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${C.textSec};display:flex;align-items:center;gap:8px;margin-bottom:10px}
 .shd::after{content:'';flex:1;height:1px;background:${C.border}}
 
 /* Settings */
 .cfg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
 .cfg-item{display:flex;flex-direction:column;gap:5px}
 .cfg-lbl{font-size:11px;font-weight:600;color:${C.blue}}
-.cfg-hint{font-size:10px;color:${C.textDim}}
+.cfg-hint{font-size:10px;color:${C.textSec}}
 .cfg-inp{background:${C.surface};border:1px solid ${C.blueDim};border-radius:7px;padding:7px 10px;font-family:'Space Mono',monospace;font-size:13px;color:${C.blue};outline:none;width:100%;transition:border-color .15s;cursor:pointer}
 .cfg-inp:focus{border-color:${C.blue}}
 .cfg-inp option,.cfg-inp optgroup{background:${C.card};color:${C.textPri}}
@@ -172,7 +172,7 @@ table.dt col.c-wkr{width:90px}
 table.dt col.c-rol{width:90px}
 
 table.dt thead tr{background:${C.surface}}
-table.dt th{padding:8px 10px;font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:${C.textDim};font-family:'Space Mono',monospace;white-space:nowrap;text-align:left;border-right:1px solid ${C.border};border-bottom:1px solid ${C.border}}
+table.dt th{padding:8px 10px;font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:${C.textSec};font-family:'Space Mono',monospace;white-space:nowrap;text-align:left;border-right:1px solid ${C.border};border-bottom:1px solid ${C.border}}
 table.dt th:last-child{border-right:none}
 table.dt th.r{text-align:right}
 
@@ -191,7 +191,7 @@ td.ec select:focus,td.ec input:focus{background:rgba(227,107,26,0.1)}
 td.ec input[type=number]{-moz-appearance:textfield;text-align:right}
 td.ec input[type=number]::-webkit-outer-spin-button,td.ec input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
 td.ec select.mon-sel{color:${C.accent};font-weight:700}
-.locked-val{display:flex;align-items:center;justify-content:flex-end;height:36px;padding:0 10px;font-family:'Space Mono',monospace;font-size:11px;color:${C.textDim}}
+.locked-val{display:flex;align-items:center;justify-content:flex-end;height:36px;padding:0 10px;font-family:'Space Mono',monospace;font-size:11px;color:${C.textSec}}
 
 .tp{padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;font-family:'Space Mono',monospace;white-space:nowrap;display:inline-block}
 .tp1{background:${C.blueBg};color:${C.blue};border:1px solid ${C.blueDim}}
@@ -202,20 +202,20 @@ td.ec select.mon-sel{color:${C.accent};font-weight:700}
 
 .dc{display:flex;align-items:center;gap:5px;padding:0 10px;height:36px;white-space:nowrap}
 .dn{font-weight:700;color:${C.textPri};font-family:'Space Mono',monospace;font-size:11px;min-width:16px;text-align:right;flex-shrink:0}
-.dw{font-size:11px;color:${C.textSec};flex-shrink:0}
-.dd{font-size:9px;color:${C.textDim};font-family:'Space Mono',monospace;flex-shrink:0}
+.dw{font-size:11px;color:${C.textPri};flex-shrink:0}
+.dd{font-size:9px;color:${C.textSec};font-family:'Space Mono',monospace;flex-shrink:0}
 
 /* Week divider rows — each week is its own table, so the divider is the table's label */
 .wk-label{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;font-family:'Space Mono',monospace;padding:6px 0 8px;display:flex;align-items:center;gap:8px}
 .wk-label::after{content:'';flex:1;height:1px;background:${C.border}}
 .wk-label.wk-svs{color:var(--c-accent)}
 .wk-label.wk-koi{color:var(--c-blue)}
-.wk-label.wk-prep{color:${C.textDim}}
+.wk-label.wk-prep{color:${C.textSec}}
 
 /* tfoot */
 tr.dt-foot td{background:${C.surface}!important;border-top:2px solid ${C.borderHi};font-family:'Space Mono',monospace;font-size:11px;font-weight:700;padding:8px 10px}
 
-.note{background:${C.accentBg};border:1px solid ${C.accentDim};border-radius:8px;padding:10px 14px;font-size:12px;color:${C.textSec};line-height:1.6}
+.note{background:${C.accentBg};border:1px solid ${C.accentDim};border-radius:8px;padding:10px 14px;font-size:12px;color:${C.textPri};line-height:1.6}
 .note strong{color:${C.accent}}
 .save-toast{position:fixed;bottom:24px;right:24px;background:${C.greenBg};border:1px solid ${C.greenDim};border-radius:8px;padding:10px 16px;font-size:12px;color:${C.green};font-family:'Space Mono',monospace;z-index:999;animation:fadeUp .3s ease}
 @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
@@ -415,7 +415,7 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
                     + Save New
                   </button>
                 </div>
-                {!onSavePlan && <div style={{fontSize:10,color:C.textDim,fontFamily:"Space Mono,monospace",marginTop:4}}>Sign in to save plans</div>}
+                {!onSavePlan && <div style={{fontSize:10,color:C.textSec,fontFamily:"Space Mono,monospace",marginTop:4}}>Sign in to save plans</div>}
               </div>
             </div>
           </div>
@@ -574,17 +574,17 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
                                 </div>
                               </td>
                               <td>
-                                <div className="cp r" style={{color:r.rfcEarned>0?C.blue:C.textDim,fontWeight:700}}>
+                                <div className="cp r" style={{color:r.rfcEarned>0?C.blue:C.textSec,fontWeight:700}}>
                                   {r.rfcEarned>0?fmtN(r.rfcEarned):"—"}
                                 </div>
                               </td>
                               <td>
-                                <div className="cp r" style={{color:r.fcBurn>0?C.accent:C.textDim,fontWeight:700}}>
+                                <div className="cp r" style={{color:r.fcBurn>0?C.accent:C.textSec,fontWeight:700}}>
                                   {r.fcBurn>0?fmtN(r.fcBurn):"—"}
                                 </div>
                               </td>
                               <td>
-                                <div className="cp r" style={{color:C.textSec}}>
+                                <div className="cp r" style={{color:C.textPri}}>
                                   {r.weekCumRef}
                                 </div>
                               </td>

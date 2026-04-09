@@ -1068,15 +1068,15 @@ const GLOBAL_STYLE = `
   .page-header-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
   .page-title { font-size: 22px; font-weight: 800; color: var(--c-textPri); }
   .page-title span { color: var(--c-accent); }
-  .page-sub { font-size: 13px; color: var(--c-textSec); margin-top: 4px; }
-  .last-saved { font-size: 11px; font-family: 'Space Mono', monospace; color: var(--c-textDim); }
+  .page-sub { font-size: 13px; color: var(--c-textPri); margin-top: 4px; }
+  .last-saved { font-size: 11px; font-family: 'Space Mono', monospace; color: var(--c-textSec); }
   .page-body { padding: 28px 32px; }
 
   /* Cards */
   .card { background: var(--c-card); border: 1px solid var(--c-border); border-radius: 10px; }
   .card-header { padding: 16px 20px; border-bottom: 1px solid var(--c-border); display: flex; align-items: center; justify-content: space-between; }
   .card-title { font-size: 13px; font-weight: 700; color: var(--c-textPri); letter-spacing: 0.5px; text-transform: uppercase; }
-  .card-sub { font-size: 12px; color: var(--c-textSec); margin-top: 2px; }
+  .card-sub { font-size: 12px; color: var(--c-textPri); margin-top: 2px; }
   .card-body { padding: 20px; }
 
   /* Stat grid */
@@ -1097,17 +1097,17 @@ const GLOBAL_STYLE = `
   .res-icon { font-size: 18px; width: 24px; text-align: center; flex-shrink: 0; font-family: 'Space Mono', monospace; font-size: 13px; color: var(--c-textSec); }
   .res-label { font-size: 12px; font-weight: 600; color: var(--c-textPri); flex: 1; min-width: 0; }
   .res-input { width: 90px; background: transparent; border: none; outline: none; font-family: 'Space Mono', monospace; font-size: 14px; font-weight: 700; color: var(--c-textPri); text-align: right; }
-  .res-input::placeholder { color: var(--c-textDim); }
+  .res-input::placeholder { color: var(--c-textSec); }
 
   /* Section divider */
-  .section-label { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--c-textDim); margin-bottom: 12px; margin-top: 24px; display: flex; align-items: center; gap: 8px; }
+  .section-label { font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--c-textSec); margin-bottom: 12px; margin-top: 24px; display: flex; align-items: center; gap: 8px; }
   .section-label::after { content: ''; flex: 1; height: 1px; background: var(--c-border); }
 
   /* Construction table */
   .table-wrap { overflow-x: auto; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th { text-align: left; padding: 8px 12px; font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--c-textDim); border-bottom: 1px solid var(--c-border); white-space: nowrap; }
-  td { padding: 11px 12px; border-bottom: 1px solid var(--c-border); color: var(--c-textSec); vertical-align: middle; }
+  th { text-align: left; padding: 8px 12px; font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--c-textSec); border-bottom: 1px solid var(--c-border); white-space: nowrap; }
+  td { padding: 11px 12px; border-bottom: 1px solid var(--c-border); color: var(--c-textPri); vertical-align: middle; }
   tr:last-child td { border-bottom: none; }
   tr:hover td { background: var(--c-hover, rgba(0,0,0,0.03)); }
   td.mono { font-family: 'Space Mono', monospace; font-size: 12px; }
@@ -1130,7 +1130,7 @@ const GLOBAL_STYLE = `
   .progress-bar { height: 100%; border-radius: 4px; transition: width 0.3s ease; }
 
   /* Toggle */
-  .toggle { position: relative; display: inline-flex; align-items: center; cursor: pointer; gap: 8px; font-size: 13px; color: var(--c-textSec); }
+  .toggle { position: relative; display: inline-flex; align-items: center; cursor: pointer; gap: 8px; font-size: 13px; color: var(--c-textPri); }
   .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
   .toggle-track { width: 36px; height: 20px; background: var(--c-border); border-radius: 10px; transition: background 0.2s; position: relative; flex-shrink: 0; }
   .toggle input:checked ~ .toggle-track { background: var(--c-accent); }
@@ -1153,7 +1153,7 @@ const GLOBAL_STYLE = `
   .expert-name { font-size: 15px; font-weight: 700; color: var(--c-textPri); }
   .expert-bonus { font-size: 11px; color: var(--c-textSec); margin-top: 2px; }
   .expert-body { padding: 12px 16px; }
-  .expert-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; font-size: 12px; color: var(--c-textSec); border-bottom: 1px solid var(--c-border); }
+  .expert-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; font-size: 12px; color: var(--c-textPri); border-bottom: 1px solid var(--c-border); }
   .expert-row:last-child { border-bottom: none; }
   .expert-val { font-family: 'Space Mono', monospace; font-size: 12px; color: var(--c-textPri); font-weight: 700; }
 
@@ -1215,12 +1215,12 @@ const GLOBAL_STYLE = `
   .auth-btn-primary { background: var(--c-accent); color: var(--c-btnText); }
   .auth-btn-primary:hover { opacity: 0.9; }
   .auth-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
-  .auth-btn-ghost { background: transparent; color: var(--c-textDim); border: 1px solid var(--c-border); font-size: 11px; padding: 5px; }
+  .auth-btn-ghost { background: transparent; color: var(--c-textSec); border: 1px solid var(--c-border); font-size: 11px; padding: 5px; }
   .auth-btn-ghost:hover { color: var(--c-textSec); border-color: var(--c-borderHi); }
   .auth-error { font-size: 10px; color: var(--c-red); font-family: 'Space Mono', monospace; padding: 5px 8px; background: var(--c-redBg); border-radius: 4px; border: 1px solid var(--c-redDim); line-height: 1.4; }
-  .auth-toggle { font-size: 11px; color: var(--c-textDim); text-align: center; }
+  .auth-toggle { font-size: 11px; color: var(--c-textSec); text-align: center; }
   .auth-toggle span { color: var(--c-accent); text-decoration: underline; cursor: pointer; }
-  .auth-title { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--c-textDim); margin-bottom: 8px; font-family: 'Space Mono', monospace; }
+  .auth-title { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--c-textSec); margin-bottom: 8px; font-family: 'Space Mono', monospace; }
 
   /* Character switcher */
   .char-switcher { padding: 10px 10px 0; }
