@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo, Component } from "react";
+import { createPortal } from "react-dom";
 import ConstructionPlanner from "./ConstructionPlanner.jsx";
 import RFCPlanner from "./RFCPlanner.jsx";
 import SvSCalendar from "./SvSCalendar.jsx";
@@ -501,11 +502,20 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose }) {
   const levelOpts  = Array.from({length:81}, (_,i) => i);
   const widgetOpts = Array.from({length:11}, (_,i) => i);
 
-  return (
-    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal" style={{maxWidth:560}}>
+  return createPortal(
+    <div style={{
+      position:"fixed", inset:0, background:"rgba(0,0,0,0.75)",
+      zIndex:9999, display:"flex", alignItems:"center",
+      justifyContent:"center", padding:20,
+    }} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{
+        background:"var(--c-card)", border:"1px solid var(--c-borderHi)",
+        borderRadius:14, width:"100%", maxWidth:560,
+        maxHeight:"90vh", overflowY:"auto",
+        boxShadow:"0 24px 80px rgba(0,0,0,0.6)",
+      }}>
         {/* Header */}
-        <div className="modal-header">
+        <div style={{padding:"20px 24px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div style={{display:"flex",alignItems:"center",gap:12}}>
             <div style={{width:40,height:40,borderRadius:"50%",background:C.accentBg,
               border:`2px solid ${C.accentDim}`,display:"flex",alignItems:"center",
@@ -523,10 +533,10 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose }) {
               </div>
             </div>
           </div>
-          <button className="modal-close" onClick={onClose}>✕</button>
+          <button onClick={onClose} style={{background:"none",border:"none",color:C.textDim,cursor:"pointer",fontSize:18,lineHeight:1,padding:4}}>✕</button>
         </div>
 
-        <div className="modal-body" style={{maxHeight:"75vh",overflowY:"auto"}}>
+        <div style={{padding:"20px 24px",maxHeight:"70vh",overflowY:"auto"}}>
 
           {/* Core stats row */}
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:20}}>
@@ -606,7 +616,8 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose }) {
 
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
