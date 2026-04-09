@@ -1648,8 +1648,9 @@ export default function App() {
   const [savedAt,       setSavedAt]      = useState(null);
   const [loadedPlanKey, setLoadedPlanKey]= useState(null);
   const [syncing,       setSyncing]      = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [profileSection,setProfileSection]=useState("account");
+  const [sidebarOpen,    setSidebarOpen]   = useState(false);
+  const [profileOpen,    setProfileOpen]   = useState(false);
+  const [profileSection, setProfileSection]= useState("account");
   const [savePlanPopup, setSavePlanPopup]= useState({ open:false, defaultName:"", mode:"over" });
 
   const syncTimer  = useRef(null);
