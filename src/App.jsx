@@ -435,18 +435,31 @@ function defaultHeroState(type) {
 // ─── HeroesPage ───────────────────────────────────────────────────────────────
 
 function HeroesPage({ genFilter, setGenFilter, heroStats, setHeroStats }) {
-  const [sortBy,    setSortBy]    = useLocalStorage("heroes-sort",      "quality");
-  const [favorites, setFavorites] = useLocalStorage("heroes-favorites", []); // array of hero names, max 6
+  const [sortBy,      setSortBy]      = useLocalStorage("heroes-sort",      "quality");
+  const [favorites,   setFavorites]   = useLocalStorage("heroes-favorites", []);
+  const [filterType,  setFilterType]  = useState(""); // Infantry | Lancer | Marksman | ""
+  const [filterGen,   setFilterGen]   = useState(""); // specific gen or ""
+  const [filterName,  setFilterName]  = useState(""); // text search
   const C = COLORS;
 
   const maxGenIdx = GEN_ORDER.indexOf(genFilter);
-  const visible   = HERO_ROSTER.filter(h => GEN_ORDER.indexOf(h.gen) <= maxGenIdx);
+
+  // Apply gen-ceiling filter, then additional filters
+  const visible = HERO_ROSTER.filter(h => {
+    if (GEN_ORDER.indexOf(h.gen) > maxGenIdx) return false;
+    if (filterType && h.type !== filterType) return false;
+    if (filterGen  && h.gen  !== filterGen)  return false;
+    if (filterName && !h.name.toLowerCase().includes(filterName.toLowerCase())) return false;
+    return true;
+  });
 
   const sorted = sortBy === "quality" ? sortHeroesByQuality(visible)
                : sortBy === "type"    ? sortHeroesByType(visible)
                : sortBy === "gen"     ? sortHeroesByGen(visible)
                : sortBy === "hero"    ? sortHeroesByName(visible)
                : sortHeroesByQuality(visible);
+
+  const clearFilters = () => { setFilterType(""); setFilterGen(""); setFilterName(""); };
 
   // Favorites in same sort order as roster
   const favHeroes = sorted.filter(h => favorites.includes(h.name));
@@ -614,25 +627,68 @@ function HeroesPage({ genFilter, setGenFilter, heroStats, setHeroStats }) {
     <div className="fade-in">
 
       {/* Controls bar */}
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10,marginBottom:14}}>
+      <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",gap:10,marginBottom:14}}>
         <div style={{display:"flex",gap:10,alignItems:"center",flexWrap:"wrap"}}>
-          {/* Gen filter */}
+          {/* Gen ceiling filter */}
           <div style={{display:"flex",alignItems:"center",gap:6}}>
-            <span style={{fontSize:11,color:C.textDim,fontFamily:"'Space Mono',monospace"}}>Generation</span>
+            <span style={{fontSize:11,color:C.textDim,fontFamily:"'Space Mono',monospace"}}>Up to</span>
             <select value={genFilter} onChange={e => setGenFilter(e.target.value)} style={{...sel,fontSize:12,padding:"4px 8px"}}>
               {GEN_ORDER.map(g => <option key={g} value={g}>{g} &amp; below</option>)}
             </select>
           </div>
-          {/* Sort */}
+          {/* Filter by type */}
           <div style={{display:"flex",alignItems:"center",gap:6}}>
-            <span style={{fontSize:11,color:C.textDim,fontFamily:"'Space Mono',monospace"}}>Sort by</span>
-            <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={{...sel,fontSize:12,padding:"4px 8px"}}>
-              <option value="quality">Quality</option>
-                <option value="type">Troop Type</option>
-                <option value="gen">Generation</option>
-                <option value="hero">Hero Name</option>
+            <span style={{fontSize:11,color:C.textDim,fontFamily:"'Space Mono',monospace"}}>Type</span>
+            <select value={filterType} onChange={e => setFilterType(e.target.value)} style={{...sel,fontSize:12,padding:"4px 8px"}}>
+              <option value="">All</option>
+              <option value="Infantry">Infantry</option>
+              <option value="Lancer">Lancer</option>
+              <option value="Marksman">Marksman</option>
             </select>
           </div>
+          {/* Filter by specific gen */}
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <span style={{fontSize:11,color:C.textDim,fontFamily:"'Space Mono',monospace"}}>Gen</span>
+            <select value={filterGen} onChange={e => setFilterGen(e.target.value)} style={{...sel,fontSize:12,padding:"4px 8px"}}>
+              <option value="">All</option>
+              {GEN_ORDER.filter(g => GEN_ORDER.indexOf(g) <= GEN_ORDER.indexOf(genFilter)).map(g => (
+                <option key={g} value={g}>{g}</option>
+              ))}
+            </select>
+          </div>
+          {/* Hero name search */}
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <span style={{fontSize:11,color:C.textDim,fontFamily:"'Space Mono',monospace"}}>Hero</span>
+            <input
+              type="text"
+              value={filterName}
+              onChange={e => setFilterName(e.target.value)}
+              placeholder="Search…"
+              style={{...sel,fontSize:12,padding:"4px 8px",width:100,outline:"none"}}
+            />
+          </div>
+          {/* Sort */}
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <span style={{fontSize:11,color:C.textDim,fontFamily:"'Space Mono',monospace"}}>Sort</span>
+            <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={{...sel,fontSize:12,padding:"4px 8px"}}>
+              <option value="quality">Quality</option>
+              <option value="type">Troop Type</option>
+              <option value="gen">Generation</option>
+              <option value="hero">Hero Name</option>
+            </select>
+          </div>
+          {/* Clear filters */}
+          {(filterType || filterGen || filterName) && (
+            <button onClick={clearFilters}
+              style={{fontSize:11,color:C.red,cursor:"pointer",padding:"4px 8px",borderRadius:5,
+                border:`1px solid ${C.redDim}`,background:C.redBg,fontFamily:"'Space Mono',monospace"}}>
+              ✕ Clear filters
+            </button>
+          )}
+          {/* Result count */}
+          <span style={{fontSize:11,color:C.textDim,fontFamily:"'Space Mono',monospace"}}>
+            {sorted.length} hero{sorted.length !== 1 ? "es" : ""}
+          </span>
         </div>
         {/* Set-all buttons */}
         <div style={{display:"flex",gap:8}}>
