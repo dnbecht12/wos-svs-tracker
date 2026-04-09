@@ -5,13 +5,28 @@ import { supabase } from "./supabase.js";
 
 export async function charLoadInventory(characterId) {
   if (!characterId) return null;
+  // Try new character_id-based row first
   const { data, error } = await supabase
     .from("inventory")
     .select("data")
     .eq("character_id", characterId)
-    .single();
-  if (error || !data) return null;
-  return data.data;
+    .maybeSingle();
+  if (!error && data) return data.data;
+
+  // Fallback: try old id-based row (migration path for existing users)
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+  const { data: old } = await supabase
+    .from("inventory")
+    .select("data")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (old) {
+    // Migrate: re-save under character_id so future loads work
+    await charSaveInventory(characterId, old.data);
+    return old.data;
+  }
+  return null;
 }
 
 export async function charSaveInventory(characterId, inv) {
@@ -26,12 +41,29 @@ export async function charSaveInventory(characterId, inv) {
 
 export async function charLoadPlans(characterId) {
   if (!characterId) return {};
+  // Try new character_id-based rows
   const { data, error } = await supabase
     .from("saved_plans")
     .select("plan_key, data")
     .eq("character_id", characterId);
-  if (error || !data) return {};
-  return Object.fromEntries(data.map(r => [r.plan_key, r.data]));
+  if (!error && data && data.length > 0)
+    return Object.fromEntries(data.map(r => [r.plan_key, r.data]));
+
+  // Fallback: old user_id-based rows
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return {};
+  const { data: old } = await supabase
+    .from("saved_plans")
+    .select("plan_key, data")
+    .eq("user_id", user.id)
+    .is("character_id", null);
+  if (old && old.length > 0) {
+    const plans = Object.fromEntries(old.map(r => [r.plan_key, r.data]));
+    // Migrate: re-save under character_id
+    await Promise.all(Object.entries(plans).map(([k, v]) => charSavePlan(characterId, k, v)));
+    return plans;
+  }
+  return {};
 }
 
 export async function charSavePlan(characterId, planKey, planData) {
@@ -122,17 +154,31 @@ export function useCharacters(user) {
   const [loadingChars,     setLoadingChars]     = useState(false);
   const [charError,        setCharError]        = useState("");
 
-  // Load characters whenever user changes
+  // Load characters whenever user changes — auto-create one if account has none
   useEffect(() => {
     if (!user) { setCharacters([]); setActiveCharId(null); return; }
     setLoadingChars(true);
-    fetchCharacters(user.id).then(chars => {
-      setCharacters(chars);
-      const def = chars.find(c => c.is_default) || chars[0];
-      if (def) setActiveCharId(def.id);
+    fetchCharacters(user.id).then(async chars => {
+      if (chars.length === 0) {
+        // First-time user or pre-character account — create a default character
+        try {
+          const newChar = await createCharacter(user.id, "Main", null);
+          await supabase.from("characters")
+            .update({ is_default: true })
+            .eq("id", newChar.id);
+          newChar.is_default = true;
+          setCharacters([newChar]);
+          setActiveCharId(newChar.id);
+        } catch {
+          setCharacters([]);
+        }
+      } else {
+        setCharacters(chars);
+        const def = chars.find(c => c.is_default) || chars[0];
+        if (def) setActiveCharId(def.id);
+      }
       setLoadingChars(false);
     }).catch(() => {
-      // Supabase error (e.g. table not ready) — degrade gracefully
       setCharacters([]);
       setLoadingChars(false);
     });
