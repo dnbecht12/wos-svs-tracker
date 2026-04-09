@@ -811,35 +811,6 @@ function HeroesPage({ genFilter, setGenFilter, heroStats, setHeroStats }) {
       </tr>
     </thead>
   );
-    <thead>
-      <tr>
-        <th style={{...thS,width:28,padding:"8px 4px"}}/>
-        <th style={sortableThS("hero")} onClick={() => setSortBy("hero")}>
-          <SortLabel col="hero" label="Hero" />
-        </th>
-        <th style={sortableThS("type")} onClick={() => setSortBy("type")}>
-          <SortLabel col="type" label="Type" />
-        </th>
-        <th style={sortableThS("gen")} onClick={() => setSortBy("gen")}>
-          <SortLabel col="gen" label="Gen" />
-        </th>
-        <th style={sortableThS("quality")} onClick={() => setSortBy("quality")}>
-          <SortLabel col="quality" label="Quality" />
-        </th>
-        <th style={thS}>Level</th>
-        <th style={{...thS,textAlign:"center"}} colSpan={3}>Exploration Skills</th>
-        <th style={{...thS,textAlign:"center"}} colSpan={3}>Expedition Skills</th>
-        <th style={thS}>Widget</th>
-      </tr>
-      <tr>
-        {Array(6).fill(null).map((_,i) => <th key={i} style={{...thS,paddingTop:2,paddingBottom:6}}/>)}
-        {["S1","S2","S3","S1","S2","S3"].map((s,i) => (
-          <th key={i} style={{...thS,paddingTop:2,paddingBottom:6,textAlign:"center",fontSize:9}}>{s}</th>
-        ))}
-        <th style={{...thS,paddingTop:2,paddingBottom:6}}/>
-      </tr>
-    </thead>
-  );
 
   return (
     <div className="fade-in">
