@@ -676,6 +676,8 @@ function HeroesPage({ genFilter, setGenFilter, heroStats, setHeroStats }) {
       return next;
     });
   };
+
+  const setAllLevelsMax = () => {
     setHeroStats(prev => {
       const next = { ...prev };
       visible.forEach(h => {
