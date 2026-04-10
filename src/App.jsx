@@ -572,7 +572,7 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
       <span style={{color:C.textSec}}>{label}</span>
       <span style={{fontFamily:"'Space Mono',monospace",fontWeight:700,color:C.textPri}}>
         {val == null || val === 0 ? <span style={{color:C.textDim}}>—</span>
-          : isPercent ? `${val}%` : Number(val).toLocaleString()}
+          : isPercent ? `${Math.round(val * 100) / 100}%` : Number(val).toLocaleString()}
       </span>
     </div>
   );
@@ -715,51 +715,61 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
           {/* Power Details */}
           <div style={{marginBottom:20}}>
             {sectionHead("Power Details")}
-            {!ref ? <DataUnavailable /> : (
-              <>
-                <StatRow label="Total Power" val={(ref.levelPower||0)+(ref.starPower||0)+(ref.skillPower||0)+(isSSR?(ref.gearStrength||0):0)} isPercent={false} />
-                <StatRow label="Level Power"  val={ref.levelPower}  isPercent={false} />
-                <StatRow label="Star Power"   val={ref.starPower}   isPercent={false} />
-                <StatRow label="Skill Power"  val={ref.skillPower}  isPercent={false} />
-                {isSSR && <StatRow label="Gear Strength" val={ref.gearStrength} isPercent={false} />}
-                <div style={{marginTop:10}}>
+            {(() => {
+              const statsMatch = ref && ref.level === local.level && ref.stars === local.stars && ref.widget === local.widget;
+              if (!statsMatch) return <DataUnavailable />;
+              return (
+                <>
+                  <StatRow label="Total Power" val={(ref.levelPower||0)+(ref.starPower||0)+(ref.skillPower||0)+(isSSR?(ref.gearStrength||0):0)} isPercent={false} />
+                  <StatRow label="Level Power"  val={ref.levelPower}  isPercent={false} />
+                  <StatRow label="Star Power"   val={ref.starPower}   isPercent={false} />
+                  <StatRow label="Skill Power"  val={ref.skillPower}  isPercent={false} />
+                  {isSSR && <StatRow label="Gear Strength" val={ref.gearStrength} isPercent={false} />}
                   <StatRow label="Escorts"        val={ref.escorts}  isPercent={false} />
                   <StatRow label="Troop Capacity" val={ref.troopCap} isPercent={false} />
-                </div>
-              </>
-            )}
+                </>
+              );
+            })()}
           </div>
 
           {/* Exploration Base Stats */}
           <div style={{marginBottom:20}}>
             {sectionHead("Exploration Base Stats")}
-            {!ref ? <DataUnavailable /> : (
-              <>
-                <StatRow label="Hero Attack"   val={ref.heroAtk}   isPercent={false} />
-                <StatRow label="Hero Defense"  val={ref.heroDef}   isPercent={false} />
-                <StatRow label="Hero Health"   val={ref.heroHp}    isPercent={false} />
-                <StatRow label="Escort Health" val={ref.escortHp}  isPercent={false} />
-                <StatRow label="Escort Defense"val={ref.escortDef} isPercent={false} />
-                <StatRow label="Escort Attack" val={ref.escortAtk} isPercent={false} />
-              </>
-            )}
+            {(() => {
+              const statsMatch = ref && ref.level === local.level && ref.stars === local.stars && ref.widget === local.widget;
+              if (!statsMatch) return <DataUnavailable />;
+              return (
+                <>
+                  <StatRow label="Hero Attack"   val={ref.heroAtk}   isPercent={false} />
+                  <StatRow label="Hero Defense"  val={ref.heroDef}   isPercent={false} />
+                  <StatRow label="Hero Health"   val={ref.heroHp}    isPercent={false} />
+                  <StatRow label="Escort Health" val={ref.escortHp}  isPercent={false} />
+                  <StatRow label="Escort Defense"val={ref.escortDef} isPercent={false} />
+                  <StatRow label="Escort Attack" val={ref.escortAtk} isPercent={false} />
+                </>
+              );
+            })()}
           </div>
 
           {/* Expedition Base Stats */}
           <div style={{marginBottom:20}}>
             {sectionHead("Expedition Base Stats")}
-            {!ref ? <DataUnavailable /> : (
-              <>
-                <StatRow label="Infantry Attack"    val={ref.infAtk}  isPercent={true} />
-                <StatRow label="Infantry Defense"   val={ref.infDef}  isPercent={true} />
-                <StatRow label="Infantry Lethality" val={ref.infLeth} isPercent={true} />
-                <StatRow label="Infantry Health"    val={ref.infHp}   isPercent={true} />
-              </>
-            )}
+            {(() => {
+              const statsMatch = ref && ref.level === local.level && ref.stars === local.stars && ref.widget === local.widget;
+              if (!statsMatch) return <DataUnavailable />;
+              return (
+                <>
+                  <StatRow label="Infantry Attack"    val={(ref.infAtk  * 100)} isPercent={true} />
+                  <StatRow label="Infantry Defense"   val={(ref.infDef  * 100)} isPercent={true} />
+                  <StatRow label="Infantry Lethality" val={(ref.infLeth * 100)} isPercent={true} />
+                  <StatRow label="Infantry Health"    val={(ref.infHp   * 100)} isPercent={true} />
+                </>
+              );
+            })()}
           </div>
 
-          {/* Snapshot tag if data exists */}
-          {ref && (
+          {/* Snapshot tag — only when stats match */}
+          {ref && ref.level === local.level && ref.stars === local.stars && ref.widget === local.widget && (
             <div style={{marginBottom:16,padding:"8px 12px",background:C.accentBg,
               border:`1px solid ${C.accentDim}`,borderRadius:7,fontSize:11,
               color:C.accent,fontFamily:"'Space Mono',monospace",display:"flex",
@@ -2035,7 +2045,7 @@ function ProfileModal({ open, onClose, initialSection="account",
                         <div style={{display:"flex",flexDirection:"column",gap:6}}>
                           <input className="modal-inp" value={editName} onChange={e=>setEditName(e.target.value)} placeholder="Character name" />
                           <input className="modal-inp" type="number" value={editState} onChange={e=>setEditState(e.target.value)} placeholder="State number" />
-                          <input className="modal-inp" value={editAlliance} onChange={e=>setEditAlliance(e.target.value)} placeholder="Alliance tag (e.g. ABC)" />
+                          <input className="modal-inp" value={editAlliance} onChange={e=>setEditAlliance(e.target.value.toUpperCase().slice(0,3))} placeholder="Alliance tag (e.g. ABC)" />
                           <div style={{display:"flex",gap:6,marginTop:2}}>
                             <button className="modal-btn modal-btn-primary" onClick={handleSaveEdit} disabled={busy}>Save</button>
                             <button className="modal-btn modal-btn-ghost" onClick={()=>setEditId(null)}>Cancel</button>
@@ -2043,10 +2053,12 @@ function ProfileModal({ open, onClose, initialSection="account",
                         </div>
                       ) : (
                         <>
-                          <div className="char-name-text">{c.name}</div>
+                          <div className="char-name-text">
+                            {c.alliance ? <span style={{color:C.textDim,fontFamily:"'Space Mono',monospace"}}>[{c.alliance}] </span> : null}{c.name}
+                          </div>
                           <div className="char-state-text">
                             {c.state_number ? `State ${c.state_number}` : <span style={{color:C.red,fontWeight:600}}>No state set</span>}
-                            {c.alliance ? ` · [${c.alliance}]` : <span style={{color:C.red,fontWeight:600}}> · No alliance set</span>}
+                            {!c.alliance && <span style={{color:C.red,fontWeight:600}}> · No alliance set</span>}
                           </div>
                         </>
                       )}
@@ -2083,7 +2095,7 @@ function ProfileModal({ open, onClose, initialSection="account",
                   <div style={{display:"flex",flexDirection:"column",gap:8}}>
                     <input className="modal-inp" value={newName} onChange={e=>setNewName(e.target.value)} placeholder="Character name (e.g. Main, Alt 1)" />
                     <input className="modal-inp" type="number" value={newState} onChange={e=>setNewState(e.target.value)} placeholder="State number (e.g. 142)" />
-                    <input className="modal-inp" value={newAlliance} onChange={e=>setNewAlliance(e.target.value)} placeholder="Alliance tag (e.g. ABC)" />
+                    <input className="modal-inp" value={newAlliance} onChange={e=>setNewAlliance(e.target.value.toUpperCase().slice(0,3))} placeholder="Alliance tag (e.g. ABC)" />
                     <button className="modal-btn modal-btn-primary" onClick={handleAddChar} disabled={busy || !newName.trim()} style={{alignSelf:"flex-start"}}>
                       {busy ? "Adding…" : "Add Character"}
                     </button>
@@ -2981,7 +2993,7 @@ export default function App() {
                 }}>
                 {characters.map(c => (
                   <option key={c.id} value={c.id}>
-                    {c.name}{c.state_number ? ` · State ${c.state_number}` : ""}{c.alliance ? ` · [${c.alliance}]` : ""}
+                    {c.alliance ? `[${c.alliance}] ` : ""}{c.name}{c.state_number ? ` · State ${c.state_number}` : ""}
                   </option>
                 ))}
                 <option disabled>──────────</option>
@@ -3128,9 +3140,9 @@ export default function App() {
               <div style={{display:"flex",alignItems:"center",gap:12}}>
                 {user && activeCharacter && (
                   <div style={{fontSize:11,fontFamily:"Space Mono,monospace",color:COLORS.textDim}}>
+                    {activeCharacter.alliance ? `[${activeCharacter.alliance}] ` : ""}
                     {activeCharacter.name}
                     {activeCharacter.state_number ? ` · State ${activeCharacter.state_number}` : ""}
-                    {activeCharacter.alliance ? ` · [${activeCharacter.alliance}]` : ""}
                   </div>
                 )}
                 {savedAt && <div className="last-saved">saved {savedAt}</div>}

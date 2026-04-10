@@ -525,7 +525,7 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
           <div>
             <div className="shd">Refine settings</div>
             <div className="cfg-wrap">
-              <div className="cfg-grid">
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,alignItems:"end"}}>
                 <div className="cfg-item">
                   <label className="cfg-lbl">Set Monday refines to</label>
                   <span className="cfg-hint">Applies to all 4 Mondays · each row is still individually editable</span>
@@ -539,21 +539,21 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
                   </select>
                 </div>
                 <div className="cfg-item">
+                  <label className="cfg-lbl">Tue–Sun refinement mode</label>
+                  <span className="cfg-hint">Default set to 1/day</span>
+                  <select className="cfg-inp" value={weekdayMode}
+                    onChange={e=>{setWeekdayMode(e.target.value);saveLS("rfc-wdmode",e.target.value);}}>
+                    <option value="default">Default — 1 refine each day (editable)</option>
+                    <option value="manual">Manual — all days start blank</option>
+                  </select>
+                </div>
+                <div className="cfg-item">
                   <label className="cfg-lbl">Est. RFC from Events (this cycle)</label>
                   <span className="cfg-hint">Expected RFC from recurring events — used in projection only</span>
                   <input type="number" min={0} className="cfg-inp"
                     value={estEventRfc}
                     onChange={e=>{const v=Number(e.target.value)||0;setEstEventRfc(v);saveLS("rfc-est-event",v);}}
                   />
-                </div>
-                <div className="cfg-item">
-                  <label className="cfg-lbl">Tue–Sun refinement mode</label>
-                  <span className="cfg-hint">Default sets each day to 1 refine · all days remain editable regardless</span>
-                  <select className="cfg-inp" value={weekdayMode}
-                    onChange={e=>{setWeekdayMode(e.target.value);saveLS("rfc-wdmode",e.target.value);}}>
-                    <option value="default">Default — 1 refine each day (editable)</option>
-                    <option value="manual">Manual — all days start blank</option>
-                  </select>
                 </div>
               </div>
             </div>
