@@ -1479,7 +1479,7 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats })
           if (field === "masteryCurrent" && isLegendary && !isWidget) {
             if ((updated.masteryGoal ?? 0) < value) updated.masteryGoal = value;
           }
-          // If setting widgetCurrent, auto-bump widgetGoal
+          // If widgetCurrent is set above widgetGoal, clamp goal up to match
           if (field === "widgetCurrent" && isWidget) {
             if ((updated.widgetGoal ?? 0) < value) updated.widgetGoal = value;
           }
@@ -1698,7 +1698,7 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats })
                           <select value={s.widgetGoal ?? 0}
                             onChange={e => setSlotField(heroIdx, slotIdx, "widgetGoal", Number(e.target.value))}
                             style={sel}>
-                            {widgetOpts.filter(v => v >= heroStatsForSlot.widget).map(v =>
+                            {widgetOpts.filter(v => v >= (heroStatsForSlot.widget ?? 0)).map(v =>
                               <option key={v} value={v}>{v}</option>)}
                           </select>
                         ) : (
