@@ -584,7 +584,25 @@ function cascadePrereqs(buildings) {
   return result;
 }
 
-const BUILDINGS_LIST = [
+// ─── Building Power lookup table ─────────────────────────────────────────────
+// Power is a direct lookup (not summed) — use the value at the chosen level/sub
+const POWER_DB = {
+"Command":{"30.1":221326,"30.2":229362,"30.3":237398,"30.4":245434,"FC1":253470,"FC1.1":261506,"FC1.2":269542,"FC1.3":277578,"FC1.4":285614,"FC2":293650,"FC2.1":301686,"FC2.2":309722,"FC2.3":317758,"FC2.4":325794,"FC3":333830,"FC3.1":342678,"FC3.2":351526,"FC3.3":360374,"FC3.4":369222,"FC4":378070,"FC4.1":386918,"FC4.2":395766,"FC4.3":404614,"FC4.4":413462,"FC5":422310,"FC5.1":431774,"FC5.2":441238,"FC5.3":450702,"FC5.4":460166,"FC6":469630,"FC6.1":479094,"FC6.2":488558,"FC6.3":498022,"FC6.4":507486,"FC7":516950,"FC7.1":526414,"FC7.2":535878,"FC7.3":545342,"FC7.4":554806,"FC8":564270,"FC8.1":574406,"FC8.2":574406,"FC8.3":574406,"FC8.4":574406,"FC9":574406,"FC9.1":614950,"FC9.2":614950,"FC9.3":614950,"FC9.4":614950,"FC10":614950},
+"Embassy":{"30.1":347798,"30.2":360426,"30.3":373054,"30.4":385682,"FC1":398310,"FC1.1":410938,"FC1.2":423566,"FC1.3":436194,"FC1.4":448822,"FC2":461450,"FC2.1":474087,"FC2.2":486706,"FC2.3":499334,"FC2.4":511962,"FC3":524590,"FC3.1":538494,"FC3.2":552398,"FC3.3":566302,"FC3.4":580206,"FC4":594110,"FC4.1":608014,"FC4.2":621918,"FC4.3":635822,"FC4.4":649726,"FC5":663630,"FC5.1":678502,"FC5.2":693374,"FC5.3":708246,"FC5.4":723118,"FC6":737990,"FC6.1":752862,"FC6.2":767734,"FC6.3":782606,"FC6.4":797478,"FC7":812350,"FC7.1":827222,"FC7.2":842094,"FC7.3":856966,"FC7.4":871838,"FC8":886710,"FC8.1":902638,"FC8.2":918566,"FC8.3":934494,"FC8.4":950422,"FC9":966350,"FC9.1":982278,"FC9.2":998206,"FC9.3":1014134,"FC9.4":1030062,"FC10":1045990},
+"Furnace":{"30.1":1580900,"30.2":1638300,"30.3":1695700,"30.4":1753100,"FC1":1810500,"FC1.1":1867900,"FC1.2":1925300,"FC1.3":1982700,"FC1.4":2040100,"FC2":2097500,"FC2.1":2154900,"FC2.2":2212300,"FC2.3":2269700,"FC2.4":2327100,"FC3":2384500,"FC3.1":2447700,"FC3.2":2510900,"FC3.3":2574100,"FC3.4":2637300,"FC4":2700500,"FC4.1":2763700,"FC4.2":2826900,"FC4.3":2890100,"FC4.4":2953300,"FC5":3016500,"FC5.1":3084100,"FC5.2":3151700,"FC5.3":3219300,"FC5.4":3286900,"FC6":3354500,"FC6.1":3422100,"FC6.2":3489700,"FC6.3":3557300,"FC6.4":3624900,"FC7":3692500,"FC7.1":3760100,"FC7.2":3827700,"FC7.3":3895300,"FC7.4":3962900,"FC8":4030500,"FC8.1":4102900,"FC8.2":4175300,"FC8.3":4247700,"FC8.4":4320100,"FC9":4392500,"FC9.1":4464900,"FC9.2":4537300,"FC9.3":4609700,"FC9.4":4682100,"FC10":4754500},
+"Infantry":{"30.1":316180,"30.2":327660,"30.3":339140,"30.4":350620,"FC1":362100,"FC1.1":373580,"FC1.2":385060,"FC1.3":396540,"FC1.4":408020,"FC2":419500,"FC2.1":430980,"FC2.2":442460,"FC2.3":453940,"FC2.4":465420,"FC3":476900,"FC3.1":489540,"FC3.2":502180,"FC3.3":514820,"FC3.4":527460,"FC4":540100,"FC4.1":552740,"FC4.2":565380,"FC4.3":578020,"FC4.4":590660,"FC5":603300,"FC5.1":616820,"FC5.2":630340,"FC5.3":643860,"FC5.4":657380,"FC6":670990,"FC6.1":684420,"FC6.2":697940,"FC6.3":711460,"FC6.4":724980,"FC7":738500,"FC7.1":752020,"FC7.2":765540,"FC7.3":779060,"FC7.4":792580,"FC8":806100,"FC8.1":820580,"FC8.2":835060,"FC8.3":849540,"FC8.4":864020,"FC9":878500,"FC9.1":892980,"FC9.2":907460,"FC9.3":921940,"FC9.4":936420,"FC10":950900},
+"Infirmary":{"30.1":237135,"30.2":245745,"30.3":254355,"30.4":262965,"FC1":271575,"FC1.1":280185,"FC1.2":288795,"FC1.3":297405,"FC1.4":306015,"FC2":314625,"FC2.1":323235,"FC2.2":331845,"FC2.3":340455,"FC2.4":349065,"FC3":357675,"FC3.1":367155,"FC3.2":376635,"FC3.3":386115,"FC3.4":395595,"FC4":405075,"FC4.1":405075,"FC4.2":414555,"FC4.3":424035,"FC4.4":442995,"FC5":452475,"FC5.1":462615,"FC5.2":472755,"FC5.3":482895,"FC5.4":493035,"FC6":503175,"FC6.1":513315,"FC6.2":523455,"FC6.3":533595,"FC6.4":543735,"FC7":553875,"FC7.1":564015,"FC7.2":574155,"FC7.3":584295,"FC7.4":594435,"FC8":604575,"FC8.1":615435,"FC8.2":626295,"FC8.3":637155,"FC8.4":648015,"FC9":658875,"FC9.1":669735,"FC9.2":680595,"FC9.3":691455,"FC9.4":702315,"FC10":713175},
+"Lancer":{"30.1":316180,"30.2":327660,"30.3":339140,"30.4":350620,"FC1":362100,"FC1.1":373580,"FC1.2":385060,"FC1.3":396540,"FC1.4":408020,"FC2":419500,"FC2.1":430980,"FC2.2":442460,"FC2.3":453940,"FC2.4":465420,"FC3":476900,"FC3.1":489540,"FC3.2":502180,"FC3.3":514820,"FC3.4":527460,"FC4":540100,"FC4.1":552740,"FC4.2":565380,"FC4.3":578020,"FC4.4":590660,"FC5":603300,"FC5.1":616820,"FC5.2":630340,"FC5.3":643860,"FC5.4":657380,"FC6":670990,"FC6.1":684420,"FC6.2":697940,"FC6.3":711460,"FC6.4":724980,"FC7":738500,"FC7.1":752020,"FC7.2":765540,"FC7.3":779060,"FC7.4":792580,"FC8":806100,"FC8.1":820580,"FC8.2":835060,"FC8.3":849540,"FC8.4":864020,"FC9":878500,"FC9.1":892980,"FC9.2":907460,"FC9.3":921940,"FC9.4":936420,"FC10":950900},
+"Marksman":{"30.1":316180,"30.2":327660,"30.3":339140,"30.4":350620,"FC1":362100,"FC1.1":373580,"FC1.2":385060,"FC1.3":396540,"FC1.4":408020,"FC2":419500,"FC2.1":430980,"FC2.2":442460,"FC2.3":453940,"FC2.4":465420,"FC3":476900,"FC3.1":489540,"FC3.2":502180,"FC3.3":514820,"FC3.4":527460,"FC4":540100,"FC4.1":552740,"FC4.2":565380,"FC4.3":578020,"FC4.4":590660,"FC5":603300,"FC5.1":616820,"FC5.2":630340,"FC5.3":643860,"FC5.4":657380,"FC6":670990,"FC6.1":684420,"FC6.2":697940,"FC6.3":711460,"FC6.4":724980,"FC7":738500,"FC7.1":752020,"FC7.2":765540,"FC7.3":779060,"FC7.4":792580,"FC8":806100,"FC8.1":820580,"FC8.2":835060,"FC8.3":849540,"FC8.4":864020,"FC9":878500,"FC9.1":892980,"FC9.2":907460,"FC9.3":921940,"FC9.4":936420,"FC10":950900},
+"War Academy":{"FC1":217260,"FC1.1":224148,"FC1.2":231036,"FC1.3":237924,"FC1.4":244812,"FC2":251700,"FC2.1":258588,"FC2.2":265476,"FC2.3":272364,"FC2.4":279252,"FC3":286140,"FC3.1":293724,"FC3.2":301308,"FC3.3":308892,"FC3.4":316476,"FC4":324060,"FC4.1":331644,"FC4.2":339228,"FC4.3":346812,"FC4.4":354396,"FC5":361980,"FC5.1":370092,"FC5.2":378204,"FC5.3":386316,"FC5.4":394428,"FC6":402540,"FC6.1":410652,"FC6.2":418764,"FC6.3":426876,"FC6.4":434988,"FC7":443100,"FC7.1":451212,"FC7.2":459324,"FC7.3":467436,"FC7.4":475548,"FC8":483660,"FC8.1":492348,"FC8.2":501036,"FC8.3":509724,"FC8.4":518412,"FC9":527100,"FC9.1":535788,"FC9.2":544476,"FC9.3":553164,"FC9.4":561852,"FC10":570540},
+};
+
+// Power is a direct lookup — return the value at the given level/sub key
+function getBuildingPower(building, level, sub) {
+  const db = POWER_DB[building] || POWER_DB[BUILDING_KEY(building)];
+  if (!db) return 0;
+  return db[levelKey(level, sub||0)] || 0;
+}
   "Furnace","Embassy","Infantry","Marksman","Lancer","Command","Infirmary","War Academy"
 ];
 
@@ -783,9 +801,11 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
     return buildings.map(b => {
       const key = BUILDING_KEY(b.name);
       const full = computeUpgradeFull(key, b.current, b.currentSub||0, b.goal, b.goalSub||0);
+      const currentPower = getBuildingPower(b.name, b.current, b.currentSub||0);
+      const goalPower    = getBuildingPower(b.name, b.goal,    b.goalSub||0);
       return { ...b, fcCost: full.fc, rfcCost: full.rfc, subLevels: full.subLevels,
                meat: full.meat, wood: full.wood, coal: full.coal, iron: full.iron,
-               baseMins: full.mins };
+               baseMins: full.mins, currentPower, goalPower, powerGain: goalPower - currentPower };
     });
   }, [buildings]);
 
@@ -1166,15 +1186,16 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
               </div>
             </div>
             <div className="bld-table">
-              <div className="bld-thead" style={{gridTemplateColumns:"140px 140px 140px 80px 80px 80px minmax(140px,1fr) minmax(140px,1fr)"}}>
+              <div className="bld-thead" style={{gridTemplateColumns:"140px 140px 90px 140px 90px 80px 80px minmax(120px,1fr) minmax(120px,1fr)"}}>
                 <div className="th">Building</div>
-                <div className="th">Current level</div>
-                <div className="th">Goal level</div>
-                <div className="th">FC cost</div>
-                <div className="th">RFC cost</div>
-                <div className="th">Sub-levels</div>
-                <div className="th">Original build time</div>
-                <div className="th">Actual build time</div>
+                <div className="th">Current Level</div>
+                <div className="th">Cur. Power</div>
+                <div className="th">Goal Level</div>
+                <div className="th">Goal Power</div>
+                <div className="th">FC Cost</div>
+                <div className="th">RFC Cost</div>
+                <div className="th">Original Build Time</div>
+                <div className="th">Actual Build Time</div>
               </div>
 
               {buildingCalcs.map((b, idx) => {
@@ -1191,7 +1212,7 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
 
                 return (
                   <div className="bld-row-wrap" key={b.name}>
-                    <div className="bld-row" style={{gridTemplateColumns:"140px 140px 140px 80px 80px 80px minmax(140px,1fr) minmax(140px,1fr)"}}>
+                    <div className="bld-row" style={{gridTemplateColumns:"140px 140px 90px 140px 90px 80px 80px minmax(120px,1fr) minmax(120px,1fr)"}}>
                       <div className="bld-cell name">{b.name}</div>
 
                       {/* Current level + sub-level */}
@@ -1206,6 +1227,11 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
                         )}
                       </div>
 
+                      {/* Current Power */}
+                      <div className="bld-cell mono" style={{color:"var(--c-textSec)",fontSize:11}}>
+                        {b.currentPower > 0 ? fmt(b.currentPower) : "—"}
+                      </div>
+
                       {/* Goal level + sub-level */}
                       <div className="bld-cell" style={{display:"flex",gap:4,alignItems:"center"}}>
                         <select value={b.goal} onChange={e => updateBuilding(idx,"goal",e.target.value)} style={{flex:1}}>
@@ -1218,21 +1244,28 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
                         )}
                       </div>
 
+                      {/* Goal Power */}
+                      <div className="bld-cell mono" style={{color:"var(--c-textSec)",fontSize:11}}>
+                        {b.goalPower > 0 ? fmt(b.goalPower) : "—"}
+                      </div>
+
+                      {/* FC Cost */}
                       <div className="bld-cell">
                         <span className="cost-fc">{isDone ? "—" : fmtFull(b.fcCost)}</span>
                       </div>
+
+                      {/* RFC Cost */}
                       <div className="bld-cell">
                         <span className="cost-rfc">{isDone ? "—" : fmtFull(b.rfcCost)}</span>
                       </div>
-                      <div className="bld-cell mono" style={{color:C.textSec}}>{isDone ? "—" : b.subLevels}</div>
 
                       {/* Original build time */}
-                      <div className="bld-cell mono" style={{color:C.textSec}}>
+                      <div className="bld-cell mono" style={{color:"var(--c-textSec)"}}>
                         {isDone || !b.baseMins ? "—" : fmtMins(b.baseMins)}
                       </div>
 
                       {/* Actual build time */}
-                      <div className="bld-cell mono" style={{color:C.green,fontWeight:700}}>
+                      <div className="bld-cell mono" style={{color:"var(--c-green)",fontWeight:700}}>
                         {isDone || !b.baseMins ? "—" : fmtMins(actualMins)}
                       </div>
                     </div>
@@ -1241,12 +1274,12 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
               })}
 
               {/* Totals footer */}
-              <div style={{background:C.surface,borderTop:`2px solid ${C.borderHi}`,padding:"11px 12px",display:"grid",gridTemplateColumns:"140px 140px 140px 80px 80px 80px minmax(140px,1fr) minmax(140px,1fr)",gap:0,alignItems:"center"}}>
+              <div style={{background:C.surface,borderTop:`2px solid ${C.borderHi}`,padding:"11px 12px",display:"grid",gridTemplateColumns:"140px 140px 90px 140px 90px 80px 80px minmax(120px,1fr) minmax(120px,1fr)",gap:0,alignItems:"center"}}>
                 <div style={{fontSize:12,fontWeight:800,color:C.textPri}}>TOTAL</div>
-                <div /><div />
+                <div /><div /><div /><div />
                 <div style={{fontFamily:"Space Mono,monospace",fontSize:12,color:C.accent,fontWeight:700}}>{fmtFull(totalFCNeeded)}</div>
                 <div style={{fontFamily:"Space Mono,monospace",fontSize:12,color:C.amber,fontWeight:700}}>{fmtFull(totalRFCNeeded)}</div>
-                <div /><div /><div />
+                <div /><div />
               </div>
             </div>
           </div>
