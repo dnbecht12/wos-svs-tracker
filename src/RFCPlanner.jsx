@@ -1,9 +1,12 @@
 import React, { useState, useMemo, useCallback } from "react";
 import { buildCycles, getCurrentCycleNum, getCycleStartDate, toIso, fmtIso, fmtDate as fmtDateUtil, cycleLabelFull } from "./svsCalendar.js";
+import { supabase } from "./supabase.js";
 
-// ─── Exact per-refine lookup table from Misc. Data Tables O13:T112 ────────────
+const ADMIN_UID = "c5c3392e-2399-4cc9-b2ab-f22a61e7b91c";
+
+// ─── Per-refine lookup table ───────────────────────────────────────────────────
 const REFINE_TABLE = [
-  {n:1,  tier:"T1",fc:10, rfc:1},  {n:2,  tier:"T1",fc:20,rfc:1},  {n:3,  tier:"T1",fc:20,rfc:1},
+  {n:1,  tier:"T1",fc:20,rfc:1},  {n:2,  tier:"T1",fc:20,rfc:1},  {n:3,  tier:"T1",fc:20,rfc:1},
   {n:4,  tier:"T1",fc:20,rfc:1},  {n:5,  tier:"T1",fc:20,rfc:1},  {n:6,  tier:"T1",fc:20,rfc:1},
   {n:7,  tier:"T1",fc:20,rfc:1},  {n:8,  tier:"T1",fc:20,rfc:1},  {n:9,  tier:"T1",fc:20,rfc:1},
   {n:10, tier:"T1",fc:20,rfc:1},  {n:11, tier:"T1",fc:20,rfc:1},  {n:12, tier:"T1",fc:20,rfc:1},
@@ -40,6 +43,7 @@ const REFINE_TABLE = [
   {n:99, tier:"T5",fc:160,rfc:6}, {n:100,tier:"T5",fc:160,rfc:7},
 ];
 
+// First refine of each day gets 50% FC discount
 function calcRefines(weekCumulativeSoFar, count) {
   if (count <= 0) return { fcBurn:0, rfcEarned:0, tierAtStart:null, tierAfter:null, endCumulative:weekCumulativeSoFar };
   let fcBurn=0, rfcEarned=0, tierAtStart=null, tierAfter=null;
@@ -49,7 +53,7 @@ function calcRefines(weekCumulativeSoFar, count) {
     if (!row) continue;
     if (i===0) tierAtStart = row.tier;
     tierAfter = row.tier;
-    fcBurn    += row.fc;
+    fcBurn    += i===0 ? Math.ceil(row.fc * 0.5) : row.fc;
     rfcEarned += row.rfc;
   }
   const nextIdx = Math.min(Math.max(weekCumulativeSoFar+count, 0), REFINE_TABLE.length-1);
@@ -64,50 +68,34 @@ const MON_FAVORITES = [1, 5, 10, 20, 40, 60, 80, 100];
 const fmtN = n => typeof n==="number" ? Math.round(n).toLocaleString() : "—";
 function loadLS(k,fb){try{const s=localStorage.getItem(k);return s?JSON.parse(s):fb;}catch{return fb;}}
 function saveLS(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
-
-function fmtDate(isoStr) { return fmtIso(isoStr); }
-
-function addDays(isoStr, n) {
-  if (!isoStr) return "";
-  const d = new Date(isoStr + "T00:00:00");
-  if (isNaN(d)) return "";
+function fmtDate(isoStr){return fmtIso(isoStr);}
+function addDays(isoStr,n){
+  if(!isoStr)return"";
+  const d=new Date(isoStr+"T00:00:00");
+  if(isNaN(d))return"";
   d.setDate(d.getDate()+n);
   return toIso(d);
 }
-
-// Base plan name: "Month YYYY" (e.g. "April 2026")
-function planBaseName(isoStr) {
-  if (!isoStr) return "";
-  const d = new Date(isoStr + "T00:00:00");
-  if (isNaN(d)) return "";
+function planBaseName(isoStr){
+  if(!isoStr)return"";
+  const d=new Date(isoStr+"T00:00:00");
+  if(isNaN(d))return"";
   return d.toLocaleDateString("en-US",{month:"long",year:"numeric"});
 }
-
-// Generate next available key: "April 2026-01", "April 2026-02", etc.
-function nextPlanKey(baseName, existingKeys) {
-  let seq = 1;
-  while (true) {
-    const candidate = `${baseName}-${String(seq).padStart(2,"0")}`;
-    if (!existingKeys.includes(candidate)) return candidate;
+function nextPlanKey(baseName,existingKeys){
+  let seq=1;
+  while(true){
+    const candidate=`${baseName}-${String(seq).padStart(2,"0")}`;
+    if(!existingKeys.includes(candidate))return candidate;
     seq++;
   }
 }
-
-// Get the most recent existing key for this base name (for overwrite Save)
-function latestPlanKey(baseName, existingKeys) {
-  const matches = existingKeys
-    .filter(k => k.startsWith(baseName + "-"))
-    .sort();
-  return matches[matches.length - 1] || null;
+function latestPlanKey(baseName,existingKeys){
+  const matches=existingKeys.filter(k=>k.startsWith(baseName+"-")).sort();
+  return matches[matches.length-1]||null;
 }
 
-const C = new Proxy({}, { get(_, key) { return `var(--c-${key})`; } });
-// Extra semantic colors not in main theme — fall back gracefully
-const C_SVS    = "var(--c-accent)";
-const C_SVS_BG = "var(--c-accentBg)";
-const C_KOI    = "var(--c-blue)";
-const C_KOI_BG = "var(--c-blueBg)";
-
+const C = new Proxy({},{ get(_,key){ return `var(--c-${key})`; } });
 
 const STYLE = `
 @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;500;600;700;800&display=swap');
@@ -125,8 +113,6 @@ const STYLE = `
 .save-btn{padding:7px 14px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Syne',sans-serif;background:${C.accentBg};color:${C.accent};border:1px solid ${C.accentDim};transition:all .15s;white-space:nowrap}
 .save-btn:hover{background:${C.accent};color:#0a0c10}
 .rp-body{padding:22px 28px;display:flex;flex-direction:column;gap:20px}
-
-/* Summary tiles */
 .sum-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
 .stile{background:${C.card};border:1px solid ${C.border};border-radius:10px;padding:12px 14px;transition:border-color .15s}
 .stile.ed:focus-within{border-color:${C.accent}}
@@ -137,12 +123,8 @@ const STYLE = `
 .sv-inp{font-size:20px;font-weight:800;font-family:'Space Mono',monospace;line-height:1;background:transparent;border:none;outline:none;width:100%;color:inherit;-moz-appearance:textfield}
 .sv-inp::-webkit-outer-spin-button,.sv-inp::-webkit-inner-spin-button{-webkit-appearance:none}
 .ss{font-size:9px;color:${C.textDim};margin-top:4px;font-family:'Space Mono',monospace}
-
-/* Section head */
 .shd{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${C.textSec};display:flex;align-items:center;gap:8px;margin-bottom:10px}
 .shd::after{content:'';flex:1;height:1px;background:${C.border}}
-
-/* Settings */
 .cfg-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
 .cfg-item{display:flex;flex-direction:column;gap:5px}
 .cfg-lbl{font-size:11px;font-weight:600;color:${C.blue}}
@@ -151,40 +133,32 @@ const STYLE = `
 .cfg-inp:focus{border-color:${C.blue}}
 .cfg-inp option,.cfg-inp optgroup{background:${C.card};color:${C.textPri}}
 .cfg-wrap{background:rgba(56,139,253,0.05);border:1px solid ${C.blueDim};border-radius:10px;padding:14px 16px}
-
-/* Table */
 .day-table{background:${C.card};border:1px solid ${C.border};border-radius:12px;overflow:hidden}
-
-/* Week 2 (KOI) — neon blue outline */
 .day-table.wk2{border:1.5px solid var(--c-blueDim);box-shadow:0 0 16px var(--c-blueDim)66,inset 0 0 12px var(--c-blueDim)18}
-
-/* Week 4 (SvS) — neon yellow outline */
 .day-table.wk4{border:1.5px solid var(--c-accentDim);box-shadow:0 0 18px var(--c-accentDim)88,inset 0 0 14px var(--c-accentDim)18}
-
 .dt-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
-table.dt{border-collapse:collapse;font-size:12px;width:100%;min-width:680px}
-table.dt col.c-day{width:130px}
-table.dt col.c-ref{width:90px}
-table.dt col.c-tier{width:60px}
-table.dt col.c-rfc{width:80px}
-table.dt col.c-fcb{width:80px}
-table.dt col.c-wkr{width:90px}
-table.dt col.c-rol{width:90px}
-
+table.dt{border-collapse:collapse;font-size:12px;width:100%;min-width:960px}
+table.dt col.c-day{width:120px}
+table.dt col.c-ref{width:75px}
+table.dt col.c-tier{width:55px}
+table.dt col.c-est{width:80px}
+table.dt col.c-fcb{width:70px}
+table.dt col.c-wkr{width:75px}
+table.dt col.c-act{width:90px}
+table.dt col.c-used{width:80px}
+table.dt col.c-rol{width:85px}
+table.dt col.c-dlt{width:110px}
 table.dt thead tr{background:${C.surface}}
 table.dt th{padding:8px 10px;font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:${C.textSec};font-family:'Space Mono',monospace;white-space:nowrap;text-align:left;border-right:1px solid ${C.border};border-bottom:1px solid ${C.border}}
 table.dt th:last-child{border-right:none}
 table.dt th.r{text-align:right}
-
 table.dt td{padding:0;border-bottom:1px solid ${C.border};border-right:1px solid ${C.border};vertical-align:middle;height:36px}
 table.dt td:last-child{border-right:none}
 table.dt tr:last-child td{border-bottom:none}
 table.dt tr:hover td{background:var(--c-hover)}
 table.dt tr.mon-row td{background:rgba(56,139,253,0.05)}
-
 .cp{padding:0 10px;display:flex;align-items:center;height:36px;font-family:'Space Mono',monospace;font-size:11px}
 .cp.r{justify-content:flex-end;text-align:right}
-
 td.ec{position:relative}
 td.ec select,td.ec input{position:absolute;inset:0;width:100%;height:100%;background:transparent;border:none;outline:none;font-family:'Space Mono',monospace;font-size:11px;color:${C.textPri};padding:0 10px;cursor:pointer}
 td.ec select:focus,td.ec input:focus{background:rgba(227,107,26,0.1)}
@@ -192,33 +166,28 @@ td.ec input[type=number]{-moz-appearance:textfield;text-align:right}
 td.ec input[type=number]::-webkit-outer-spin-button,td.ec input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
 td.ec select.mon-sel{color:${C.accent};font-weight:700}
 .locked-val{display:flex;align-items:center;justify-content:flex-end;height:36px;padding:0 10px;font-family:'Space Mono',monospace;font-size:11px;color:${C.textSec}}
-
 .tp{padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;font-family:'Space Mono',monospace;white-space:nowrap;display:inline-block}
 .tp1{background:${C.blueBg};color:${C.blue};border:1px solid ${C.blueDim}}
 .tp2{background:${C.accentBg};color:${C.accent};border:1px solid ${C.accentDim}}
 .tp3{background:${C.amberBg};color:${C.amber};border:1px solid #7d5a0d}
 .tp4{background:var(--c-blueBg);color:var(--c-blue);border:1px solid #0f5a60}
 .tp5{background:var(--c-accentBg);color:var(--c-accent)}
-
 .dc{display:flex;align-items:center;gap:5px;padding:0 10px;height:36px;white-space:nowrap}
 .dn{font-weight:700;color:${C.textPri};font-family:'Space Mono',monospace;font-size:11px;min-width:16px;text-align:right;flex-shrink:0}
 .dw{font-size:11px;color:${C.textPri};flex-shrink:0}
 .dd{font-size:9px;color:${C.textSec};font-family:'Space Mono',monospace;flex-shrink:0}
-
-/* Week divider rows — each week is its own table, so the divider is the table's label */
 .wk-label{font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;font-family:'Space Mono',monospace;padding:6px 0 8px;display:flex;align-items:center;gap:8px}
 .wk-label::after{content:'';flex:1;height:1px;background:${C.border}}
 .wk-label.wk-svs{color:var(--c-accent)}
 .wk-label.wk-koi{color:var(--c-blue)}
 .wk-label.wk-prep{color:${C.textSec}}
-
-/* tfoot */
 tr.dt-foot td{background:${C.surface}!important;border-top:2px solid ${C.borderHi};font-family:'Space Mono',monospace;font-size:11px;font-weight:700;padding:8px 10px}
-
 .note{background:${C.accentBg};border:1px solid ${C.accentDim};border-radius:8px;padding:10px 14px;font-size:12px;color:${C.textPri};line-height:1.6}
 .note strong{color:${C.accent}}
 .save-toast{position:fixed;bottom:24px;right:24px;background:${C.greenBg};border:1px solid ${C.greenDim};border-radius:8px;padding:10px 16px;font-size:12px;color:${C.green};font-family:'Space Mono',monospace;z-index:999;animation:fadeUp .3s ease}
 @keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.accept-btn{padding:2px 7px;border-radius:4px;font-size:9px;font-weight:700;cursor:pointer;font-family:'Space Mono',monospace;border:1px solid ${C.amber};background:${C.amberBg};color:${C.amber};white-space:nowrap;transition:all .15s;line-height:1.4}
+.accept-btn:hover{background:${C.amber};color:#0a0c10}
 `;
 
 function TierPill({ tier }) {
@@ -248,19 +217,20 @@ function WkdaySelect({ value, onChange }) {
   );
 }
 
-const EMPTY_ACTUALS = Array.from({length:28},()=>({refines:"",rfcUsed:""}));
+const EMPTY_ACTUALS = Array.from({length:28},()=>({
+  refines:"", actualRfc:"", rfcUsed:"", acceptedDelta:false, deltaAcceptValue:null,
+}));
 
-export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSavePopup }) {
+export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSavePopup, currentUser }) {
   const currentCycle = useMemo(()=>getCurrentCycleNum(),[]);
-  const cycleOpts    = useMemo(()=>buildCycles(Math.max(1,currentCycle-1), 16),[currentCycle]);
+  const cycleOpts    = useMemo(()=>buildCycles(Math.max(1,currentCycle-1),16),[currentCycle]);
 
-  const [selectedCycle, setSelectedCycle] = useState(()=>loadLS("rfc-cycle", currentCycle));
-  const [monRefines,  setMonRefines]  = useState(()=>loadLS("rfc-monref",  1));
-  const [weekdayMode, setWeekdayMode] = useState(()=>loadLS("rfc-wdmode",  "default"));
-  const [actuals,     setActuals]     = useState(()=>loadLS("rfc-actuals2", EMPTY_ACTUALS));
-  const [toast,       setToast]       = useState("");
+  const [selectedCycle, setSelectedCycle] = useState(()=>loadLS("rfc-cycle",currentCycle));
+  const [monRefines,    setMonRefines]    = useState(()=>loadLS("rfc-monref",1));
+  const [weekdayMode,   setWeekdayMode]   = useState(()=>loadLS("rfc-wdmode","default"));
+  const [actuals,       setActuals]       = useState(()=>loadLS("rfc-actuals2",EMPTY_ACTUALS));
+  const [toast,         setToast]         = useState("");
 
-  // Start date is always derived from the selected cycle (Prep1 Monday = 3 weeks before SvS)
   const startDate = useMemo(()=>{
     const d = getCycleStartDate(selectedCycle);
     return toIso(d);
@@ -286,7 +256,20 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
     });
   },[]);
 
-  // ── Rows (Week 4 = SvS, Week 2 = KOI — fixed) ────────────────────────────
+  // Accept delta: lock rolling RFC to current inventory RFC for that day
+  const acceptDelta = useCallback((idx)=>{
+    const invRfc = inv.refinedFC;
+    setActuals(prev=>{
+      const next=prev.map((d,i)=>i===idx
+        ?{...d,acceptedDelta:true,deltaAcceptValue:invRfc}
+        :d
+      );
+      saveLS("rfc-actuals2",next);
+      return next;
+    });
+  },[inv.refinedFC]);
+
+  // ── Row calculation ────────────────────────────────────────────────────────
   const rows = useMemo(()=>{
     let rollingRFC = inv.refinedFC;
     let weekCumRef = 0;
@@ -295,27 +278,46 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
       const dayNum  = i+1;
       const weekday = WEEKDAYS[i%7];
       const isMon   = weekday==="Monday";
-      const weekNum = Math.floor(i/7)+1;   // 1-4
+      const weekNum = Math.floor(i/7)+1;
       const act     = actuals[i]||{};
       const dateStr = addDays(startDate,i);
 
       if(isMon) weekCumRef=0;
 
+      // Refines: Mon uses monRefines default, Tue-Sun use 1 default (both editable)
       let refines;
-      if(isMon)                        refines = act.refines!==""?Number(act.refines):monRefines;
-      else if(weekdayMode==="default") refines = 1;
-      else                             refines = act.refines!==""?Number(act.refines):1;
+      if(isMon) refines = act.refines!==""?Number(act.refines):monRefines;
+      else       refines = act.refines!==""?Number(act.refines):1;
 
-      const{fcBurn,rfcEarned,tierAtStart,tierAfter,endCumulative}=calcRefines(weekCumRef,refines);
-      const rfcUsed=act.rfcUsed!==""?Number(act.rfcUsed):0;
-      rollingRFC+=rfcEarned-rfcUsed;
-      weekCumRef=endCumulative;
+      const {fcBurn,rfcEarned,tierAtStart,tierAfter,endCumulative} = calcRefines(weekCumRef,refines);
 
-      // For Monday, show the tier AFTER doing all refines (where you end up)
-      // For other days, show starting tier
+      const hasActual = act.actualRfc!==""&&act.actualRfc!=null;
+      const effectiveRfc = hasActual ? Number(act.actualRfc) : rfcEarned;
+      const rfcUsed = act.rfcUsed!==""&&act.rfcUsed!=null ? Number(act.rfcUsed) : 0;
+
+      // Apply accepted delta override, or normal accumulation
+      if(act.acceptedDelta && act.deltaAcceptValue!=null){
+        rollingRFC = Number(act.deltaAcceptValue);
+      } else {
+        rollingRFC += effectiveRfc - rfcUsed;
+      }
+
+      weekCumRef = endCumulative;
+
+      // Difference = inventory RFC - rolling RFC
+      const difference = inv.refinedFC - rollingRFC;
+      // Variance = actual - estimated (only when actual entered and differs)
+      const variance = hasActual ? Number(act.actualRfc) - rfcEarned : null;
+
       const displayTier = isMon ? tierAfter : tierAtStart;
 
-      out.push({dayNum,weekday,isMon,weekNum,dateStr,refines,tier:displayTier,fcBurn,rfcEarned,rfcUsed,weekCumRef,rollingRFC,act});
+      out.push({
+        dayNum,weekday,isMon,weekNum,dateStr,
+        refines,tier:displayTier,fcBurn,
+        estRfc:rfcEarned,effectiveRfc,rfcUsed,
+        rollingRFC,difference,variance,
+        hasActual,act,weekCumRef,
+      });
     }
     return out;
   },[inv.refinedFC,monRefines,weekdayMode,actuals,startDate]);
@@ -323,51 +325,71 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
   const totals=useMemo(()=>({
     refines:rows.reduce((s,r)=>s+r.refines,0),
     fcBurn: rows.reduce((s,r)=>s+r.fcBurn,0),
-    rfcRec: rows.reduce((s,r)=>s+r.rfcEarned,0),
+    estRfc: rows.reduce((s,r)=>s+r.estRfc,0),
     finalRFC:rows[27]?.rollingRFC??inv.refinedFC,
   }),[rows,inv.refinedFC]);
 
-  const buildPlanData = () => ({
-    savedAt: new Date().toISOString(),
-    selectedCycle, startDate, monRefines, weekdayMode, actuals,
-    fireCrystals: inv.fireCrystals, refinedFC: inv.refinedFC,
+  const hasVariances = rows.some(r=>r.variance!==null&&r.variance!==0);
+
+  const submitVariance = useCallback(async()=>{
+    const variances = rows
+      .filter(r=>r.variance!==null&&r.variance!==0)
+      .map(r=>({
+        date:r.dateStr, day:r.dayNum, weekday:r.weekday,
+        tier:r.tier, refines:r.refines,
+        estRfc:r.estRfc, actualRfc:Number(r.act.actualRfc),
+        variance:r.variance,
+      }));
+    if(!variances.length)return;
+    await supabase.from("stat_submissions").insert({
+      hero_name:`RFC Variance — Cycle ${selectedCycle}`,
+      submitted_by:currentUser?.id||null,
+      character_name:`Cycle ${selectedCycle}`,
+      stars:0,level:0,widget:0,
+      stats:{type:"rfc_variance",cycle:selectedCycle,startDate,variances},
+    });
+    setToast("Variance submitted for admin review.");
+    setTimeout(()=>setToast(""),2500);
+  },[rows,selectedCycle,startDate,currentUser]);
+
+  const buildPlanData=()=>({
+    savedAt:new Date().toISOString(),
+    selectedCycle,startDate,monRefines,weekdayMode,actuals,
+    fireCrystals:inv.fireCrystals,refinedFC:inv.refinedFC,
   });
 
-  const baseName = planBaseName(startDate) || `Cycle ${selectedCycle}`;
-  const existingKeys = Object.keys(savedPlans);
+  const baseName=planBaseName(startDate)||`Cycle ${selectedCycle}`;
+  const existingKeys=Object.keys(savedPlans);
 
-  // Ask for nickname then save, overwriting the most recent plan for this month
-  const saveOver = async () => {
-    const existing = latestPlanKey(baseName, existingKeys);
-    const autoName = existing || nextPlanKey(baseName, existingKeys);
-    let key = autoName;
-    if (openSavePopup) {
-      key = await new Promise((resolve, reject) => {
-        openSavePopup(autoName, "over", resolve, reject);
-      }).catch(() => null);
-      if (!key) return; // user cancelled
+  const saveOver=async()=>{
+    const existing=latestPlanKey(baseName,existingKeys);
+    const autoName=existing||nextPlanKey(baseName,existingKeys);
+    let key=autoName;
+    if(openSavePopup){
+      key=await new Promise((resolve,reject)=>{
+        openSavePopup(autoName,"over",resolve,reject);
+      }).catch(()=>null);
+      if(!key)return;
     }
-    onSavePlan(key, { key, ...buildPlanData() });
+    onSavePlan(key,{key,...buildPlanData()});
     setToast(`Saved: ${key}`);
-    setTimeout(()=>setToast(""), 2500);
+    setTimeout(()=>setToast(""),2500);
   };
 
-  // Ask for nickname then save as a new numbered slot
-  const saveNew = async () => {
-    const autoName = nextPlanKey(baseName, existingKeys);
-    let key = autoName;
-    if (openSavePopup) {
-      key = await new Promise((resolve, reject) => {
-        openSavePopup(autoName, "new", resolve, reject);
-      }).catch(() => null);
-      if (!key) return;
+  const saveNew=async()=>{
+    const autoName=nextPlanKey(baseName,existingKeys);
+    let key=autoName;
+    if(openSavePopup){
+      key=await new Promise((resolve,reject)=>{
+        openSavePopup(autoName,"new",resolve,reject);
+      }).catch(()=>null);
+      if(!key)return;
     }
-    onSavePlan(key, { key, ...buildPlanData() });
+    onSavePlan(key,{key,...buildPlanData()});
     setToast(`Saved: ${key}`);
-    setTimeout(()=>setToast(""), 2500);
+    setTimeout(()=>setToast(""),2500);
   };
 
-  // Group rows into 4 weeks
   const weeks=[0,1,2,3].map(wi=>rows.slice(wi*7,(wi+1)*7));
 
   return (
@@ -380,7 +402,7 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
           <div className="rp-title-row">
             <div>
               <div className="rp-title">RFC <span>Refining Planner</span></div>
-              <div className="rp-sub">28-day schedule · exact per-refine FC/RFC · Week 2 = KOI · Week 4 = SvS</div>
+              <div className="rp-sub">28-day schedule · first daily refine at 50% FC · Week 2 = KOI · Week 4 = SvS</div>
             </div>
             <div className="header-controls">
               <div className="date-ctrl">
@@ -397,26 +419,28 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
               <div className="date-ctrl">
                 <span className="date-lbl">Plan starts</span>
                 <span className="date-inp" style={{color:"var(--c-textSec)",cursor:"default"}}>
-                  {startDate ? fmtDate(startDate) : "—"}
+                  {startDate?fmtDate(startDate):"—"}
                 </span>
               </div>
               <div className="date-ctrl">
                 <span className="date-lbl">Save plan</span>
                 <div style={{display:"flex",gap:6}}>
-                  <button className="save-btn" onClick={saveOver}
-                    title="Overwrite the most recent plan for this month"
-                    disabled={!onSavePlan}>
-                    ↓ Save
-                  </button>
-                  <button className="save-btn" onClick={saveNew}
-                    title="Create a new numbered plan for this month"
-                    disabled={!onSavePlan}
-                    style={{background:"transparent",border:`1px solid ${C.accentDim}`,color:C.accent}}>
-                    + Save New
+                  <button className="save-btn" onClick={saveOver} disabled={!onSavePlan} title="Overwrite most recent plan">↓ Save</button>
+                  <button className="save-btn" onClick={saveNew} disabled={!onSavePlan}
+                    style={{background:"transparent",border:`1px solid ${C.accentDim}`,color:C.accent}}>+ Save New</button>
+                </div>
+                {!onSavePlan&&<div style={{fontSize:10,color:C.textSec,fontFamily:"Space Mono,monospace",marginTop:4}}>Sign in to save plans</div>}
+              </div>
+              {/* Variance submit — admin only */}
+              {currentUser?.id===ADMIN_UID&&hasVariances&&(
+                <div className="date-ctrl">
+                  <span className="date-lbl">Variance data</span>
+                  <button className="save-btn" onClick={submitVariance}
+                    style={{background:"transparent",border:`1px solid ${C.blue}`,color:C.blue}}>
+                    📊 Submit Variance
                   </button>
                 </div>
-                {!onSavePlan && <div style={{fontSize:10,color:C.textSec,fontFamily:"Space Mono,monospace",marginTop:4}}>Sign in to save plans</div>}
-              </div>
+              )}
             </div>
           </div>
         </div>
@@ -439,16 +463,12 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
             </div>
             <div className="stile">
               <div className="sl">FC after week 4</div>
-              <div className="sv" style={{color:C.textPri}}>
-                {fmtN(inv.fireCrystals - rows.reduce((s,r)=>s+r.fcBurn,0))}
-              </div>
+              <div className="sv" style={{color:C.textPri}}>{fmtN(inv.fireCrystals-rows.reduce((s,r)=>s+r.fcBurn,0))}</div>
               <div className="ss">after all burns</div>
             </div>
             <div className="stile">
               <div className="sl">RFC at SvS week</div>
-              <div className="sv" style={{color:rows[20]?.rollingRFC>=0?C.green:C.red}}>
-                {fmtN(rows[20]?.rollingRFC)}
-              </div>
+              <div className="sv" style={{color:rows[20]?.rollingRFC>=0?C.green:C.red}}>{fmtN(rows[20]?.rollingRFC)}</div>
               <div className="ss">start of week 4</div>
             </div>
             <div className="stile">
@@ -457,8 +477,8 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
               <div className="ss">28-day total</div>
             </div>
             <div className="stile">
-              <div className="sl">Total RFC earned</div>
-              <div className="sv" style={{color:C.blue}}>{fmtN(totals.rfcRec)}</div>
+              <div className="sl">Est. RFC earned</div>
+              <div className="sv" style={{color:C.blue}}>{fmtN(totals.estRfc)}</div>
               <div className="ss">28-day total</div>
             </div>
             <div className="stile">
@@ -473,14 +493,14 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
             </div>
           </div>
 
-          {/* Settings — 2 items only */}
+          {/* Settings */}
           <div>
             <div className="shd">Refine settings</div>
             <div className="cfg-wrap">
               <div className="cfg-grid">
                 <div className="cfg-item">
                   <label className="cfg-lbl">Set Monday refines to</label>
-                  <span className="cfg-hint" style={{whiteSpace:"nowrap"}}>Applies to all 4 Mondays · each row is still individually editable</span>
+                  <span className="cfg-hint">Applies to all 4 Mondays · each row is still individually editable</span>
                   <select className="cfg-inp" value={monRefines} onChange={e=>applyMonRefines(Number(e.target.value))}>
                     <optgroup label="── Favorites ──">
                       {MON_FAVORITES.map(v=><option key={v} value={v}>{v} refines</option>)}
@@ -492,30 +512,30 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
                 </div>
                 <div className="cfg-item">
                   <label className="cfg-lbl">Tue–Sun refinement mode</label>
-                  <span className="cfg-hint" style={{whiteSpace:"nowrap"}}>Select Default or Manual Entry</span>
+                  <span className="cfg-hint">Default sets each day to 1 refine · all days remain editable regardless</span>
                   <select className="cfg-inp" value={weekdayMode}
                     onChange={e=>{setWeekdayMode(e.target.value);saveLS("rfc-wdmode",e.target.value);}}>
-                    <option value="default">Default — 1 refine each day (locked)</option>
-                    <option value="manual">Manual — set each day individually</option>
+                    <option value="default">Default — 1 refine each day (editable)</option>
+                    <option value="manual">Manual — all days start blank</option>
                   </select>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* ── Four week tables, each with its own label and glow ── */}
+          {/* Week tables */}
           {weeks.map((wkRows,wi)=>{
-            const weekNum  = wi+1;
-            const isSvS    = weekNum===4;
-            const isKOI    = weekNum===2;
-            const wkStart  = wkRows[0]?.dateStr;
-            const wkLabel  = isSvS
-              ? `Week 4 — SvS Week${wkStart?" — Starts "+fmtDate(wkStart):""}`
-              : isKOI
-                ? `Week 2 — KOI${wkStart?" — Starts "+fmtDate(wkStart):""}`
-                : `Week ${weekNum}${wkStart?" — Starts "+fmtDate(wkStart):""}`;
-            const labelCls = isSvS?"wk-label wk-svs":isKOI?"wk-label wk-koi":"wk-label wk-prep";
-            const tableCls = isSvS?"day-table wk4":isKOI?"day-table wk2":"day-table";
+            const weekNum=wi+1;
+            const isSvS=weekNum===4;
+            const isKOI=weekNum===2;
+            const wkStart=wkRows[0]?.dateStr;
+            const wkLabel=isSvS
+              ?`Week 4 — SvS Week${wkStart?" — Starts "+fmtDate(wkStart):""}`
+              :isKOI
+                ?`Week 2 — KOI${wkStart?" — Starts "+fmtDate(wkStart):""}`
+                :`Week ${weekNum}${wkStart?" — Starts "+fmtDate(wkStart):""}`;
+            const labelCls=isSvS?"wk-label wk-svs":isKOI?"wk-label wk-koi":"wk-label wk-prep";
+            const tableCls=isSvS?"day-table wk4":isKOI?"day-table wk2":"day-table";
 
             return (
               <div key={weekNum}>
@@ -527,31 +547,41 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
                         <col className="c-day"/>
                         <col className="c-ref"/>
                         <col className="c-tier"/>
-                        <col className="c-rfc"/>
+                        <col className="c-est"/>
                         <col className="c-fcb"/>
                         <col className="c-wkr"/>
+                        <col className="c-act"/>
+                        <col className="c-used"/>
                         <col className="c-rol"/>
+                        <col className="c-dlt"/>
                       </colgroup>
-                      {/* Only show header on week 1 */}
                       {weekNum===1&&(
                         <thead>
                           <tr>
                             <th>Day</th>
                             <th className="r">Refines</th>
                             <th>Tier</th>
-                            <th className="r">RFC rec'd</th>
-                            <th className="r">FC burn</th>
-                            <th className="r">Wkly refines</th>
+                            <th className="r">Est. RFC Rec'd</th>
+                            <th className="r">FC Burn</th>
+                            <th className="r">Wkly Refines</th>
+                            <th className="r">Actual RFC Rec'd</th>
+                            <th className="r">RFC Used</th>
                             <th className="r">Rolling RFC</th>
+                            <th className="r">Difference</th>
                           </tr>
                         </thead>
                       )}
                       <tbody>
                         {wkRows.map((r,ri)=>{
-                          const rfcCol = r.rollingRFC>=0?C.green:C.red;
-                          const isManWkday = !r.isMon&&weekdayMode==="manual";
+                          const globalIdx=(wi*7)+ri;
+                          const rollingColor=r.rollingRFC>=0?C.green:C.red;
+                          const diffColor=r.difference===0?C.textSec:r.difference>0?C.green:C.red;
+                          const hasVar=r.variance!==null&&r.variance!==0;
+
                           return (
                             <tr key={r.dayNum} className={r.isMon?"mon-row":""}>
+
+                              {/* Day */}
                               <td>
                                 <div className="dc">
                                   <span className="dn">{r.dayNum}</span>
@@ -559,40 +589,95 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
                                   {r.dateStr&&<span className="dd">{fmtDate(r.dateStr)}</span>}
                                 </div>
                               </td>
+
+                              {/* Refines — always editable */}
                               <td className="ec">
-                                {r.isMon?(
-                                  <MonSelect value={r.refines} onChange={v=>updateActual((wi*7)+ri,"refines",v)}/>
-                                ):isManWkday?(
-                                  <WkdaySelect value={r.refines} onChange={v=>updateActual((wi*7)+ri,"refines",v)}/>
-                                ):(
-                                  <span className="locked-val">1</span>
-                                )}
+                                {r.isMon
+                                  ?<MonSelect value={r.refines} onChange={v=>updateActual(globalIdx,"refines",v)}/>
+                                  :<WkdaySelect value={r.refines} onChange={v=>updateActual(globalIdx,"refines",v)}/>
+                                }
                               </td>
+
+                              {/* Tier */}
                               <td>
                                 <div className="cp">
                                   {r.refines>0?<TierPill tier={r.tier}/>:null}
                                 </div>
                               </td>
+
+                              {/* Est. RFC Rec'd — amber tint when variance exists */}
                               <td>
-                                <div className="cp r" style={{color:r.rfcEarned>0?C.blue:C.textSec,fontWeight:700}}>
-                                  {r.rfcEarned>0?fmtN(r.rfcEarned):"—"}
+                                <div className="cp r" style={{
+                                  color:hasVar?C.amber:r.estRfc>0?C.blue:C.textSec,
+                                  fontWeight:700,gap:4,
+                                }}>
+                                  {r.estRfc>0?fmtN(r.estRfc):"—"}
+                                  {hasVar&&(
+                                    <span style={{fontSize:9,color:C.amber}}>
+                                      {r.variance>0?"+":""}{r.variance}
+                                    </span>
+                                  )}
                                 </div>
                               </td>
+
+                              {/* FC Burn */}
                               <td>
                                 <div className="cp r" style={{color:r.fcBurn>0?C.accent:C.textSec,fontWeight:700}}>
                                   {r.fcBurn>0?fmtN(r.fcBurn):"—"}
                                 </div>
                               </td>
+
+                              {/* Wkly Refines */}
                               <td>
-                                <div className="cp r" style={{color:C.textPri}}>
-                                  {r.weekCumRef}
-                                </div>
+                                <div className="cp r" style={{color:C.textPri}}>{r.weekCumRef||""}</div>
                               </td>
+
+                              {/* Actual RFC Rec'd — user entry */}
+                              <td className="ec">
+                                <input type="number" min={0}
+                                  value={r.act.actualRfc??""}
+                                  placeholder="—"
+                                  onChange={e=>updateActual(globalIdx,"actualRfc",e.target.value)}
+                                  style={{color:r.hasActual?C.green:C.textSec}}
+                                />
+                              </td>
+
+                              {/* RFC Used — user entry */}
+                              <td className="ec">
+                                <input type="number" min={0}
+                                  value={r.act.rfcUsed??""}
+                                  placeholder="—"
+                                  onChange={e=>updateActual(globalIdx,"rfcUsed",e.target.value)}
+                                  style={{color:r.act.rfcUsed!==""&&r.act.rfcUsed!=null?C.red:C.textSec}}
+                                />
+                              </td>
+
+                              {/* Rolling RFC */}
                               <td>
-                                <div className="cp r" style={{color:rfcCol,fontWeight:700}}>
+                                <div className="cp r" style={{color:rollingColor,fontWeight:700}}>
                                   {fmtN(r.rollingRFC)}
                                 </div>
                               </td>
+
+                              {/* Difference */}
+                              <td>
+                                <div className="cp r" style={{gap:5,justifyContent:"flex-end"}}>
+                                  <span style={{color:diffColor,fontWeight:700,fontFamily:"Space Mono,monospace",fontSize:11}}>
+                                    {r.difference===0?"✓":`${r.difference>0?"+":""}${fmtN(r.difference)}`}
+                                  </span>
+                                  {r.difference!==0&&!r.act.acceptedDelta&&(
+                                    <button className="accept-btn"
+                                      onClick={()=>acceptDelta(globalIdx)}
+                                      title="Accept: align Rolling RFC with your current inventory">
+                                      Accept
+                                    </button>
+                                  )}
+                                  {r.act.acceptedDelta&&(
+                                    <span style={{fontSize:9,color:C.textDim,fontFamily:"Space Mono,monospace"}}>accepted</span>
+                                  )}
+                                </div>
+                              </td>
+
                             </tr>
                           );
                         })}
@@ -605,10 +690,14 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
           })}
 
           <div className="note">
-            <strong>Tier</strong> is auto-calculated per-refine from your spreadsheet lookup table (O13:T112).
-            <strong style={{color:C.accent}}> Week 4 = SvS week</strong> (neon yellow outline).
-            <strong style={{color:C.blue}}> Week 2 = King of Icefield</strong> (neon blue outline).
-            Monday resets weekly refine count. Use <strong>Set Monday refines to</strong> for Favorites or any value 1–120.
+            <strong>Est. RFC Rec'd</strong> uses the exact per-refine lookup with the first daily refine at 50% FC.
+            Enter <strong>Actual RFC Rec'd</strong> to override — Rolling RFC will use actuals where available, estimates otherwise.
+            <strong> RFC Used</strong> tracks mid-cycle RFC spent on upgrades.
+            <strong> Difference</strong> = Inventory RFC − Rolling RFC.
+            {" "}A positive difference means you have more RFC than tracked (missed logging refines or bonus RFC received).
+            {" "}A negative difference means you have less RFC than expected (untracked spending or fewer refines than planned).
+            {" "}Tap <strong>Accept</strong> to align the planner when a gap can't be traced back to a specific day.
+            <strong style={{color:C.accent}}> Week 4 = SvS</strong> (neon yellow). <strong style={{color:C.blue}}> Week 2 = KOI</strong> (neon blue).
           </div>
 
         </div>

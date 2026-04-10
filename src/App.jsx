@@ -868,6 +868,22 @@ function AdminPage() {
     setLoading(false);
   };
 
+  const downloadVarianceCSV = (sub) => {
+    const variances = sub.stats?.variances || [];
+    if (!variances.length) return;
+    const header = "Date,Day,Weekday,Tier,Refines,Est RFC,Actual RFC,Variance\n";
+    const rows = variances.map(v =>
+      `${v.date},${v.day},${v.weekday},${v.tier},${v.refines},${v.estRfc},${v.actualRfc},${v.variance}`
+    ).join("\n");
+    const blob = new Blob([header + rows], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `rfc-variance-${sub.hero_name.replace(/\s+/g,"-")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   useEffect(() => { load(); }, []);
 
   const handle = async (sub, action) => {
@@ -917,12 +933,38 @@ function AdminPage() {
               </span>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:6,marginBottom:14}}>
-              {statKeys.filter(k => stats[k] != null).map(k => (
-                <div key={k} style={{background:C.surface,borderRadius:6,padding:"6px 10px",fontSize:11}}>
-                  <span style={{color:C.textDim,fontFamily:"Space Mono,monospace"}}>{k}</span>
-                  <span style={{color:C.textPri,fontWeight:700,fontFamily:"Space Mono,monospace",float:"right"}}>{stats[k]}</span>
+              {/* RFC variance type */}
+              {sub.stats?.type === "rfc_variance" ? (
+                <div style={{gridColumn:"1/-1"}}>
+                  <div style={{fontSize:11,color:C.textSec,marginBottom:8,fontFamily:"Space Mono,monospace"}}>
+                    RFC Variance Report — {sub.stats.variances?.length || 0} days with variance
+                  </div>
+                  <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:8}}>
+                    {(sub.stats.variances||[]).map((v,i) => (
+                      <div key={i} style={{background:C.surface,borderRadius:6,padding:"5px 10px",fontSize:11,fontFamily:"Space Mono,monospace"}}>
+                        <span style={{color:C.textDim}}>Day {v.day} {v.weekday.slice(0,3)}</span>
+                        <span style={{color:C.textDim,margin:"0 4px"}}>·</span>
+                        <span style={{color:C.blue}}>Est:{v.estRfc}</span>
+                        <span style={{color:C.textDim,margin:"0 4px"}}>→</span>
+                        <span style={{color:v.variance>0?C.green:C.red}}>Act:{v.actualRfc}</span>
+                        <span style={{color:v.variance>0?C.green:C.red,marginLeft:4}}>{v.variance>0?"+":""}{v.variance}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <button onClick={() => downloadVarianceCSV(sub)}
+                    style={{padding:"5px 12px",borderRadius:6,fontSize:11,fontWeight:700,cursor:"pointer",
+                      fontFamily:"Syne,sans-serif",border:`1px solid ${C.blue}`,background:C.blueBg,color:C.blue}}>
+                    ⬇ Download CSV
+                  </button>
                 </div>
-              ))}
+              ) : (
+                statKeys.filter(k => stats[k] != null).map(k => (
+                  <div key={k} style={{background:C.surface,borderRadius:6,padding:"6px 10px",fontSize:11}}>
+                    <span style={{color:C.textDim,fontFamily:"Space Mono,monospace"}}>{k}</span>
+                    <span style={{color:C.textPri,fontWeight:700,fontFamily:"Space Mono,monospace",float:"right"}}>{stats[k]}</span>
+                  </div>
+                ))
+              )}
             </div>
             {isPending && (
               <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
@@ -3138,7 +3180,8 @@ export default function App() {
                 savedPlans={user ? savedPlans : {}}
                 onSavePlan={user ? handleSavePlan : ()=>{}}
                 onLoadPlan={handleLoadPlan}
-                openSavePopup={user ? openSavePopup : null} />}
+                openSavePopup={user ? openSavePopup : null}
+                currentUser={user} />}
             {page === "heroes"      && <HeroesPage    genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} currentUser={user} activeCharacter={activeCharacter} />}
             {page === "admin"       && user?.id === ADMIN_UID && <AdminPage />}
             {page === "hero-gear"   && <HeroGearPage  inv={inv} genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} />}
