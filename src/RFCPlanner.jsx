@@ -792,7 +792,7 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
                   <span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:5,
                     background:rfcBalance>=0?"var(--c-greenBg)":"var(--c-redBg)",
                     color:rfcBalance>=0?"var(--c-green)":"var(--c-red)",
-                    border:`1px solid ${rfcBalance>=0?"var(--c-greenDim)":"var(--c-redDim)"}`}}>
+                    border:"1px solid " + (rfcBalance>=0?"var(--c-greenDim)":"var(--c-redDim)")}}>
                     {rfcBalance>=0?"Covered":"Short RFC"}
                   </span>
                 </div>
