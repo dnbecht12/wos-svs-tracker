@@ -603,6 +603,8 @@ function getBuildingPower(building, level, sub) {
   if (!db) return 0;
   return db[levelKey(level, sub||0)] || 0;
 }
+
+const BUILDINGS_LIST = [
   "Furnace","Embassy","Infantry","Marksman","Lancer","Command","Infirmary","War Academy"
 ];
 
