@@ -122,9 +122,15 @@ const COLORS = new Proxy({}, {
 const css = (strings, ...vals) => strings.reduce((a, s, i) => a + s + (vals[i] ?? ""), "");
 
 // ─── Local Storage Hook ───────────────────────────────────────────────────────
-// isGuest flag — guests use sessionStorage (persists within tab, clears on close)
-// Logged-in users use localStorage (persists across sessions)
-let _isGuest = true;
+// Determine guest status synchronously before any component mounts.
+// Supabase persists the session in localStorage — if it exists, user is logged in.
+let _isGuest = (() => {
+  try {
+    const keys = Object.keys(localStorage);
+    const hasSession = keys.some(k => k.startsWith("sb-") && k.endsWith("-auth-token"));
+    return !hasSession;
+  } catch { return true; }
+})();
 function setGuestFlag(isGuest) { _isGuest = isGuest; }
 
 function useLocalStorage(key, initial) {
