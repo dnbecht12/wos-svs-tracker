@@ -546,6 +546,8 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
                     onChange={e=>{const v=Number(e.target.value)||0;setEstEventRfc(v);saveLS("rfc-est-event",v);}}
                   />
                 </div>
+                <div className="cfg-item">
+                  <label className="cfg-lbl">Tue–Sun refinement mode</label>
                   <span className="cfg-hint">Default sets each day to 1 refine · all days remain editable regardless</span>
                   <select className="cfg-inp" value={weekdayMode}
                     onChange={e=>{setWeekdayMode(e.target.value);saveLS("rfc-wdmode",e.target.value);}}>
