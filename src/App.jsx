@@ -195,11 +195,11 @@ function useTheme() {
 const INITIAL_INVENTORY = {
   fireCrystals:    0,
   refinedFC:       0,
-  // Raw materials
-  meat:            0,
-  wood:            0,
-  coal:            0,
-  iron:            0,
+  // Raw materials (stored as raw numbers, displayed as M/B)
+  meat:            0, meatUnit: "M",
+  wood:            0, woodUnit: "M",
+  coal:            0, coalUnit: "M",
+  iron:            0, ironUnit: "M",
   // Hero gear
   mithril:         0,
   stones:          0,
@@ -207,9 +207,17 @@ const INITIAL_INVENTORY = {
   mythicGenShards: 0,
   // Research (War Academy)
   shards:          0,
-  steel:           0,
+  steel:           0, steelUnit: "M",
   dailyIntel:      0,
   steelHourlyRate: 0,
+  // Misc / Other
+  stamina:         0,
+  speedGenD:       0, speedGenH:       0, speedGenM:       0,
+  speedTroopD:     0, speedTroopH:     0, speedTroopM:     0,
+  speedConstD:     0, speedConstH:     0, speedConstM:     0,
+  speedResearchD:  0, speedResearchH:  0, speedResearchM:  0,
+  speedLearningD:  0, speedLearningH:  0, speedLearningM:  0,
+  speedHealingD:   0, speedHealingH:   0, speedHealingM:   0,
   // Experts
   books:           0,
   generalSigils:   0,
@@ -2436,7 +2444,7 @@ function AuthPanel({ user, loading, error, signUp, signIn, signInWithDiscord, cl
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function ResInput({ label, icon, field, value, onChange, color }) {
+function ResInput({ label, icon, field, value, onChange, color, tabIndex }) {
   const [localVal, setLocalVal] = useState(value);
   const [focused,  setFocused]  = useState(false);
 
@@ -2469,13 +2477,100 @@ function ResInput({ label, icon, field, value, onChange, color }) {
         className="res-input"
         type={focused ? "number" : "text"}
         min={0}
+        tabIndex={tabIndex}
         value={focused ? localVal : (localVal === 0 ? "0" : Number(localVal).toLocaleString())}
         onChange={handleChange}
         onFocus={handleFocus}
         onBlur={handleBlur}
-        onKeyDown={e => { if (e.key === "Enter") e.target.blur(); }}
+        onKeyDown={e => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            // Move to next focusable element (same behavior as Tab)
+            const focusable = Array.from(document.querySelectorAll('input[tabindex]')).sort((a,b) => (Number(a.tabIndex)||0) - (Number(b.tabIndex)||0));
+            const cur = focusable.indexOf(e.target);
+            if (cur >= 0 && cur < focusable.length - 1) focusable[cur+1].focus();
+            else e.target.blur();
+          }
+        }}
         style={color ? { color } : {}}
       />
+    </div>
+  );
+}
+
+// Resource input with M/B unit selector for large numbers (Meat, Wood, Coal, Iron, Steel)
+function ResBigInput({ label, icon, field, value, unit, onChangeVal, onChangeUnit, color, tabIndex }) {
+  const [localVal, setLocalVal] = useState(value);
+  const [focused,  setFocused]  = useState(false);
+  const prevValue = useRef(value);
+  useEffect(() => {
+    if (prevValue.current !== value) { prevValue.current = value; setLocalVal(value); }
+  }, [value]);
+  const handleBlur = () => {
+    setFocused(false);
+    prevValue.current = localVal;
+    onChangeVal(field, localVal);
+  };
+  const COLORS_MAP = { M:"M", B:"B" };
+  const displayVal = focused ? localVal : (localVal === 0 ? "0" : localVal);
+  return (
+    <div className="res-item" style={color ? { borderColor: color + "40" } : {}}>
+      <div className="res-icon">{icon}</div>
+      <div className="res-label">{label}</div>
+      <div style={{display:"flex",alignItems:"center",gap:4,flex:1,justifyContent:"flex-end"}}>
+        <input
+          className="res-input"
+          type="number"
+          min={0}
+          step="0.01"
+          tabIndex={tabIndex}
+          value={displayVal}
+          style={{...(color?{color}:{}), width:80, textAlign:"right"}}
+          onFocus={()=>setFocused(true)}
+          onBlur={handleBlur}
+          onChange={e => setLocalVal(parseFloat(e.target.value)||0)}
+          onKeyDown={e => { if(e.key==="Enter") e.target.blur(); }}
+        />
+        <select value={unit} onChange={e=>onChangeUnit(field+"Unit", e.target.value)}
+          style={{background:"var(--c-surface)",border:"1px solid var(--c-border)",borderRadius:5,
+            padding:"2px 4px",fontSize:11,color:"var(--c-textSec)",cursor:"pointer",outline:"none",fontFamily:"Space Mono,monospace"}}>
+          <option value="M">M</option>
+          <option value="B">B</option>
+        </select>
+      </div>
+    </div>
+  );
+}
+
+// Speed-up input: Days / Hours / Minutes with total display
+function SpeedupInput({ label, icon, dField, hField, mField, dVal, hVal, mVal, onChange, color, tabIndexBase }) {
+  const totalMins = (dVal||0)*1440 + (hVal||0)*60 + (mVal||0);
+  const dispD = Math.floor(totalMins/1440);
+  const dispH = Math.floor((totalMins%1440)/60);
+  const dispM = totalMins%60;
+  const fmtTotal = totalMins===0 ? "—"
+    : [dispD>0?`${dispD}d`:"", dispH>0?`${dispH}h`:"", dispM>0?`${dispM}m`:""].filter(Boolean).join(" ");
+  const numStyle = {
+    background:"var(--c-surface)",border:"1px solid var(--c-border)",borderRadius:5,
+    padding:"4px 6px",fontSize:12,color:color||"var(--c-textPri)",outline:"none",
+    fontFamily:"Space Mono,monospace",width:52,textAlign:"right",
+  };
+  return (
+    <div className="res-item" style={color?{borderColor:color+"40"}:{}}>
+      <div className="res-icon">{icon}</div>
+      <div className="res-label">{label}</div>
+      <div style={{display:"flex",alignItems:"center",gap:4,flex:1,justifyContent:"flex-end"}}>
+        <input type="number" min={0} style={numStyle} tabIndex={tabIndexBase}
+          value={dVal||0} onChange={e=>onChange(dField,Math.max(0,parseInt(e.target.value)||0))} placeholder="0" />
+        <span style={{fontSize:10,color:"var(--c-textDim)"}}>d</span>
+        <input type="number" min={0} max={23} style={numStyle} tabIndex={tabIndexBase+1}
+          value={hVal||0} onChange={e=>onChange(hField,Math.max(0,parseInt(e.target.value)||0))} placeholder="0" />
+        <span style={{fontSize:10,color:"var(--c-textDim)"}}>h</span>
+        <input type="number" min={0} max={59} style={numStyle} tabIndex={tabIndexBase+2}
+          value={mVal||0} onChange={e=>onChange(mField,Math.max(0,parseInt(e.target.value)||0))} placeholder="0" />
+        <span style={{fontSize:10,color:"var(--c-textDim)"}}>m</span>
+        <span style={{fontSize:11,color:"var(--c-textSec)",fontFamily:"Space Mono,monospace",minWidth:60,textAlign:"right"}}>{fmtTotal}</span>
+      </div>
     </div>
   );
 }
@@ -2519,42 +2614,52 @@ function InventoryPage({ inv, setInv }) {
     <div className="fade-in">
 
       <Section title="Construction Resources" sub="Fire Crystals & Refined FC — your core building currency">
-        <ResInput label="Fire Crystals" icon="FC" field="fireCrystals" value={inv.fireCrystals} onChange={update} color={COLORS.accent} />
-        <ResInput label="Refined FC"    icon="RF" field="refinedFC"    value={inv.refinedFC}    onChange={update} color={COLORS.accent} />
+        <ResInput label="Fire Crystals" icon="FC" field="fireCrystals" value={inv.fireCrystals} onChange={update} color={COLORS.accent} tabIndex={1} />
+        <ResInput label="Refined FC"    icon="RF" field="refinedFC"    value={inv.refinedFC}    onChange={update} color={COLORS.accent} tabIndex={2} />
       </Section>
 
       <Section title="Raw Materials" sub="Basic resources — Meat, Wood, Coal, Iron">
-        <ResInput label="Meat" icon="MT" field="meat" value={inv.meat ?? 0} onChange={update} color={COLORS.green} />
-        <ResInput label="Wood" icon="WD" field="wood" value={inv.wood ?? 0} onChange={update} color={COLORS.green} />
-        <ResInput label="Coal" icon="CL" field="coal" value={inv.coal ?? 0} onChange={update} color={COLORS.green} />
-        <ResInput label="Iron" icon="IR" field="iron" value={inv.iron ?? 0} onChange={update} color={COLORS.green} />
+        <ResBigInput label="Meat" icon="MT" field="meat" value={inv.meat??0} unit={inv.meatUnit||"M"} onChangeVal={update} onChangeUnit={update} color={COLORS.green} tabIndex={3} />
+        <ResBigInput label="Wood" icon="WD" field="wood" value={inv.wood??0} unit={inv.woodUnit||"M"} onChangeVal={update} onChangeUnit={update} color={COLORS.green} tabIndex={4} />
+        <ResBigInput label="Coal" icon="CL" field="coal" value={inv.coal??0} unit={inv.coalUnit||"M"} onChangeVal={update} onChangeUnit={update} color={COLORS.green} tabIndex={5} />
+        <ResBigInput label="Iron" icon="IR" field="iron" value={inv.iron??0} unit={inv.ironUnit||"M"} onChangeVal={update} onChangeUnit={update} color={COLORS.green} tabIndex={6} />
       </Section>
 
       <Section title="Research" sub="Shards, Steel & daily accumulation rates">
-        <ResInput label="Shards"               icon="SH" field="shards"          value={inv.shards}               onChange={update} color={COLORS.blue} />
-        <ResInput label="Steel"                icon="SL" field="steel"           value={inv.steel}                onChange={update} color={COLORS.blue} />
-        <ResInput label="Daily Intel (shards)" icon="IN" field="dailyIntel"      value={inv.dailyIntel}           onChange={update} />
-        <ResInput label="Steel / Hour"         icon="S/" field="steelHourlyRate" value={inv.steelHourlyRate ?? 0} onChange={update} />
+        <ResInput label="Shards"               icon="SH" field="shards"          value={inv.shards}               onChange={update} color={COLORS.blue} tabIndex={7} />
+        <ResBigInput label="Steel"             icon="SL" field="steel"           value={inv.steel??0} unit={inv.steelUnit||"M"} onChangeVal={update} onChangeUnit={update} color={COLORS.blue} tabIndex={8} />
+        <ResInput label="Daily Intel (shards)" icon="IN" field="dailyIntel"      value={inv.dailyIntel}           onChange={update} tabIndex={9} />
+        <ResInput label="Steel / Hour"         icon="S/" field="steelHourlyRate" value={inv.steelHourlyRate ?? 0} onChange={update} tabIndex={10} />
       </Section>
 
       <Section title="Hero Level & Gear Materials" sub="Stones, Mithril & Mythic materials">
-        <ResInput label="Stones"                 icon="ST" field="stones"          value={inv.stones}                onChange={update} color={COLORS.blue} />
-        <ResInput label="Mithril"                icon="MI" field="mithril"         value={inv.mithril}               onChange={update} color={COLORS.blue} />
-        <ResInput label="Consumable Mythic Gear" icon="MG" field="mythicGear"      value={inv.mythicGear}            onChange={update} color={COLORS.blue} />
-        <ResInput label="Mythic General Shards"  icon="MS" field="mythicGenShards" value={inv.mythicGenShards ?? 0}  onChange={update} color={COLORS.blue} />
+        <ResInput label="Stones"                 icon="ST" field="stones"          value={inv.stones}                onChange={update} color={COLORS.blue} tabIndex={11} />
+        <ResInput label="Mithril"                icon="MI" field="mithril"         value={inv.mithril}               onChange={update} color={COLORS.blue} tabIndex={12} />
+        <ResInput label="Consumable Mythic Gear" icon="MG" field="mythicGear"      value={inv.mythicGear}            onChange={update} color={COLORS.blue} tabIndex={13} />
+        <ResInput label="Mythic General Shards"  icon="MS" field="mythicGenShards" value={inv.mythicGenShards ?? 0}  onChange={update} color={COLORS.blue} tabIndex={14} />
       </Section>
 
       <Section title="Expert Resources" sub="Books of Knowledge & Expert Sigils">
-        <ResInput label="Books of Knowledge" icon="BK" field="books"          value={inv.books}                onChange={update} color={COLORS.amber} />
-        <ResInput label="General Sigils"     icon="GS" field="generalSigils"  value={inv.generalSigils}        onChange={update} color={COLORS.amber} />
-        <ResInput label="Cyrille Sigils"     icon="CY" field="cyrilleSigils"  value={inv.cyrilleSigils  ?? 0}  onChange={update} color={COLORS.amber} />
-        <ResInput label="Agnes Sigils"       icon="AN" field="agnesSigils"    value={inv.agnesSigils    ?? 0}  onChange={update} color={COLORS.amber} />
-        <ResInput label="Romulus Sigils"     icon="RO" field="romulusSigils"  value={inv.romulusSigils  ?? 0}  onChange={update} color={COLORS.amber} />
-        <ResInput label="Holger Sigils"      icon="HO" field="holgerSigils"   value={inv.holgerSigils   ?? 0}  onChange={update} color={COLORS.amber} />
-        <ResInput label="Fabian Sigils"      icon="FA" field="fabianSigils"   value={inv.fabianSigils   ?? 0}  onChange={update} color={COLORS.amber} />
-        <ResInput label="Baldur Sigils"      icon="BA" field="baldurSigils"   value={inv.baldurSigils   ?? 0}  onChange={update} color={COLORS.amber} />
-        <ResInput label="Valeria Sigils"     icon="VA" field="valeriaSigils"  value={inv.valeriaSigils  ?? 0}  onChange={update} color={COLORS.amber} />
-        <ResInput label="Ronne Sigils"       icon="RN" field="ronneSigils"    value={inv.ronneSigils    ?? 0}  onChange={update} color={COLORS.amber} />
+        <ResInput label="Books of Knowledge" icon="BK" field="books"          value={inv.books}                onChange={update} color={COLORS.amber} tabIndex={15} />
+        <ResInput label="General Sigils"     icon="GS" field="generalSigils"  value={inv.generalSigils}        onChange={update} color={COLORS.amber} tabIndex={16} />
+        <ResInput label="Cyrille Sigils"     icon="CY" field="cyrilleSigils"  value={inv.cyrilleSigils  ?? 0}  onChange={update} color={COLORS.amber} tabIndex={17} />
+        <ResInput label="Agnes Sigils"       icon="AN" field="agnesSigils"    value={inv.agnesSigils    ?? 0}  onChange={update} color={COLORS.amber} tabIndex={18} />
+        <ResInput label="Romulus Sigils"     icon="RO" field="romulusSigils"  value={inv.romulusSigils  ?? 0}  onChange={update} color={COLORS.amber} tabIndex={19} />
+        <ResInput label="Holger Sigils"      icon="HO" field="holgerSigils"   value={inv.holgerSigils   ?? 0}  onChange={update} color={COLORS.amber} tabIndex={20} />
+        <ResInput label="Fabian Sigils"      icon="FA" field="fabianSigils"   value={inv.fabianSigils   ?? 0}  onChange={update} color={COLORS.amber} tabIndex={21} />
+        <ResInput label="Baldur Sigils"      icon="BA" field="baldurSigils"   value={inv.baldurSigils   ?? 0}  onChange={update} color={COLORS.amber} tabIndex={22} />
+        <ResInput label="Valeria Sigils"     icon="VA" field="valeriaSigils"  value={inv.valeriaSigils  ?? 0}  onChange={update} color={COLORS.amber} tabIndex={23} />
+        <ResInput label="Ronne Sigils"       icon="RN" field="ronneSigils"    value={inv.ronneSigils    ?? 0}  onChange={update} color={COLORS.amber} tabIndex={24} />
+      </Section>
+
+      <Section title="Other / Misc. Items" sub="Stamina & Speed-ups">
+        <ResInput label="Stamina (cans)" icon="ST" field="stamina" value={inv.stamina??0} onChange={update} color={COLORS.green} tabIndex={25} />
+        <SpeedupInput label="General"        icon="GN" dField="speedGenD"      hField="speedGenH"      mField="speedGenM"      dVal={inv.speedGenD}      hVal={inv.speedGenH}      mVal={inv.speedGenM}      onChange={update} color={COLORS.blue}    tabIndexBase={26} />
+        <SpeedupInput label="Troop Training" icon="TR" dField="speedTroopD"    hField="speedTroopH"    mField="speedTroopM"    dVal={inv.speedTroopD}    hVal={inv.speedTroopH}    mVal={inv.speedTroopM}    onChange={update} color={COLORS.green}   tabIndexBase={29} />
+        <SpeedupInput label="Construction"   icon="CN" dField="speedConstD"    hField="speedConstH"    mField="speedConstM"    dVal={inv.speedConstD}    hVal={inv.speedConstH}    mVal={inv.speedConstM}    onChange={update} color={COLORS.accent}  tabIndexBase={32} />
+        <SpeedupInput label="Research"       icon="RS" dField="speedResearchD" hField="speedResearchH" mField="speedResearchM" dVal={inv.speedResearchD} hVal={inv.speedResearchH} mVal={inv.speedResearchM} onChange={update} color={COLORS.amber}   tabIndexBase={35} />
+        <SpeedupInput label="Learning"       icon="LN" dField="speedLearningD" hField="speedLearningH" mField="speedLearningM" dVal={inv.speedLearningD} hVal={inv.speedLearningH} mVal={inv.speedLearningM} onChange={update} color={COLORS.blue}    tabIndexBase={38} />
+        <SpeedupInput label="Healing"        icon="HL" dField="speedHealingD"  hField="speedHealingH"  mField="speedHealingM"  dVal={inv.speedHealingD}  hVal={inv.speedHealingH}  mVal={inv.speedHealingM}  onChange={update} color={COLORS.red??COLORS.accent} tabIndexBase={41} />
       </Section>
 
       <Section title="Chief Gear Materials" sub="Plans, Polish, Alloy & Amber">
