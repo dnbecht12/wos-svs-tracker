@@ -36,48 +36,55 @@ const SUB_KEYS = {
 //   fromLevel (e.g. FC5): include only .1–.4 rows (skip base — already at this level)
 //   intermediate levels  : include all 5 rows (base + .1–.4)
 //   toLevel (e.g. FC8)   : include only the base row (just arriving at this level)
-function computeUpgradeFull(building, fromLevel, toLevel) {
+// Build a flat ordered list of all BLDG_DB keys from F30.1 to FC10
+const ALL_LEVEL_KEYS = (() => {
+  const keys = [];
+  ["30.1","30.2","30.3","30.4"].forEach(k => keys.push(k));
+  for (let fc = 1; fc <= 9; fc++) {
+    keys.push(`FC${fc}`);
+    for (let s = 1; s <= 4; s++) keys.push(`FC${fc}.${s}`);
+  }
+  keys.push("FC10");
+  return keys;
+})();
+
+// Convert {level, sub} to BLDG_DB key. sub=0 = base level key.
+function levelKey(level, sub) {
+  if (!sub || sub === 0) return level;
+  if (level === "F30") return `30.${sub}`;
+  return `${level}.${sub}`;
+}
+
+function keyIndex(level, sub) {
+  return ALL_LEVEL_KEYS.indexOf(levelKey(level, sub === undefined ? 0 : sub));
+}
+
+// Compute upgrade cost from (fromLevel, fromSub) to (toLevel, toSub)
+// Sums all BLDG_DB rows strictly after fromKey up to and including toKey
+function computeUpgradeFull(building, fromLevel, fromSub, toLevel, toSub) {
+  // Legacy 3-arg call: computeUpgradeFull(building, from, to)
+  if (toSub === undefined && toLevel === undefined) {
+    toLevel = fromSub; toSub = 0; fromSub = 0;
+  }
+  if (toLevel === undefined) { toLevel = fromSub; toSub = 0; fromSub = 0; }
   const db = BLDG_DB[building] || BLDG_DB["Infantry"];
-  const fromIdx = FC_LEVELS.indexOf(fromLevel);
-  const toIdx   = FC_LEVELS.indexOf(toLevel);
+  const fromIdx = keyIndex(fromLevel, fromSub);
+  const toIdx   = keyIndex(toLevel,   toSub);
   if (fromIdx < 0 || toIdx < 0 || fromIdx >= toIdx)
     return {fc:0,rfc:0,meat:0,wood:0,coal:0,iron:0,mins:0,subLevels:0};
-
   let fc=0,rfc=0,meat=0,wood=0,coal=0,iron=0,mins=0,subLevels=0;
-
-  for (let i = fromIdx; i < toIdx; i++) {
-    const level = FC_LEVELS[i];     // the level we are currently upgrading FROM
-    const next  = FC_LEVELS[i + 1]; // the level we are stepping TOWARDS
-    const allKeys = SUB_KEYS[level] || [];
-
-    let keys;
-    if (i === fromIdx) {
-      // At the starting level: skip the base row (index 0), include only .1–.4
-      keys = allKeys.slice(1);
-    } else {
-      // Intermediate level: include all 5 rows (base + .1–.4)
-      keys = allKeys;
-    }
-
-    // Also include the base row of the NEXT level when it is the final destination
-    // (this represents "arriving at" toLevel)
-    if (i + 1 === toIdx) {
-      const nextBase = (SUB_KEYS[next] || [])[0];
-      if (nextBase) keys = [...keys, nextBase];
-    }
-
-    keys.forEach(k => {
-      const row = db[k];
-      if (!row) return;
-      fc   += row.fc;
-      rfc  += row.rfc;
-      meat += row.meat;
-      wood += row.wood;
-      coal += row.coal;
-      iron += row.iron;
-      mins += row.mins;
-      subLevels++;
-    });
+  for (let i = fromIdx + 1; i <= toIdx; i++) {
+    const k = ALL_LEVEL_KEYS[i];
+    const row = db[k];
+    if (!row) continue;
+    fc   += row.fc   || 0;
+    rfc  += row.rfc  || 0;
+    meat += row.meat || 0;
+    wood += row.wood || 0;
+    coal += row.coal || 0;
+    iron += row.iron || 0;
+    mins += row.mins || 0;
+    subLevels++;
   }
   return {fc,rfc,meat,wood,coal,iron,mins,subLevels};
 }
@@ -533,11 +540,9 @@ const PREREQS = {
 // all buildings meet the minimum required for each other's goals.
 // Returns a new buildings array with goals bumped up where needed.
 function cascadePrereqs(buildings) {
-  // Work on a mutable copy using name→index map
   const byName = {};
   const result = buildings.map((b, i) => { byName[b.name] = i; return { ...b }; });
 
-  // Run multiple passes in case cascades chain (e.g. goal bump triggers another)
   let changed = true;
   let passes = 0;
   while (changed && passes < 10) {
@@ -547,27 +552,29 @@ function cascadePrereqs(buildings) {
       const goalIdx = FC_LEVELS.indexOf(b.goal);
       if (goalIdx < 0) return;
 
-      // Collect all prereqs for every FC level up to and including the goal
       for (let lvlIdx = 0; lvlIdx <= goalIdx; lvlIdx++) {
         const fcLevel = FC_LEVELS[lvlIdx];
         const prereqEntry = PREREQS[b.name]?.[fcLevel];
         if (!prereqEntry) continue;
 
-        // Normalize to array of [buildingName, requiredLevel]
         const reqs = Array.isArray(prereqEntry[0])
-          ? prereqEntry                           // already [[name, lvl], ...]
-          : [[prereqEntry, fcLevel]];             // single building, same level
+          ? prereqEntry
+          : [[prereqEntry, fcLevel]];
 
         reqs.forEach(([reqName, reqLevel]) => {
           const reqIdx = byName[reqName];
           if (reqIdx === undefined) return;
-          const reqFCIdx    = FC_LEVELS.indexOf(reqLevel);
-          const currentGoal = FC_LEVELS.indexOf(result[reqIdx].goal);
+          // Use keyIndex for sub-level-aware comparison (prereqs checked at base sub=0)
+          const reqFCIdx    = keyIndex(reqLevel, 0);
+          const currentGoal = keyIndex(result[reqIdx].goal, result[reqIdx].goalSub||0);
           if (reqFCIdx > currentGoal) {
-            result[reqIdx].goal = reqLevel;
-            // Also clamp current if goal is now below current
-            const currentCur = FC_LEVELS.indexOf(result[reqIdx].current);
-            if (reqFCIdx < currentCur) result[reqIdx].goal = result[reqIdx].current;
+            result[reqIdx].goal    = reqLevel;
+            result[reqIdx].goalSub = 0;
+            const currentCur = keyIndex(result[reqIdx].current, result[reqIdx].currentSub||0);
+            if (reqFCIdx < currentCur) {
+              result[reqIdx].goal    = result[reqIdx].current;
+              result[reqIdx].goalSub = result[reqIdx].currentSub||0;
+            }
             changed = true;
           }
         });
@@ -585,14 +592,14 @@ const BUILDING_KEY = b => b === "Infantry" ? "Infantry" : b === "Marksman" ? "Ma
   : b === "Lancer" ? "Lancer" : b === "War Academy" ? "War Academy" : b;
 
 const DEFAULT_BUILDINGS = [
-  { name:"Furnace",     current:"FC1", goal:"FC1" },
-  { name:"Embassy",     current:"FC1", goal:"FC1" },
-  { name:"Infantry",    current:"FC1", goal:"FC1" },
-  { name:"Marksman",    current:"FC1", goal:"FC1" },
-  { name:"Lancer",      current:"FC1", goal:"FC1" },
-  { name:"Command",     current:"FC1", goal:"FC1" },
-  { name:"Infirmary",   current:"FC1", goal:"FC1" },
-  { name:"War Academy", current:"FC1", goal:"FC1" },
+  { name:"Furnace",     current:"FC1", currentSub:0, goal:"FC1", goalSub:0 },
+  { name:"Embassy",     current:"FC1", currentSub:0, goal:"FC1", goalSub:0 },
+  { name:"Infantry",    current:"FC1", currentSub:0, goal:"FC1", goalSub:0 },
+  { name:"Marksman",    current:"FC1", currentSub:0, goal:"FC1", goalSub:0 },
+  { name:"Lancer",      current:"FC1", currentSub:0, goal:"FC1", goalSub:0 },
+  { name:"Command",     current:"FC1", currentSub:0, goal:"FC1", goalSub:0 },
+  { name:"Infirmary",   current:"FC1", currentSub:0, goal:"FC1", goalSub:0 },
+  { name:"War Academy", current:"FC1", currentSub:0, goal:"FC1", goalSub:0 },
 ];
 
 // Load from localStorage or use defaults
@@ -775,7 +782,7 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
   const buildingCalcs = useMemo(() => {
     return buildings.map(b => {
       const key = BUILDING_KEY(b.name);
-      const full = computeUpgradeFull(key, b.current, b.goal);
+      const full = computeUpgradeFull(key, b.current, b.currentSub||0, b.goal, b.goalSub||0);
       return { ...b, fcCost: full.fc, rfcCost: full.rfc, subLevels: full.subLevels,
                meat: full.meat, wood: full.wood, coal: full.coal, iron: full.iron,
                baseMins: full.mins };
@@ -809,15 +816,30 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
     const next = buildings.map((b, i) => {
       if (i !== idx) return b;
       const updated = { ...b, [field]: val };
-      // Clamp: goal can't be lower than current
-      if (field === "current") {
-        const ci = FC_LEVELS.indexOf(val);
-        const gi = FC_LEVELS.indexOf(updated.goal);
-        if (gi < ci) updated.goal = val;
+      // When current level/sub changes, clamp goal so it's not below current
+      if (field === "current" || field === "currentSub") {
+        const ci = keyIndex(updated.current, updated.currentSub || 0);
+        const gi = keyIndex(updated.goal,    updated.goalSub    || 0);
+        if (gi < ci) {
+          updated.goal    = updated.current;
+          updated.goalSub = updated.currentSub || 0;
+        }
       }
+      // When goal level/sub changes, clamp goal so it's not below current
+      if (field === "goal" || field === "goalSub") {
+        const ci = keyIndex(updated.current, updated.currentSub || 0);
+        const gi = keyIndex(updated.goal,    updated.goalSub    || 0);
+        if (gi < ci) {
+          updated.goal    = updated.current;
+          updated.goalSub = updated.currentSub || 0;
+        }
+        // FC10 has no sub-levels
+        if (updated.goal === "FC10") updated.goalSub = 0;
+      }
+      // FC10 has no sub-levels
+      if (field === "current" && val === "FC10") updated.currentSub = 0;
       return updated;
     });
-    // Cascade prerequisite goal levels across all buildings
     const cascaded = cascadePrereqs(next);
     setBuildings(cascaded);
     saveState("cp-buildings", cascaded);
@@ -1099,10 +1121,10 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
                       if (!val) return;
                       e.target.value = "";
                       const next = buildings.map(b => {
-                        const updated = { ...b, current: val };
-                        const gi = FC_LEVELS.indexOf(updated.goal);
-                        const ci = FC_LEVELS.indexOf(val);
-                        if (gi < ci) updated.goal = val;
+                        const updated = { ...b, current: val, currentSub: 0 };
+                        const ci = keyIndex(val, 0);
+                        const gi = keyIndex(updated.goal, updated.goalSub||0);
+                        if (gi < ci) { updated.goal = val; updated.goalSub = 0; }
                         return updated;
                       });
                       const cascaded = cascadePrereqs(next);
@@ -1126,9 +1148,9 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
                       if (!val) return;
                       e.target.value = "";
                       const next = buildings.map(b => {
-                        const ci = FC_LEVELS.indexOf(b.current);
-                        const gi = FC_LEVELS.indexOf(val);
-                        return { ...b, goal: gi >= ci ? val : b.current };
+                        const ci = keyIndex(b.current, b.currentSub||0);
+                        const gi = keyIndex(val, 0);
+                        return { ...b, goal: gi >= ci ? val : b.current, goalSub: gi >= ci ? 0 : b.currentSub||0 };
                       });
                       const cascaded = cascadePrereqs(next);
                       setBuildings(cascaded);
@@ -1144,7 +1166,7 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
               </div>
             </div>
             <div className="bld-table">
-              <div className="bld-thead" style={{gridTemplateColumns:"140px 100px 100px 80px 80px 80px minmax(140px,1fr) minmax(140px,1fr)"}}>
+              <div className="bld-thead" style={{gridTemplateColumns:"140px 140px 140px 80px 80px 80px minmax(140px,1fr) minmax(140px,1fr)"}}>
                 <div className="th">Building</div>
                 <div className="th">Current level</div>
                 <div className="th">Goal level</div>
@@ -1156,27 +1178,44 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
               </div>
 
               {buildingCalcs.map((b, idx) => {
-                const isDone = b.current === b.goal;
+                const isDone = b.current === b.goal && (b.currentSub||0) === (b.goalSub||0);
+                const isFC10 = b.current === "FC10";
+                const isGoalFC10 = b.goal === "FC10";
                 const goalOptions = FC_LEVEL_OPTS.filter(l => FC_LEVELS.indexOf(l) >= FC_LEVELS.indexOf(b.current));
                 const actualMins = b.baseMins > 0 ? Math.round(b.baseMins / (1 + buffTotal)) : 0;
+                const SUB_OPTS = [0,1,2,3,4];
+                // Goal sub-level options: if same FC level as current, only allow >= currentSub
+                const goalSubOpts = b.goal === b.current
+                  ? SUB_OPTS.filter(s => s >= (b.currentSub||0))
+                  : (isGoalFC10 ? [0] : SUB_OPTS);
 
                 return (
                   <div className="bld-row-wrap" key={b.name}>
-                    <div className="bld-row" style={{gridTemplateColumns:"140px 100px 100px 80px 80px 80px minmax(140px,1fr) minmax(140px,1fr)"}}>
+                    <div className="bld-row" style={{gridTemplateColumns:"140px 140px 140px 80px 80px 80px minmax(140px,1fr) minmax(140px,1fr)"}}>
                       <div className="bld-cell name">{b.name}</div>
 
-                      {/* Current dropdown */}
-                      <div className="bld-cell">
-                        <select value={b.current} onChange={e => updateBuilding(idx,"current",e.target.value)}>
+                      {/* Current level + sub-level */}
+                      <div className="bld-cell" style={{display:"flex",gap:4,alignItems:"center"}}>
+                        <select value={b.current} onChange={e => updateBuilding(idx,"current",e.target.value)} style={{flex:1}}>
                           {FC_LEVEL_OPTS.map(l => <option key={l} value={l}>{l}</option>)}
                         </select>
+                        {!isFC10 && (
+                          <select value={b.currentSub||0} onChange={e => updateBuilding(idx,"currentSub",Number(e.target.value))} style={{width:48}}>
+                            {SUB_OPTS.map(s => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                        )}
                       </div>
 
-                      {/* Goal dropdown */}
-                      <div className="bld-cell">
-                        <select value={b.goal} onChange={e => updateBuilding(idx,"goal",e.target.value)}>
+                      {/* Goal level + sub-level */}
+                      <div className="bld-cell" style={{display:"flex",gap:4,alignItems:"center"}}>
+                        <select value={b.goal} onChange={e => updateBuilding(idx,"goal",e.target.value)} style={{flex:1}}>
                           {goalOptions.map(l => <option key={l} value={l}>{l}</option>)}
                         </select>
+                        {!isGoalFC10 && (
+                          <select value={b.goalSub||0} onChange={e => updateBuilding(idx,"goalSub",Number(e.target.value))} style={{width:48}}>
+                            {goalSubOpts.map(s => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                        )}
                       </div>
 
                       <div className="bld-cell">
@@ -1202,7 +1241,7 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
               })}
 
               {/* Totals footer */}
-              <div style={{background:C.surface,borderTop:`2px solid ${C.borderHi}`,padding:"11px 12px",display:"grid",gridTemplateColumns:"140px 100px 100px 80px 80px 80px minmax(140px,1fr) minmax(140px,1fr)",gap:0,alignItems:"center"}}>
+              <div style={{background:C.surface,borderTop:`2px solid ${C.borderHi}`,padding:"11px 12px",display:"grid",gridTemplateColumns:"140px 140px 140px 80px 80px 80px minmax(140px,1fr) minmax(140px,1fr)",gap:0,alignItems:"center"}}>
                 <div style={{fontSize:12,fontWeight:800,color:C.textPri}}>TOTAL</div>
                 <div /><div />
                 <div style={{fontFamily:"Space Mono,monospace",fontSize:12,color:C.accent,fontWeight:700}}>{fmtFull(totalFCNeeded)}</div>
@@ -1215,23 +1254,40 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
           {/* Material Requirements */}
           <div>
             <div className="sec-head">Material requirements (all buildings combined)</div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:10}}>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))",gap:10}}>
               {[
-                {label:"Fire Crystals", value:materialTotals.fc,   color:C.accent,  unit:"FC"},
-                {label:"Refined FC",    value:materialTotals.rfc,  color:C.amber,   unit:"RFC"},
-                {label:"Meat",          value:materialTotals.meat, color:C.green,   unit:"M"},
-                {label:"Wood",          value:materialTotals.wood, color:C.blue,    unit:"M"},
-                {label:"Coal",          value:materialTotals.coal, color:C.textSec, unit:"M"},
-                {label:"Iron",          value:materialTotals.iron, color:C.blue,    unit:"M"},
-              ].map(({label,value,color,unit})=>(
-                <div key={label} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 14px"}}>
-                  <div style={{fontSize:9,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",color:C.textSec,fontFamily:"Space Mono,monospace",marginBottom:5}}>{label}</div>
-                  <div style={{fontSize:unit==="FC"||unit==="RFC"?20:18,fontWeight:800,fontFamily:"Space Mono,monospace",lineHeight:1,color}}>
-                    {value===0?"—":unit==="M"?fmt(value):fmtFull(value)}
+                {label:"Fire Crystals", needed:materialTotals.fc,   inv:inv.fireCrystals, color:C.accent},
+                {label:"Refined FC",    needed:materialTotals.rfc,  inv:inv.refinedFC,    color:C.amber},
+                {label:"Meat",          needed:materialTotals.meat, inv:inv.meat||0,      color:C.green,  raw:true},
+                {label:"Wood",          needed:materialTotals.wood, inv:inv.wood||0,      color:C.blue,   raw:true},
+                {label:"Coal",          needed:materialTotals.coal, inv:inv.coal||0,      color:C.textSec,raw:true},
+                {label:"Iron",          needed:materialTotals.iron, inv:inv.iron||0,      color:C.blue,   raw:true},
+              ].map(({label,needed,inv:invAmt,color,raw})=>{
+                const balance = invAmt - needed;
+                return (
+                  <div key={label} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,padding:"12px 14px"}}>
+                    <div style={{fontSize:9,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",color:C.textSec,fontFamily:"Space Mono,monospace",marginBottom:8}}>{label}</div>
+                    <div style={{display:"flex",flexDirection:"column",gap:4}}>
+                      <div style={{display:"flex",justifyContent:"space-between",fontSize:11}}>
+                        <span style={{color:C.textDim}}>Total needed</span>
+                        <span style={{fontFamily:"Space Mono,monospace",fontWeight:700,color}}>{needed===0?"—":raw?fmt(needed):fmtFull(needed)}</span>
+                      </div>
+                      <div style={{display:"flex",justifyContent:"space-between",fontSize:11}}>
+                        <span style={{color:C.textDim}}>In inventory</span>
+                        <span style={{fontFamily:"Space Mono,monospace",fontWeight:700,color:C.textPri}}>{raw?fmt(invAmt):fmtFull(invAmt)}</span>
+                      </div>
+                      {needed > 0 && (
+                        <div style={{display:"flex",justifyContent:"space-between",fontSize:11,marginTop:2,paddingTop:4,borderTop:`1px solid ${C.border}`}}>
+                          <span style={{color:C.textDim}}>Balance</span>
+                          <span style={{fontFamily:"Space Mono,monospace",fontWeight:700,color:balance>=0?C.green:C.red}}>
+                            {balance>=0?"+":""}{raw?fmt(balance):fmtFull(balance)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div style={{fontSize:9,color:C.textDim,marginTop:4,fontFamily:"Space Mono,monospace"}}>{unit==="M"?"total materials":unit==="FC"?"fire crystals":"refined FC"}</div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
