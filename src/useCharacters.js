@@ -121,10 +121,10 @@ export async function fetchCharacters(userId) {
   return data || [];
 }
 
-export async function createCharacter(userId, name, stateNumber) {
+export async function createCharacter(userId, name, stateNumber, alliance) {
   const { data, error } = await supabase
     .from("characters")
-    .insert({ user_id: userId, name, state_number: stateNumber || null, is_default: false })
+    .insert({ user_id: userId, name, state_number: stateNumber || null, alliance: alliance || null, is_default: false })
     .select()
     .single();
   if (error) throw new Error(error.message);
@@ -197,12 +197,12 @@ export function useCharacters(user) {
     setActiveCharId(charId);
   }, []);
 
-  const addCharacter = useCallback(async (name, stateNumber) => {
+  const addCharacter = useCallback(async (name, stateNumber, alliance) => {
     if (!user) return null;
     setCharError("");
     try {
       if (characters.length >= 5) throw new Error("Maximum of 5 characters per account.");
-      const newChar = await createCharacter(user.id, name, stateNumber);
+      const newChar = await createCharacter(user.id, name, stateNumber, alliance);
       setCharacters(prev => [...prev, newChar]);
       return newChar;
     } catch (e) {
@@ -226,12 +226,12 @@ export function useCharacters(user) {
     }
   }, [activeCharId, characters]);
 
-  const renameCharacter = useCallback(async (charId, name, stateNumber) => {
+  const renameCharacter = useCallback(async (charId, name, stateNumber, alliance) => {
     setCharError("");
     try {
-      await updateCharacter(charId, { name, state_number: stateNumber || null });
+      await updateCharacter(charId, { name, state_number: stateNumber || null, alliance: alliance || null });
       setCharacters(prev => prev.map(c =>
-        c.id === charId ? { ...c, name, state_number: stateNumber || null } : c
+        c.id === charId ? { ...c, name, state_number: stateNumber || null, alliance: alliance || null } : c
       ));
     } catch (e) {
       setCharError(e.message);

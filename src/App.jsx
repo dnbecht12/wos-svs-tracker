@@ -1633,10 +1633,12 @@ function ProfileModal({ open, onClose, initialSection="account",
   // New character form
   const [newName,  setNewName]      = useState("");
   const [newState, setNewState]     = useState("");
+  const [newAlliance, setNewAlliance] = useState("");
   // Edit character
   const [editId,   setEditId]       = useState(null);
   const [editName, setEditName]     = useState("");
   const [editState,setEditState]    = useState("");
+  const [editAlliance, setEditAlliance] = useState("");
   // Delete account
   const [deleteStep, setDeleteStep] = useState(0); // 0=idle,1=email sent,2=otp entry
   const [otp, setOtp]               = useState("");
@@ -1654,15 +1656,15 @@ function ProfileModal({ open, onClose, initialSection="account",
   const handleAddChar = async () => {
     if (!newName.trim()) return;
     setBusy(true);
-    const c = await addCharacter(newName.trim(), newState ? parseInt(newState) : null);
+    const c = await addCharacter(newName.trim(), newState ? parseInt(newState) : null, newAlliance.trim() || null);
     setBusy(false);
-    if (c) { setNewName(""); setNewState(""); flash(`Character "${c.name}" added!`); }
+    if (c) { setNewName(""); setNewState(""); setNewAlliance(""); flash(`Character "${c.name}" added!`); }
   };
 
   const handleSaveEdit = async () => {
     if (!editName.trim()) return;
     setBusy(true);
-    await renameCharacter(editId, editName.trim(), editState ? parseInt(editState) : null);
+    await renameCharacter(editId, editName.trim(), editState ? parseInt(editState) : null, editAlliance.trim() || null);
     setBusy(false);
     setEditId(null);
     flash("Character updated.");
@@ -1735,6 +1737,7 @@ function ProfileModal({ open, onClose, initialSection="account",
                         <div style={{display:"flex",flexDirection:"column",gap:6}}>
                           <input className="modal-inp" value={editName} onChange={e=>setEditName(e.target.value)} placeholder="Character name" />
                           <input className="modal-inp" type="number" value={editState} onChange={e=>setEditState(e.target.value)} placeholder="State number" />
+                          <input className="modal-inp" value={editAlliance} onChange={e=>setEditAlliance(e.target.value)} placeholder="Alliance tag (e.g. ABC)" />
                           <div style={{display:"flex",gap:6,marginTop:2}}>
                             <button className="modal-btn modal-btn-primary" onClick={handleSaveEdit} disabled={busy}>Save</button>
                             <button className="modal-btn modal-btn-ghost" onClick={()=>setEditId(null)}>Cancel</button>
@@ -1743,7 +1746,10 @@ function ProfileModal({ open, onClose, initialSection="account",
                       ) : (
                         <>
                           <div className="char-name-text">{c.name}</div>
-                          <div className="char-state-text">{c.state_number ? `State ${c.state_number}` : "No state set"}</div>
+                          <div className="char-state-text">
+                            {c.state_number ? `State ${c.state_number}` : <span style={{color:C.red,fontWeight:600}}>No state set</span>}
+                            {c.alliance ? ` · [${c.alliance}]` : <span style={{color:C.red,fontWeight:600}}> · No alliance set</span>}
+                          </div>
                         </>
                       )}
                     </div>
@@ -1752,7 +1758,7 @@ function ProfileModal({ open, onClose, initialSection="account",
                         {c.is_default && <span style={{fontSize:9,fontWeight:700,letterSpacing:1,background:C.accentBg,color:C.accent,border:`1px solid ${C.accentDim}`,padding:"2px 6px",borderRadius:3}}>DEFAULT</span>}
                         <div style={{display:"flex",gap:4}}>
                           <button className="modal-btn modal-btn-ghost" style={{padding:"3px 8px",fontSize:10}}
-                            onClick={()=>{ setEditId(c.id); setEditName(c.name); setEditState(c.state_number||""); }}>Edit</button>
+                            onClick={()=>{ setEditId(c.id); setEditName(c.name); setEditState(c.state_number||""); setEditAlliance(c.alliance||""); }}>Edit</button>
                           {!c.is_default && (
                             <button className="modal-btn modal-btn-ghost" style={{padding:"3px 8px",fontSize:10}}
                               onClick={()=>makeDefault(c.id).then(()=>flash(`"${c.name}" set as default.`))}>Set Default</button>
@@ -1779,6 +1785,7 @@ function ProfileModal({ open, onClose, initialSection="account",
                   <div style={{display:"flex",flexDirection:"column",gap:8}}>
                     <input className="modal-inp" value={newName} onChange={e=>setNewName(e.target.value)} placeholder="Character name (e.g. Main, Alt 1)" />
                     <input className="modal-inp" type="number" value={newState} onChange={e=>setNewState(e.target.value)} placeholder="State number (e.g. 142)" />
+                    <input className="modal-inp" value={newAlliance} onChange={e=>setNewAlliance(e.target.value)} placeholder="Alliance tag (e.g. ABC)" />
                     <button className="modal-btn modal-btn-primary" onClick={handleAddChar} disabled={busy || !newName.trim()} style={{alignSelf:"flex-start"}}>
                       {busy ? "Adding…" : "Add Character"}
                     </button>
@@ -2674,7 +2681,7 @@ export default function App() {
                 }}>
                 {characters.map(c => (
                   <option key={c.id} value={c.id}>
-                    {c.name}{c.state_number ? ` · State ${c.state_number}` : ""}
+                    {c.name}{c.state_number ? ` · State ${c.state_number}` : ""}{c.alliance ? ` · [${c.alliance}]` : ""}
                   </option>
                 ))}
                 <option disabled>──────────</option>
@@ -2808,13 +2815,47 @@ export default function App() {
               <div style={{display:"flex",alignItems:"center",gap:12}}>
                 {user && activeCharacter && (
                   <div style={{fontSize:11,fontFamily:"Space Mono,monospace",color:COLORS.textDim}}>
-                    {activeCharacter.name}{activeCharacter.state_number ? ` · State ${activeCharacter.state_number}` : ""}
+                    {activeCharacter.name}
+                    {activeCharacter.state_number ? ` · State ${activeCharacter.state_number}` : ""}
+                    {activeCharacter.alliance ? ` · [${activeCharacter.alliance}]` : ""}
                   </div>
                 )}
                 {savedAt && <div className="last-saved">saved {savedAt}</div>}
               </div>
             </div>
           </div>
+
+          {/* Incomplete profile notification */}
+          {user && activeCharacter && (!activeCharacter.state_number || !activeCharacter.alliance) && (
+            <div style={{
+              padding:"10px 20px",
+              background:COLORS.amberBg,
+              borderBottom:`1px solid ${COLORS.amber}40`,
+              display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap",
+            }}>
+              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <span style={{fontSize:14}}>⚠️</span>
+                <span style={{fontSize:12,color:COLORS.amber,fontWeight:600}}>
+                  Your character profile is incomplete —
+                  {!activeCharacter.state_number && !activeCharacter.alliance
+                    ? " State and Alliance are not set."
+                    : !activeCharacter.state_number
+                    ? " State number is not set."
+                    : " Alliance tag is not set."}
+                  {" "}Please update your character to help others identify you.
+                </span>
+              </div>
+              <button
+                onClick={() => setProfileOpen(true)}
+                style={{
+                  padding:"5px 12px",borderRadius:6,fontSize:11,fontWeight:700,cursor:"pointer",
+                  fontFamily:"Syne,sans-serif",border:`1px solid ${COLORS.amber}`,
+                  background:"transparent",color:COLORS.amber,whiteSpace:"nowrap",flexShrink:0,
+                }}>
+                Update Profile
+              </button>
+            </div>
+          )}
 
           <div className="page-body">
             {page === "inventory"    && <InventoryPage    inv={inv} setInv={setInv} />}

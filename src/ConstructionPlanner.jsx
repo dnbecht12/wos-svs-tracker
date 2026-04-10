@@ -862,36 +862,17 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
                 {daysToSVS} day{daysToSVS !== 1 ? "s" : ""}
               </span>
             </div>
-            {/* Snapshot action buttons */}
             <div style={{display:"flex",gap:8,alignItems:"flex-end",paddingBottom:2}}>
-              <button onClick={onSetSnapshot}
+              <button onClick={openUpdateModal}
                 style={{padding:"6px 12px",borderRadius:7,fontSize:11,fontWeight:700,cursor:"pointer",
-                  fontFamily:"Syne,sans-serif",border:`1px solid ${C.accentDim}`,
-                  background:C.accentBg,color:C.accent,transition:"all 0.15s"}}
-                title="Lock today's inventory as the starting point for this SvS cycle">
-                📌 Set Starting Inventory
+                  fontFamily:"Syne,sans-serif",border:`1px solid ${C.blueDim}`,
+                  background:C.blueBg,color:C.blue,transition:"all 0.15s"}}
+                title="Update plan with today's actual balances">
+                🔄 Update Plan
               </button>
-              {planSnapshot && (
-                <button onClick={openUpdateModal}
-                  style={{padding:"6px 12px",borderRadius:7,fontSize:11,fontWeight:700,cursor:"pointer",
-                    fontFamily:"Syne,sans-serif",border:`1px solid ${C.blueDim}`,
-                    background:C.blueBg,color:C.blue,transition:"all 0.15s"}}
-                  title="Update plan with today's actual balances">
-                  🔄 Update Plan
-                </button>
-              )}
             </div>
           </div>
         </div>
-
-        {/* Snapshot status banner */}
-        {planSnapshot && (
-          <div style={{padding:"8px 20px",background:C.accentBg,borderBottom:`1px solid ${C.accentDim}`,
-            fontSize:11,color:C.accent,fontFamily:"Space Mono,monospace",display:"flex",alignItems:"center",gap:8}}>
-            <span>📌</span>
-            <span>Starting inventory set {planSnapshot.setAt ? new Date(planSnapshot.setAt).toLocaleDateString() : ""} — FC: {fmtFull(planSnapshot.fc ?? 0)}, RFC: {fmtFull(planSnapshot.rfc ?? 0)}</span>
-          </div>
-        )}
 
         {/* Update Plan Modal */}
         {showUpdateModal && (
@@ -994,41 +975,36 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
 
           {/* Summary tiles */}
           <div className="summary-bar">
+            {/* FC tile: now + projected + income */}
             <div className="s-tile">
-              <div className="s-label">FC now</div>
-              <div className="s-val accent">{fmt(fc)}</div>
-              <div className="s-sub">+{fmt(fcAccumulated)} in {daysToSVS}d</div>
-            </div>
-            <div className="s-tile">
-              <div className="s-label">FC projected</div>
+              <div className="s-label">Fire Crystals</div>
               <div className="s-val accent">{fmt(projectedFC)}</div>
-              <div className="s-sub">at SVS day</div>
+              <div className="s-sub">projected at SvS · have {fmt(fc)} now</div>
+              <div className="s-sub" style={{marginTop:2}}>+{fmt(fcAccumulated)} over {daysToSVS}d</div>
             </div>
+            {/* FC needed + balance */}
             <div className="s-tile">
-              <div className="s-label">FC needed</div>
+              <div className="s-label">FC needed / balance</div>
               <div className="s-val" style={{color:C.textPri}}>{fmt(totalFCNeeded)}</div>
-              <div className="s-sub">all planned upgrades</div>
+              <div className={`s-sub ${fcBalance >= 0 ? "green" : "red"}`} style={{fontWeight:700,color:fcBalance >= 0 ? C.green : C.red}}>
+                {fcBalance >= 0 ? "+" : ""}{fmt(fcBalance)} {fcBalance >= 0 ? "surplus" : "shortfall"}
+              </div>
             </div>
+            {/* RFC projected + balance */}
             <div className="s-tile">
-              <div className="s-label">FC balance</div>
-              <div className={`s-val ${fcBalance >= 0 ? "green" : "red"}`}>{fcBalance >= 0 ? "+":""}{fmt(fcBalance)}</div>
-              <div className="s-sub">{fcBalance >= 0 ? "sufficient" : "shortfall"}</div>
-            </div>
-            <div className="s-tile">
-              <div className="s-label">RFC projected</div>
+              <div className="s-label">Refined FC / balance</div>
               <div className="s-val amber">{fmt(projectedRFC)}</div>
-              <div className="s-sub">+{fmt(rfcAccumulated)} refining</div>
+              <div className={`s-sub`} style={{fontWeight:700,color:rfcBalance >= 0 ? C.green : C.red}}>
+                {rfcBalance >= 0 ? "+" : ""}{fmt(rfcBalance)} {rfcBalance >= 0 ? "surplus" : "shortfall"}
+              </div>
             </div>
-            <div className="s-tile">
-              <div className="s-label">RFC balance</div>
-              <div className={`s-val ${rfcBalance >= 0 ? "green" : "red"}`}>{rfcBalance >= 0 ? "+":""}{fmt(rfcBalance)}</div>
-              <div className="s-sub">{rfcBalance >= 0 ? "on track" : "need more"}</div>
-            </div>
+            {/* SVS pts */}
             <div className="s-tile">
               <div className="s-label">Est. SVS pts</div>
               <div className="s-val teal">{fmt(svsTotalPts)}</div>
               <div className="s-sub">construction only</div>
             </div>
+            {/* Build buff */}
             <div className="s-tile">
               <div className="s-label">Build buff</div>
               <div className="s-val" style={{color:C.textPri,fontSize:18}}>{(buffTotal*100).toFixed(0)}%</div>
@@ -1038,13 +1014,7 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
 
           {/* Inventory & Accumulation Settings */}
           <div>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8,marginBottom:12}}>
-              <div className="sec-head" style={{margin:0}}>Inventory &amp; accumulation settings</div>
-              {planSnapshot
-                ? <span style={{fontSize:10,color:C.accent,fontFamily:"Space Mono,monospace"}}>Using starting inventory snapshot</span>
-                : <span style={{fontSize:10,color:C.textSec,fontFamily:"Space Mono,monospace"}}>Using live inventory · click 📌 Set Starting Inventory to lock in a baseline</span>
-              }
-            </div>
+            <div className="sec-head">Inventory &amp; accumulation settings</div>
             <div className="settings-grid">
               <div className="inp-group">
                 <label className="inp-label">Current FC</label>
