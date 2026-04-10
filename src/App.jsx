@@ -286,6 +286,44 @@ const HERO_ROSTER = [
 
 // Generation order for cumulative filtering
 const GEN_ORDER = ["Base","Gen 1","Gen 2","Gen 3","Gen 4","Gen 5","Gen 6","Gen 7","Gen 8","Gen 9"];
+
+// ─── Hero Base Stats — snapshot data imported from spreadsheet ────────────────
+// Each entry is one recorded snapshot: { stars, level, widget, heroAtk, ... }
+// More snapshots can be added per hero as data is collected over time.
+const HERO_BASE_STATS = {
+  "Jeronimo":   {stars:5,   level:80, widget:10, heroAtk:2559,  heroDef:2782,  heroHp:50061,  escorts:10, troopCap:13470, escortHp:1687,  escortDef:927,  escortAtk:851,  infAtk:2.602,  infDef:2.602,  infLeth:0.625, infHp:0.625},
+  "Natalia":    {stars:5,   level:80, widget:6,  heroAtk:2100,  heroDef:2517,  heroHp:41085,  escorts:10, troopCap:13470, escortHp:13695, escortDef:839,  escortAtk:698,  infAtk:2.0016, infDef:2.0016, infLeth:0.333, infHp:0.333},
+  "Flint":      {stars:5,   level:80, widget:10, heroAtk:2457,  heroDef:3204,  heroHp:48060,  escorts:10, troopCap:13470, escortHp:16020, escortDef:1068, escortAtk:818,  infAtk:2.4019, infDef:2.4019, infLeth:0.6,   infHp:0.6},
+  "Logan":      {stars:4.3, level:80, widget:2,  heroAtk:2289,  heroDef:2986,  heroHp:44802,  escorts:10, troopCap:13470, escortHp:14934, escortDef:995,  escortAtk:762,  infAtk:2.4048, infDef:2.4048, infLeth:0.14,  infHp:0.14},
+  "Ahmose":     {stars:4.5, level:80, widget:4,  heroAtk:3190,  heroDef:4161,  heroHp:62436,  escorts:10, troopCap:13470, escortHp:20812, escortDef:1386, escortAtk:1060, infAtk:3.4023, infDef:3.4023, infLeth:0.37,  infHp:0.37},
+  "Hector":     {stars:5,   level:80, widget:10, heroAtk:4545,  heroDef:5927,  heroHp:88911,  escorts:10, troopCap:13470, escortHp:29367, escortDef:1975, escortAtk:1513, infAtk:4.4435, infDef:4.4435, infLeth:1.11,  infHp:1.11},
+  "Wu Ming":    {stars:3,   level:80, widget:1,  heroAtk:2628,  heroDef:3427,  heroHp:51423,  escorts:10, troopCap:13470, escortHp:17141, escortDef:1142, escortAtk:873,  infAtk:2.5628, infDef:2.5628, infLeth:0.1335,infHp:0.1335},
+  "Sergey":     {stars:5,   level:80, widget:0,  heroAtk:1361,  heroDef:2220,  heroHp:26640,  escorts:10, troopCap:13470, escortHp:8880,  escortDef:740,  escortAtk:453,  infAtk:1.4011, infDef:1.4011, infLeth:0,     infHp:0},
+  "Eugene":     {stars:5,   level:80, widget:0,  heroAtk:1106,  heroDef:2220,  heroHp:21644,  escorts:10, troopCap:13470, escortHp:7215,  escortDef:740,  escortAtk:368,  infAtk:0.9007, infDef:0.9007, infLeth:0,     infHp:0},
+  "Smith":      {stars:5,   level:80, widget:0,  heroAtk:1106,  heroDef:2220,  heroHp:21644,  escorts:10, troopCap:13470, escortHp:7215,  escortDef:740,  escortAtk:368,  infAtk:0.9007, infDef:0.9007, infLeth:0,     infHp:0},
+  "Molly":      {stars:5,   level:80, widget:10, heroAtk:2670,  heroDef:2670,  heroHp:26700,  escorts:10, troopCap:13470, escortHp:8900,  escortDef:890,  escortAtk:890,  infAtk:2.0016, infDef:2.0016, infLeth:0.5,   infHp:0.5},
+  "Philly":     {stars:5,   level:80, widget:6,  heroAtk:2988,  heroDef:2544,  heroHp:29880,  escorts:10, troopCap:13470, escortHp:9960,  escortDef:848,  escortAtk:996,  infAtk:2.4019, infDef:2.4019, infLeth:0.36,  infHp:0.36},
+  "Mia":        {stars:5,   level:80, widget:10, heroAtk:3960,  heroDef:3960,  heroHp:39600,  escorts:10, troopCap:13470, escortHp:13200, escortDef:1320, escortAtk:1320, infAtk:2.9023, infDef:2.9023, infLeth:0.7,   infHp:0.7},
+  "Reina":      {stars:5,   level:80, widget:10, heroAtk:4938,  heroDef:4938,  heroHp:49395,  escorts:10, troopCap:13470, escortHp:16465, escortDef:1646, escortAtk:1646, infAtk:3.7029, infDef:3.7029, infLeth:0.925, infHp:0.925},
+  "Norah":      {stars:5,   level:80, widget:9,  heroAtk:7199,  heroDef:5927,  heroHp:44454,  escorts:10, troopCap:13470, escortHp:14818, escortDef:1975, escortAtk:2397, infAtk:4.4435, infDef:4.4435, infLeth:1.11,  infHp:1.11},
+  "Renee":      {stars:4.1, level:80, widget:2,  heroAtk:4869,  heroDef:4869,  heroHp:48700,  escorts:10, troopCap:13470, escortHp:16232, escortDef:1622, escortAtk:1622, infAtk:3.9903, infDef:3.9903, infLeth:0.267, infHp:0.267},
+  "Jessie":     {stars:5,   level:80, widget:0,  heroAtk:1776,  heroDef:2220,  heroHp:17760,  escorts:10, troopCap:13470, escortHp:5920,  escortDef:740,  escortAtk:592,  infAtk:1.4011, infDef:1.4011, infLeth:0,     infHp:0},
+  "Ling Xue":   {stars:5,   level:80, widget:0,  heroAtk:1776,  heroDef:2220,  heroHp:17760,  escorts:10, troopCap:13470, escortHp:5920,  escortDef:740,  escortAtk:592,  infAtk:1.4011, infDef:1.4011, infLeth:0,     infHp:0},
+  "Patrick":    {stars:5,   level:80, widget:0,  heroAtk:1776,  heroDef:2220,  heroHp:17760,  escorts:10, troopCap:13470, escortHp:5920,  escortDef:740,  escortAtk:592,  infAtk:1.4011, infDef:1.4011, infLeth:0,     infHp:0},
+  "Walis Bokan":{stars:4.5, level:80, widget:0,  heroAtk:1651,  heroDef:2064,  heroHp:16512,  escorts:10, troopCap:13470, escortHp:5504,  escortDef:688,  escortAtk:550,  infAtk:1.2873, infDef:1.2873, infLeth:0,     infHp:0},
+  "Charlie":    {stars:5,   level:80, widget:0,  heroAtk:1106,  heroDef:2220,  heroHp:21644,  escorts:10, troopCap:13470, escortHp:7215,  escortDef:740,  escortAtk:368,  infAtk:0.9007, infDef:0.9007, infLeth:0,     infHp:0},
+  "Zinman":     {stars:5,   level:80, widget:8,  heroAtk:3127,  heroDef:2574,  heroHp:19305,  escorts:10, troopCap:13470, escortHp:6432,  escortDef:858,  escortAtk:1041, infAtk:2.0016, infDef:2.0016, infLeth:0.4,   infHp:0.4},
+  "Alonso":     {stars:5,   level:80, widget:10, heroAtk:3890,  heroDef:2760,  heroHp:24030,  escorts:10, troopCap:13470, escortHp:8010,  escortDef:920,  escortAtk:1295, infAtk:2.4019, infDef:2.4019, infLeth:0.6,   infHp:0.6},
+  "Greg":       {stars:5,   level:80, widget:9,  heroAtk:4718,  heroDef:3884,  heroHp:29132,  escorts:10, troopCap:13470, escortHp:9711,  escortDef:1294, escortAtk:1571, infAtk:2.9023, infDef:2.9023, infLeth:0.63,  infHp:0.63},
+  "Lynn":       {stars:5,   level:80, widget:4,  heroAtk:5407,  heroDef:4450,  heroHp:33382,  escorts:10, troopCap:13470, escortHp:11127, escortDef:1483, escortAtk:1799, infAtk:3.7029, infDef:3.7029, infLeth:0.37,  infHp:0.37},
+  "Gwen":       {stars:5,   level:80, widget:10, heroAtk:7199,  heroDef:5927,  heroHp:44454,  escorts:10, troopCap:13470, escortHp:14818, escortDef:1975, escortAtk:2397, infAtk:4.4435, infDef:4.4435, infLeth:1.11,  infHp:1.11},
+  "Wayne":      {stars:4.3, level:80, widget:3,  heroAtk:6612,  heroDef:5445,  heroHp:40849,  escorts:10, troopCap:13470, escortHp:13616, escortDef:1815, escortAtk:2201, infAtk:4.4779, infDef:4.4779, infLeth:0.4005,infHp:0.4005},
+  "Bahiti":     {stars:5,   level:80, widget:0,  heroAtk:2157,  heroDef:2220,  heroHp:13320,  escorts:10, troopCap:13470, escortHp:4440,  escortDef:740,  escortAtk:718,  infAtk:1.4011, infDef:1.4011, infLeth:0,     infHp:0},
+  "Jasser":     {stars:5,   level:80, widget:0,  heroAtk:2157,  heroDef:2220,  heroHp:13320,  escorts:10, troopCap:13470, escortHp:4440,  escortDef:740,  escortAtk:718,  infAtk:1.4011, infDef:1.4011, infLeth:0,     infHp:0},
+  "Seo-yoon":   {stars:4.3, level:80, widget:0,  heroAtk:1842,  heroDef:1896,  heroHp:11376,  escorts:10, troopCap:13470, escortHp:3792,  escortDef:632,  escortAtk:613,  infAtk:1.1609, infDef:1.1609, infLeth:0,     infHp:0},
+  "Gina":       {stars:5,   level:80, widget:0,  heroAtk:2157,  heroDef:2220,  heroHp:13320,  escorts:10, troopCap:13470, escortHp:4440,  escortDef:740,  escortAtk:718,  infAtk:1.1008, infDef:1.1008, infLeth:0,     infHp:0},
+  "Cloris":     {stars:5,   level:80, widget:0,  heroAtk:1106,  heroDef:2220,  heroHp:21644,  escorts:10, troopCap:13470, escortHp:7215,  escortDef:740,  escortAtk:368,  infAtk:0.9007, infDef:0.9007, infLeth:0,     infHp:0},
+};
 const QUALITY_ORDER = ["R","SR","SSR"]; // ascending
 
 // Sort heroes by quality desc, then gen desc, then type (Inf→Lan→Mks), then name asc
@@ -472,32 +510,6 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose }) {
     fontFamily: "'Space Mono',monospace", outline: "none", cursor: "pointer",
   };
 
-  const statInp = (field) => (
-    <input
-      type="number" min={0}
-      defaultValue={local[field] || 0}
-      onBlur={e => set(field, parseFloat(e.target.value) || 0)}
-      onKeyDown={e => { if (e.key === "Enter") e.target.blur(); }}
-      style={{...sel, width: "100%", textAlign: "right", padding: "5px 8px"}}
-    />
-  );
-
-  const StatSection = ({ title, fields }) => (
-    <div style={{marginBottom: 20}}>
-      <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase",
-        color:C.textDim,fontFamily:"'Space Mono',monospace",marginBottom:10,
-        paddingBottom:6,borderBottom:`1px solid ${C.border}`}}>{title}</div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-        {fields.map(([label, field]) => (
-          <div key={field}>
-            <div style={{fontSize:11,color:C.textSec,marginBottom:4}}>{label}</div>
-            {statInp(field)}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-
   const skillOpts  = Array.from({length:6},  (_,i) => i);
   const levelOpts  = Array.from({length:81}, (_,i) => i);
   const widgetOpts = Array.from({length:11}, (_,i) => i);
@@ -595,24 +607,91 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose }) {
             </div>
           </div>
 
-          {/* Base stats */}
-          <StatSection title="Exploration Base Stats" fields={[
-            ["Hero Attack",     "heroAtk"],
-            ["Hero Defense",    "heroDef"],
-            ["Hero Health",     "heroHp"],
-            ["Escorts",         "escorts"],
-            ["Troop Capacity",  "troopCap"],
-            ["Escort Health",   "escortHp"],
-            ["Escort Defense",  "escortDef"],
-            ["Escort Attack",   "escortAtk"],
-          ]} />
+          {/* Base stats reference snapshot */}
+          {(() => {
+            const ref = HERO_BASE_STATS[hero.name];
+            const expFields = [
+              ["Hero Attack",    "heroAtk"],
+              ["Hero Defense",   "heroDef"],
+              ["Hero Health",    "heroHp"],
+              ["Escorts",        "escorts"],
+              ["Troop Capacity", "troopCap"],
+              ["Escort Health",  "escortHp"],
+              ["Escort Defense", "escortDef"],
+              ["Escort Attack",  "escortAtk"],
+            ];
+            const expdFields = [
+              ["Infantry Attack",    "infAtk"],
+              ["Infantry Defense",   "infDef"],
+              ["Infantry Lethality", "infLeth"],
+              ["Infantry Health",    "infHp"],
+            ];
 
-          <StatSection title="Expedition Base Stats" fields={[
-            ["Infantry Attack",    "infAtk"],
-            ["Infantry Defense",   "infDef"],
-            ["Infantry Lethality", "infLeth"],
-            ["Infantry Health",    "infHp"],
-          ]} />
+            const sectionHead = (title) => (
+              <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase",
+                color:C.textDim,fontFamily:"'Space Mono',monospace",marginBottom:10,
+                paddingBottom:6,borderBottom:`1px solid ${C.border}`}}>{title}</div>
+            );
+
+            if (!ref) return (
+              <div style={{marginTop:4,padding:"14px 16px",background:C.surface,
+                border:`1px solid ${C.border}`,borderRadius:8,fontSize:12,color:C.textDim,
+                fontFamily:"'Space Mono',monospace",textAlign:"center"}}>
+                No base stats on record for this hero yet.<br/>
+                <span style={{fontSize:11,color:C.textDim}}>Add data from in-game when available.</span>
+              </div>
+            );
+
+            const StatRow = ({ label, val, isPercent }) => (
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",
+                padding:"5px 0",borderBottom:`1px solid ${C.border}`,fontSize:12}}>
+                <span style={{color:C.textSec}}>{label}</span>
+                <span style={{fontFamily:"'Space Mono',monospace",fontWeight:700,color:C.textPri}}>
+                  {isPercent ? `${val}%` : val.toLocaleString()}
+                </span>
+              </div>
+            );
+
+            return (
+              <>
+                {/* Snapshot tag */}
+                <div style={{marginBottom:16,padding:"8px 12px",background:C.accentBg,
+                  border:`1px solid ${C.accentDim}`,borderRadius:7,fontSize:11,
+                  color:C.accent,fontFamily:"'Space Mono',monospace",display:"flex",
+                  alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                  <span>📊 Reference snapshot</span>
+                  <span style={{color:C.textDim}}>·</span>
+                  <span>Stars: {ref.stars}</span>
+                  <span style={{color:C.textDim}}>·</span>
+                  <span>Level: {ref.level}</span>
+                  <span style={{color:C.textDim}}>·</span>
+                  <span>Widget: {ref.widget}</span>
+                </div>
+
+                {/* Exploration */}
+                <div style={{marginBottom:20}}>
+                  {sectionHead("Exploration Base Stats")}
+                  {expFields.map(([label, field]) => (
+                    <StatRow key={field} label={label} val={ref[field]} isPercent={false} />
+                  ))}
+                </div>
+
+                {/* Expedition */}
+                <div style={{marginBottom:20}}>
+                  {sectionHead("Expedition Base Stats")}
+                  {expdFields.map(([label, field]) => (
+                    <StatRow key={field} label={label} val={ref[field]} isPercent={true} />
+                  ))}
+                </div>
+
+                <div style={{fontSize:11,color:C.textDim,fontFamily:"'Space Mono',monospace",
+                  padding:"8px 12px",background:C.surface,borderRadius:6,
+                  border:`1px solid ${C.border}`}}>
+                  💡 Stats are recorded at the snapshot stars/level/widget above. Upload a new spreadsheet as you collect more data points.
+                </div>
+              </>
+            );
+          })()}
 
         </div>
       </div>
