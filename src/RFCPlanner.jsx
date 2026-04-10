@@ -147,6 +147,7 @@ table.dt col.c-wkr{width:75px}
 table.dt col.c-act{width:90px}
 table.dt col.c-used{width:80px}
 table.dt col.c-rol{width:85px}
+table.dt col.c-evt{width:90px}
 table.dt col.c-dlt{width:110px}
 table.dt thead tr{background:${C.surface}}
 table.dt th{padding:8px 10px;font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:${C.textSec};font-family:'Space Mono',monospace;white-space:nowrap;text-align:left;border-right:1px solid ${C.border};border-bottom:1px solid ${C.border}}
@@ -218,8 +219,38 @@ function WkdaySelect({ value, onChange }) {
 }
 
 const EMPTY_ACTUALS = Array.from({length:28},()=>({
-  refines:"", actualRfc:"", rfcUsed:"", acceptedDelta:false, deltaAcceptValue:null,
+  refines:"", actualRfc:"", eventRfc:"", rfcUsed:"", acceptedDelta:false, deltaAcceptValue:null,
 }));
+
+// Read total RFC needed from Construction Planner localStorage
+function getConstructionRfcNeeded() {
+  try {
+    const raw = localStorage.getItem("cp-buildings");
+    if (!raw) return 0;
+    // Import inline to avoid circular dep — same logic as getInventoryBuildingTotals
+    const buildings = JSON.parse(raw);
+    const FC_LEVELS = ["FC1","FC2","FC3","FC4","FC5","FC6","FC7","FC8","FC9","FC10"];
+    const RFC_COST = {
+      Furnace:     {FC6:80,FC7:110,FC8:160,FC9:300,FC10:350},
+      Embassy:     {FC5:8,FC6:20,FC7:32,FC8:50,FC9:88,FC10:87},
+      Infantry:    {FC5:16,FC6:45,FC7:76,FC8:114,FC9:166,FC10:157},
+      Marksman:    {FC5:16,FC6:45,FC7:76,FC8:114,FC9:166,FC10:157},
+      Lancer:      {FC5:16,FC6:45,FC7:76,FC8:114,FC9:166,FC10:157},
+      Command:     {FC5:8,FC6:20,FC7:32,FC8:50,FC9:84,FC10:70},
+      Infirmary:   {FC5:8,FC6:20,FC7:32,FC8:50,FC9:84,FC10:70},
+      "War Academy":{FC5:16,FC6:45,FC7:76,FC8:114,FC9:166,FC10:157},
+    };
+    let total = 0;
+    buildings.forEach(b => {
+      const fromIdx = FC_LEVELS.indexOf(b.current);
+      const toIdx   = FC_LEVELS.indexOf(b.goal);
+      if (fromIdx < 0 || toIdx <= fromIdx) return;
+      const rfc = RFC_COST[b.name] || {};
+      for (let i = fromIdx + 1; i <= toIdx; i++) total += rfc[FC_LEVELS[i]] || 0;
+    });
+    return total;
+  } catch { return 0; }
+}
 
 export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSavePopup, currentUser }) {
   const currentCycle = useMemo(()=>getCurrentCycleNum(),[]);
@@ -229,20 +260,34 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
   const [monRefines,    setMonRefines]    = useState(()=>loadLS("rfc-monref",1));
   const [weekdayMode,   setWeekdayMode]   = useState(()=>loadLS("rfc-wdmode","default"));
   const [actuals,       setActuals]       = useState(()=>loadLS("rfc-actuals2",EMPTY_ACTUALS));
+  const [estEventRfc,   setEstEventRfc]   = useState(()=>loadLS("rfc-est-event",0));
   const [toast,         setToast]         = useState("");
+
+  // Is the selected cycle in the past? If so, view-only.
+  const isPastCycle = selectedCycle < currentCycle;
 
   const startDate = useMemo(()=>{
     const d = getCycleStartDate(selectedCycle);
     return toIso(d);
   },[selectedCycle]);
 
+  // Today's day index (0-27) within the selected cycle, or -1 if not current cycle
+  const todayDayIdx = useMemo(()=>{
+    if (selectedCycle !== currentCycle) return -1;
+    const today = new Date(); today.setHours(0,0,0,0);
+    const start = new Date(startDate + "T00:00:00"); start.setHours(0,0,0,0);
+    const diff = Math.floor((today - start) / 86400000);
+    return Math.min(Math.max(diff, 0), 27);
+  },[selectedCycle, currentCycle, startDate]);
+
   const updateActual = useCallback((idx,field,val)=>{
+    if (isPastCycle) return; // past cycles are read-only
     setActuals(prev=>{
       const next=prev.map((d,i)=>i===idx?{...d,[field]:val===""?"":isNaN(Number(val))?val:Number(val)}:d);
       saveLS("rfc-actuals2",next);
       return next;
     });
-  },[]);
+  },[isPastCycle]);
 
   const persistInv = field=>val=>setInv(p=>({...p,[field]:val}));
 
@@ -258,6 +303,7 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
 
   // Accept delta: lock rolling RFC to current inventory RFC for that day
   const acceptDelta = useCallback((idx)=>{
+    if (isPastCycle) return;
     const invRfc = inv.refinedFC;
     setActuals(prev=>{
       const next=prev.map((d,i)=>i===idx
@@ -267,7 +313,7 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
       saveLS("rfc-actuals2",next);
       return next;
     });
-  },[inv.refinedFC]);
+  },[inv.refinedFC, isPastCycle]);
 
   // ── Row calculation ────────────────────────────────────────────────────────
   const rows = useMemo(()=>{
@@ -284,37 +330,33 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
 
       if(isMon) weekCumRef=0;
 
-      // Refines: Mon uses monRefines default, Tue-Sun use 1 default (both editable)
       let refines;
       if(isMon) refines = act.refines!==""?Number(act.refines):monRefines;
       else       refines = act.refines!==""?Number(act.refines):1;
 
       const {fcBurn,rfcEarned,tierAtStart,tierAfter,endCumulative} = calcRefines(weekCumRef,refines);
 
-      const hasActual = act.actualRfc!==""&&act.actualRfc!=null;
+      const hasActual  = act.actualRfc!==""&&act.actualRfc!=null;
       const effectiveRfc = hasActual ? Number(act.actualRfc) : rfcEarned;
-      const rfcUsed = act.rfcUsed!==""&&act.rfcUsed!=null ? Number(act.rfcUsed) : 0;
+      const eventRfc   = act.eventRfc!==""&&act.eventRfc!=null ? Number(act.eventRfc) : 0;
+      const rfcUsed    = act.rfcUsed!==""&&act.rfcUsed!=null ? Number(act.rfcUsed) : 0;
 
-      // Apply accepted delta override, or normal accumulation
       if(act.acceptedDelta && act.deltaAcceptValue!=null){
         rollingRFC = Number(act.deltaAcceptValue);
       } else {
-        rollingRFC += effectiveRfc - rfcUsed;
+        rollingRFC += effectiveRfc + eventRfc - rfcUsed;
       }
 
       weekCumRef = endCumulative;
 
-      // Difference = inventory RFC - rolling RFC
       const difference = inv.refinedFC - rollingRFC;
-      // Variance = actual - estimated (only when actual entered and differs)
-      const variance = hasActual ? Number(act.actualRfc) - rfcEarned : null;
-
+      const variance   = hasActual ? Number(act.actualRfc) - rfcEarned : null;
       const displayTier = isMon ? tierAfter : tierAtStart;
 
       out.push({
         dayNum,weekday,isMon,weekNum,dateStr,
         refines,tier:displayTier,fcBurn,
-        estRfc:rfcEarned,effectiveRfc,rfcUsed,
+        estRfc:rfcEarned,effectiveRfc,eventRfc,rfcUsed,
         rollingRFC,difference,variance,
         hasActual,act,weekCumRef,
       });
@@ -323,11 +365,17 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
   },[inv.refinedFC,monRefines,weekdayMode,actuals,startDate]);
 
   const totals=useMemo(()=>({
-    refines:rows.reduce((s,r)=>s+r.refines,0),
-    fcBurn: rows.reduce((s,r)=>s+r.fcBurn,0),
-    estRfc: rows.reduce((s,r)=>s+r.estRfc,0),
+    refines: rows.reduce((s,r)=>s+r.refines,0),
+    fcBurn:  rows.reduce((s,r)=>s+r.fcBurn,0),
+    estRfc:  rows.reduce((s,r)=>s+r.estRfc,0),
+    actualEventRfc: rows.reduce((s,r)=>s+r.eventRfc,0),
     finalRFC:rows[27]?.rollingRFC??inv.refinedFC,
   }),[rows,inv.refinedFC]);
+
+  // RFC accumulation card values
+  const constructionRfcNeeded = useMemo(()=>getConstructionRfcNeeded(),[selectedCycle]);
+  const projectedRfcAtSvS = rows[20]?.rollingRFC ?? inv.refinedFC;
+  const rfcBalance = projectedRfcAtSvS - constructionRfcNeeded;
 
   const hasVariances = rows.some(r=>r.variance!==null&&r.variance!==0);
 
@@ -354,7 +402,7 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
 
   const buildPlanData=()=>({
     savedAt:new Date().toISOString(),
-    selectedCycle,startDate,monRefines,weekdayMode,actuals,
+    selectedCycle,startDate,monRefines,weekdayMode,actuals,estEventRfc,
     fireCrystals:inv.fireCrystals,refinedFC:inv.refinedFC,
   });
 
@@ -450,21 +498,16 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
           {/* Summary tiles */}
           <div className="sum-grid">
             <div className="stile ed">
-              <div className="sl">Starting FC <span className="sl-e">✎</span></div>
+              <div className="sl">FC Inventory <span className="sl-e">✎</span></div>
               <input className="sv-inp" type="number" min={0} style={{color:C.accent}}
                 value={inv.fireCrystals} onChange={e=>persistInv("fireCrystals")(Number(e.target.value))}/>
               <div className="ss">current inventory</div>
             </div>
             <div className="stile ed">
-              <div className="sl">Starting RFC <span className="sl-e">✎</span></div>
+              <div className="sl">RFC Inventory <span className="sl-e">✎</span></div>
               <input className="sv-inp" type="number" min={0} style={{color:C.accent}}
                 value={inv.refinedFC} onChange={e=>persistInv("refinedFC")(Number(e.target.value))}/>
               <div className="ss">current inventory</div>
-            </div>
-            <div className="stile">
-              <div className="sl">FC after week 4</div>
-              <div className="sv" style={{color:C.textPri}}>{fmtN(inv.fireCrystals-rows.reduce((s,r)=>s+r.fcBurn,0))}</div>
-              <div className="ss">after all burns</div>
             </div>
             <div className="stile">
               <div className="sl">RFC at SvS week</div>
@@ -472,24 +515,9 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
               <div className="ss">start of week 4</div>
             </div>
             <div className="stile">
-              <div className="sl">Total FC burned</div>
-              <div className="sv" style={{color:C.amber}}>{fmtN(totals.fcBurn)}</div>
-              <div className="ss">28-day total</div>
-            </div>
-            <div className="stile">
-              <div className="sl">Est. RFC earned</div>
-              <div className="sv" style={{color:C.blue}}>{fmtN(totals.estRfc)}</div>
-              <div className="ss">28-day total</div>
-            </div>
-            <div className="stile">
               <div className="sl">Total refines</div>
               <div className="sv" style={{color:C.textPri}}>{fmtN(totals.refines)}</div>
               <div className="ss">28-day total</div>
-            </div>
-            <div className="stile">
-              <div className="sl">Final RFC balance</div>
-              <div className="sv" style={{color:totals.finalRFC>=0?C.green:C.red}}>{fmtN(totals.finalRFC)}</div>
-              <div className="ss">end of day 28</div>
             </div>
           </div>
 
@@ -511,7 +539,13 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
                   </select>
                 </div>
                 <div className="cfg-item">
-                  <label className="cfg-lbl">Tue–Sun refinement mode</label>
+                  <label className="cfg-lbl">Est. RFC from Events (this cycle)</label>
+                  <span className="cfg-hint">Expected RFC from recurring events — used in projection only</span>
+                  <input type="number" min={0} className="cfg-inp"
+                    value={estEventRfc}
+                    onChange={e=>{const v=Number(e.target.value)||0;setEstEventRfc(v);saveLS("rfc-est-event",v);}}
+                  />
+                </div>
                   <span className="cfg-hint">Default sets each day to 1 refine · all days remain editable regardless</span>
                   <select className="cfg-inp" value={weekdayMode}
                     onChange={e=>{setWeekdayMode(e.target.value);saveLS("rfc-wdmode",e.target.value);}}>
@@ -551,6 +585,7 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
                         <col className="c-fcb"/>
                         <col className="c-wkr"/>
                         <col className="c-act"/>
+                        <col className="c-evt"/>
                         <col className="c-used"/>
                         <col className="c-rol"/>
                         <col className="c-dlt"/>
@@ -565,6 +600,7 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
                             <th className="r">FC Burn</th>
                             <th className="r">Wkly Refines</th>
                             <th className="r">Actual RFC Rec'd</th>
+                            <th className="r">Event RFC Rec'd</th>
                             <th className="r">RFC Used</th>
                             <th className="r">Rolling RFC</th>
                             <th className="r">Difference</th>
@@ -574,24 +610,31 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
                       <tbody>
                         {wkRows.map((r,ri)=>{
                           const globalIdx=(wi*7)+ri;
+                          const isToday   = globalIdx === todayDayIdx;
+                          const isPast    = isPastCycle || (selectedCycle === currentCycle && globalIdx < todayDayIdx);
                           const rollingColor=r.rollingRFC>=0?C.green:C.red;
                           const diffColor=r.difference===0?C.textSec:r.difference>0?C.green:C.red;
                           const hasVar=r.variance!==null&&r.variance!==0;
 
+                          // Read-only inputs for past days
+                          const roStyle={pointerEvents:"none",opacity:0.6};
+
                           return (
-                            <tr key={r.dayNum} className={r.isMon?"mon-row":""}>
+                            <tr key={r.dayNum} className={r.isMon?"mon-row":""}
+                              style={isToday?{background:"rgba(227,107,26,0.06)"}:{}}>
 
                               {/* Day */}
                               <td>
                                 <div className="dc">
-                                  <span className="dn">{r.dayNum}</span>
+                                  <span className="dn" style={isToday?{color:"var(--c-accent)"}:{}}>{r.dayNum}</span>
                                   <span className="dw">{r.weekday.slice(0,3)}</span>
                                   {r.dateStr&&<span className="dd">{fmtDate(r.dateStr)}</span>}
+                                  {isToday&&<span style={{fontSize:8,color:"var(--c-accent)",fontWeight:700,fontFamily:"Space Mono,monospace"}}>TODAY</span>}
                                 </div>
                               </td>
 
-                              {/* Refines — always editable */}
-                              <td className="ec">
+                              {/* Refines */}
+                              <td className="ec" style={isPast?roStyle:{}}>
                                 {r.isMon
                                   ?<MonSelect value={r.refines} onChange={v=>updateActual(globalIdx,"refines",v)}/>
                                   :<WkdaySelect value={r.refines} onChange={v=>updateActual(globalIdx,"refines",v)}/>
@@ -605,18 +648,11 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
                                 </div>
                               </td>
 
-                              {/* Est. RFC Rec'd — amber tint when variance exists */}
+                              {/* Est. RFC Rec'd */}
                               <td>
-                                <div className="cp r" style={{
-                                  color:hasVar?C.amber:r.estRfc>0?C.blue:C.textSec,
-                                  fontWeight:700,gap:4,
-                                }}>
+                                <div className="cp r" style={{color:hasVar?C.amber:r.estRfc>0?C.blue:C.textSec,fontWeight:700,gap:4}}>
                                   {r.estRfc>0?fmtN(r.estRfc):"—"}
-                                  {hasVar&&(
-                                    <span style={{fontSize:9,color:C.amber}}>
-                                      {r.variance>0?"+":""}{r.variance}
-                                    </span>
-                                  )}
+                                  {hasVar&&<span style={{fontSize:9,color:C.amber}}>{r.variance>0?"+":""}{r.variance}</span>}
                                 </div>
                               </td>
 
@@ -632,8 +668,8 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
                                 <div className="cp r" style={{color:C.textPri}}>{r.weekCumRef||""}</div>
                               </td>
 
-                              {/* Actual RFC Rec'd — user entry */}
-                              <td className="ec">
+                              {/* Actual RFC Rec'd */}
+                              <td className="ec" style={isPast?roStyle:{}}>
                                 <input type="number" min={0}
                                   value={r.act.actualRfc??""}
                                   placeholder="—"
@@ -642,8 +678,18 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
                                 />
                               </td>
 
-                              {/* RFC Used — user entry */}
-                              <td className="ec">
+                              {/* Event RFC Rec'd */}
+                              <td className="ec" style={isPast?roStyle:{}}>
+                                <input type="number" min={0}
+                                  value={r.act.eventRfc??""}
+                                  placeholder="—"
+                                  onChange={e=>updateActual(globalIdx,"eventRfc",e.target.value)}
+                                  style={{color:r.act.eventRfc!==""&&r.act.eventRfc!=null?"var(--c-blue)":C.textSec}}
+                                />
+                              </td>
+
+                              {/* RFC Used */}
+                              <td className="ec" style={isPast?roStyle:{}}>
                                 <input type="number" min={0}
                                   value={r.act.rfcUsed??""}
                                   placeholder="—"
@@ -659,13 +705,13 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
                                 </div>
                               </td>
 
-                              {/* Difference */}
+                              {/* Difference — Accept only on today's row */}
                               <td>
                                 <div className="cp r" style={{gap:5,justifyContent:"flex-end"}}>
                                   <span style={{color:diffColor,fontWeight:700,fontFamily:"Space Mono,monospace",fontSize:11}}>
                                     {r.difference===0?"✓":`${r.difference>0?"+":""}${fmtN(r.difference)}`}
                                   </span>
-                                  {r.difference!==0&&!r.act.acceptedDelta&&(
+                                  {isToday&&r.difference!==0&&!r.act.acceptedDelta&&(
                                     <button className="accept-btn"
                                       onClick={()=>acceptDelta(globalIdx)}
                                       title="Accept: align Rolling RFC with your current inventory">
@@ -689,15 +735,80 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
             );
           })}
 
+          {/* ── RFC Accumulation Card ──────────────────────────────────────── */}
+          {isPastCycle && (
+            <div style={{padding:"10px 16px",background:"var(--c-amberBg)",border:"1px solid var(--c-amber)40",
+              borderRadius:8,fontSize:12,color:"var(--c-amber)",fontFamily:"Space Mono,monospace",marginBottom:4}}>
+              📁 Viewing a past cycle — this plan is archived and read-only.
+            </div>
+          )}
+
+          <div>
+            <div style={{fontSize:10,fontWeight:700,letterSpacing:"2px",textTransform:"uppercase",
+              fontFamily:"Space Mono,monospace",color:"var(--c-textSec)",display:"flex",
+              alignItems:"center",gap:8,marginBottom:10}}>
+              RFC Accumulation
+              <span style={{flex:1,height:1,background:"var(--c-border)",display:"block"}}/>
+            </div>
+            <div style={{background:"var(--c-card)",border:"1px solid var(--c-border)",borderRadius:12,padding:"18px 20px",maxWidth:480}}>
+
+              {/* Current RFC */}
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:"1px solid var(--c-border)",fontSize:13}}>
+                <span style={{color:"var(--c-textPri)"}}>Current RFC</span>
+                <span style={{fontFamily:"Space Mono,monospace",fontWeight:700,color:"var(--c-accent)"}}>{fmtN(inv.refinedFC)}</span>
+              </div>
+
+              {/* Est. RFC from Refining */}
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:"1px solid var(--c-border)",fontSize:13}}>
+                <span style={{color:"var(--c-textSec)"}}>Est. RFC from Refining</span>
+                <span style={{fontFamily:"Space Mono,monospace",fontWeight:700,color:"var(--c-blue)"}}>+{fmtN(totals.estRfc)}</span>
+              </div>
+
+              {/* Est. RFC from Events */}
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:"2px solid var(--c-borderHi)",fontSize:13}}>
+                <span style={{color:"var(--c-textSec)"}}>Est. RFC from Events</span>
+                <span style={{fontFamily:"Space Mono,monospace",fontWeight:700,color:"var(--c-blue)"}}>+{fmtN(estEventRfc)}</span>
+              </div>
+
+              {/* Projected RFC at SvS */}
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:"1px solid var(--c-border)",fontSize:14}}>
+                <span style={{color:"var(--c-textPri)",fontWeight:800}}>Projected RFC at SvS</span>
+                <span style={{fontFamily:"Space Mono,monospace",fontWeight:800,fontSize:18,color:projectedRfcAtSvS>=0?"var(--c-accent)":"var(--c-red)"}}>{fmtN(projectedRfcAtSvS)}</span>
+              </div>
+
+              {/* Total RFC Needed */}
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:"1px solid var(--c-border)",fontSize:13}}>
+                <span style={{color:"var(--c-textSec)"}}>Total RFC Needed</span>
+                <span style={{fontFamily:"Space Mono,monospace",fontWeight:700,color:"var(--c-textPri)"}}>{fmtN(constructionRfcNeeded)}</span>
+              </div>
+
+              {/* RFC Balance */}
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",fontSize:13}}>
+                <span style={{color:"var(--c-textSec)"}}>RFC Balance</span>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <span style={{fontFamily:"Space Mono,monospace",fontWeight:700,color:rfcBalance>=0?"var(--c-green)":"var(--c-red)"}}>
+                    {rfcBalance>=0?"+":""}{fmtN(rfcBalance)}
+                  </span>
+                  <span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:5,
+                    background:rfcBalance>=0?"var(--c-greenBg)":"var(--c-redBg)",
+                    color:rfcBalance>=0?"var(--c-green)":"var(--c-red)",
+                    border:`1px solid ${rfcBalance>=0?"var(--c-greenDim)":"var(--c-redDim)"}`}}>
+                    {rfcBalance>=0?"Covered":"Short RFC"}
+                  </span>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
           <div className="note">
             <strong>Est. RFC Rec'd</strong> uses the exact per-refine lookup with the first daily refine at 50% FC.
-            Enter <strong>Actual RFC Rec'd</strong> to override — Rolling RFC will use actuals where available, estimates otherwise.
+            Enter <strong>Actual RFC Rec'd</strong> to override — Rolling RFC uses actuals where available.
+            <strong> Event RFC Rec'd</strong> logs RFC from events separately to keep refine variance data clean.
             <strong> RFC Used</strong> tracks mid-cycle RFC spent on upgrades.
-            <strong> Difference</strong> = Inventory RFC − Rolling RFC.
-            {" "}A positive difference means you have more RFC than tracked (missed logging refines or bonus RFC received).
-            {" "}A negative difference means you have less RFC than expected (untracked spending or fewer refines than planned).
-            {" "}Tap <strong>Accept</strong> to align the planner when a gap can't be traced back to a specific day.
-            <strong style={{color:C.accent}}> Week 4 = SvS</strong> (neon yellow). <strong style={{color:C.blue}}> Week 2 = KOI</strong> (neon blue).
+            <strong> Difference</strong> = Inventory RFC − Rolling RFC. <strong>Accept</strong> appears on today's row only.
+            Past cycles are <strong>archived and read-only</strong>.
+            <strong style={{color:"var(--c-accent)"}}> Week 4 = SvS</strong> (neon yellow). <strong style={{color:"var(--c-blue)"}}> Week 2 = KOI</strong> (neon blue).
           </div>
 
         </div>
