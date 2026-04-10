@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo, Component } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo, Component } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "./supabase.js";
 
@@ -122,18 +122,29 @@ const COLORS = new Proxy({}, {
 const css = (strings, ...vals) => strings.reduce((a, s, i) => a + s + (vals[i] ?? ""), "");
 
 // ─── Local Storage Hook ───────────────────────────────────────────────────────
+// isGuest flag — guests use sessionStorage (persists within tab, clears on close)
+// Logged-in users use localStorage (persists across sessions)
+let _isGuest = true;
+function setGuestFlag(isGuest) { _isGuest = isGuest; }
+
 function useLocalStorage(key, initial) {
   const [val, setVal] = useState(() => {
-    try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : initial; }
-    catch { return initial; }
+    try {
+      const store = _isGuest ? sessionStorage : localStorage;
+      const s = store.getItem(key);
+      return s ? JSON.parse(s) : initial;
+    } catch { return initial; }
   });
   const set = useCallback(v => {
     setVal(prev => {
       const next = typeof v === "function" ? v(prev) : v;
-      try { localStorage.setItem(key, JSON.stringify(next)); } catch {}
+      try {
+        const store = _isGuest ? sessionStorage : localStorage;
+        store.setItem(key, JSON.stringify(next));
+      } catch {}
       return next;
     });
-  }, [key]); // key never changes — no stale closure over val
+  }, [key]);
   return [val, set];
 }
 
@@ -526,6 +537,18 @@ function defaultHeroState(type) {
   };
 }
 
+// Read hero gear data for a specific hero from HeroGearPage storage
+function getHeroGearData(heroName) {
+  try {
+    // Check sessionStorage first (guests), then localStorage (logged-in users)
+    const raw = sessionStorage.getItem("hg-heroes") || localStorage.getItem("hg-heroes");
+    if (!raw) return null;
+    const heroData = JSON.parse(raw);
+    const slot = heroData.find(h => h.hero === heroName);
+    return slot || null;
+  } catch { return null; }
+}
+
 // ─── Hero Profile Modal ───────────────────────────────────────────────────────
 
 function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeCharacter }) {
@@ -535,9 +558,11 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
   const [submitting, setSubmitting] = useState(false);
   const [submitForm, setSubmitForm] = useState({
     heroAtk:"", heroDef:"", heroHp:"", escortHp:"", escortDef:"", escortAtk:"",
-    escorts:"", troopCap:"",
     infAtk:"", infDef:"", infLeth:"", infHp:"",
-    totalPower:"", levelPower:"", starPower:"", skillPower:"", gearStrength:"",
+    levelPower:"", starPower:"", skillPower:"", gearStrength:"",
+    wgtHeroAtk:"", wgtHeroDef:"", wgtHeroHp:"",
+    wgtEscortAtk:"", wgtEscortDef:"", wgtEscortHp:"",
+    wgtTroopLeth:"", wgtTroopHp:"",
   });
 
   if (!hero) return null;
@@ -679,6 +704,55 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
             </div>
           </div>
 
+          {/* Gear section */}
+          {(() => {
+            const gearData = getHeroGearData(hero.name);
+            const gearPieces = ["Goggles","Gloves","Belt","Boots"];
+            const statusColor = s => s === "Mythic" ? C.amber : C.textSec;
+
+            const GearCard = ({ slotName }) => {
+              const slotIdx = GEAR_SLOTS.indexOf(slotName);
+              const s = gearData?.slots?.[slotIdx];
+              if (!gearData || !s) return (
+                <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,
+                  padding:"10px 12px",textAlign:"center",minHeight:72,display:"flex",
+                  alignItems:"center",justifyContent:"center",flexDirection:"column",gap:4}}>
+                  <div style={{fontSize:10,fontWeight:700,color:C.textDim,fontFamily:"'Space Mono',monospace"}}>{slotName}</div>
+                  <div style={{fontSize:9,color:C.textDim}}>—</div>
+                </div>
+              );
+              const isWidget = slotName === "Widget";
+              return (
+                <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 12px"}}>
+                  <div style={{fontSize:10,fontWeight:700,color:C.textDim,fontFamily:"'Space Mono',monospace",marginBottom:6}}>{slotName}</div>
+                  {!isWidget && (
+                    <div style={{fontSize:11,fontWeight:700,color:statusColor(s.status),marginBottom:3}}>{s.status || "Legendary"}</div>
+                  )}
+                  <div style={{fontSize:11,color:C.textSec}}>Lvl <span style={{color:C.textPri,fontWeight:700}}>{isWidget ? (local.widget ?? 0) : (s.gearCurrent ?? 0)}</span></div>
+                  {!isWidget && (
+                    <div style={{fontSize:11,color:C.textSec}}>Mastery <span style={{color:C.textPri,fontWeight:700}}>{s.masteryCurrent ?? 0}</span></div>
+                  )}
+                </div>
+              );
+            };
+
+            return (
+              <div style={{marginBottom:20}}>
+                {sectionHead("Gear")}
+                {/* 2x2 grid for Goggles/Gloves/Belt/Boots */}
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+                  {gearPieces.map(p => <GearCard key={p} slotName={p} />)}
+                </div>
+                {/* Widget centered below */}
+                <div style={{display:"flex",justifyContent:"center"}}>
+                  <div style={{width:"50%"}}>
+                    <GearCard slotName="Widget" />
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Skills */}
           <div style={{marginBottom:20}}>
             {sectionHead("Skills")}
@@ -819,8 +893,18 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
                 <NumField label="Star Power"   field="starPower" />
                 <NumField label="Skill Power"  field="skillPower" />
                 {isSSR && <NumField label="Gear Strength" field="gearStrength" />}
-                <NumField label="Escorts"        field="escorts" />
-                <NumField label="Troop Capacity" field="troopCap" />
+              </div>
+              <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",
+                color:C.textDim,marginBottom:8,fontFamily:"'Space Mono',monospace"}}>Widget Stats</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
+                <NumField label="Hero Attack"    field="wgtHeroAtk" />
+                <NumField label="Hero Defense"   field="wgtHeroDef" />
+                <NumField label="Hero Health"    field="wgtHeroHp" />
+                <NumField label="Escort Attack"  field="wgtEscortAtk" />
+                <NumField label="Escort Defense" field="wgtEscortDef" />
+                <NumField label="Escort Health"  field="wgtEscortHp" />
+                <NumField label="Troop Lethality" field="wgtTroopLeth" />
+                <NumField label="Troop Health"   field="wgtTroopHp" />
               </div>
               <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",
                 color:C.textDim,marginBottom:8,fontFamily:"'Space Mono',monospace"}}>Exploration</div>
@@ -1144,9 +1228,16 @@ function HeroesPage({ genFilter, setGenFilter, heroStats, setHeroStats, currentU
             {STAR_OPTS.map(v => <option key={v} value={v}>{v}</option>)}
           </select>
         </td>
+        {/* Level */}
         <td style={{...tdS,textAlign:"center"}}>
           <select value={stats.level} onChange={e => updateStat(hero.name,"level",Number(e.target.value))} style={sel}>
             {levelOpts.map(v => <option key={v} value={v}>{v}</option>)}
+          </select>
+        </td>
+        {/* Widget — now before skills */}
+        <td style={{...tdS,textAlign:"center"}}>
+          <select value={stats.widget} onChange={e => updateStat(hero.name,"widget",Number(e.target.value))} style={sel}>
+            {widgetOpts.map(v => <option key={v} value={v}>{v}</option>)}
           </select>
         </td>
         {["expS1","expS2","expS3"].map(f => (
@@ -1163,11 +1254,6 @@ function HeroesPage({ genFilter, setGenFilter, heroStats, setHeroStats, currentU
             </select>
           </td>
         ))}
-        <td style={{...tdS,textAlign:"center"}}>
-          <select value={stats.widget} onChange={e => updateStat(hero.name,"widget",Number(e.target.value))} style={sel}>
-            {widgetOpts.map(v => <option key={v} value={v}>{v}</option>)}
-          </select>
-        </td>
       </tr>
     );
   };
@@ -1204,16 +1290,15 @@ function HeroesPage({ genFilter, setGenFilter, heroStats, setHeroStats, currentU
         </th>
         <th style={thS}>Stars</th>
         <th style={thS}>Level</th>
+        <th style={thS}>Widget</th>
         <th style={{...thS,textAlign:"center"}} colSpan={3}>Exploration Skills</th>
         <th style={{...thS,textAlign:"center"}} colSpan={3}>Expedition Skills</th>
-        <th style={thS}>Widget</th>
       </tr>
       <tr>
-        {Array(7).fill(null).map((_,i) => <th key={i} style={{...thS,paddingTop:2,paddingBottom:6}}/>)}
+        {Array(8).fill(null).map((_,i) => <th key={i} style={{...thS,paddingTop:2,paddingBottom:6}}/>)}
         {["S1","S2","S3","S1","S2","S3"].map((s,i) => (
           <th key={i} style={{...thS,paddingTop:2,paddingBottom:6,textAlign:"center",fontSize:9}}>{s}</th>
         ))}
-        <th style={{...thS,paddingTop:2,paddingBottom:6}}/>
       </tr>
     </thead>
   );
@@ -1543,19 +1628,19 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats })
                                   : C.amber;
 
                   return (
-                    <tr key={`${slot.slotId}-${gearSlot}`}
-                        style={{background: slotIdx % 2 === 0 ? "transparent" : "var(--c-surface)"}}>
+                    <React.Fragment key={`${slot.slotId}-${gearSlot}`}>
+                    <tr style={{background: slotIdx % 2 === 0 ? "transparent" : "var(--c-surface)"}}>
 
                       {/* Type — only on first row of each hero */}
                       {slotIdx === 0 && (
-                        <td rowSpan={5} style={{...tdStyle,verticalAlign:"middle",fontWeight:700,color:typeColor,width:110,whiteSpace:"nowrap"}}>
+                        <td rowSpan={5} style={{...tdStyle,verticalAlign:"middle",fontWeight:700,color:typeColor,width:80,whiteSpace:"nowrap"}}>
                           {slot.label}
                         </td>
                       )}
 
                       {/* Hero dropdown — only on first row */}
                       {slotIdx === 0 && (
-                        <td rowSpan={5} style={{...tdStyle,verticalAlign:"middle",minWidth:130}}>
+                        <td rowSpan={5} style={{...tdStyle,verticalAlign:"middle",minWidth:100,maxWidth:150}}>
                           <select value={heroVal}
                             onChange={e => setHero(heroIdx, e.target.value)}
                             style={{...sel,width:"100%"}}>
@@ -1658,6 +1743,49 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats })
                       {/* SVS PTS */}
                       <td style={{...tdMono,color:C.textDim}}>—</td>
                     </tr>
+                    {/* Stat sub-row — only shown when gear/mastery/widget level changed */}
+                    {(() => {
+                      const gearChanged    = !isWidget && (s.gearCurrent ?? 0) !== (s.gearGoal ?? 0);
+                      const masteryChanged = !isWidget && (s.masteryCurrent ?? 0) !== (s.masteryGoal ?? 0);
+                      const widgetChanged  = isWidget && (heroStatsForSlot.widget ?? 0) !== (s.widgetGoal ?? 0);
+                      if (!gearChanged && !masteryChanged && !widgetChanged) return null;
+                      const STAT_LABELS = ["Gear Pwr","Hero Atk","Hero HP","Esc Atk","Esc HP","Trp Leth","Trp Mast"];
+                      const tdStat = {padding:"4px 8px",fontSize:10,fontFamily:"'Space Mono',monospace",borderRight:`1px solid ${C.border}`,textAlign:"center"};
+                      return (
+                        <tr style={{background:"rgba(56,139,253,0.04)"}}>
+                          <td colSpan={12} style={{padding:"6px 10px",borderBottom:`1px solid ${C.border}`}}>
+                            <div style={{display:"flex",gap:0,borderRadius:6,overflow:"hidden",border:`1px solid ${C.border}`}}>
+                              {/* Section labels */}
+                              <table style={{borderCollapse:"collapse",width:"100%",fontSize:10}}>
+                                <thead>
+                                  <tr>
+                                    <td style={{...tdStat,width:60,color:C.textDim,background:"transparent",borderRight:`1px solid ${C.border}`}}/>
+                                    {STAT_LABELS.map(l => (
+                                      <td key={"hl"+l} style={{...tdStat,color:C.textDim,fontWeight:700,background:"transparent",fontSize:9,whiteSpace:"nowrap"}}>{l}</td>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {[
+                                    {label:"Current", color:C.textSec, bg:"transparent"},
+                                    {label:"Goal",    color:C.blue,    bg:"rgba(56,139,253,0.06)"},
+                                    {label:"Change",  color:C.green,   bg:"rgba(63,185,80,0.06)"},
+                                  ].map(row => (
+                                    <tr key={row.label} style={{background:row.bg}}>
+                                      <td style={{...tdStat,color:row.color,fontWeight:700,fontSize:9,whiteSpace:"nowrap"}}>{row.label}</td>
+                                      {STAT_LABELS.map(l => (
+                                        <td key={row.label+l} style={{...tdStat,color:C.textDim}}>TBD</td>
+                                      ))}
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })()}
+                    </React.Fragment>
                   );
                 });
               })}
@@ -2810,6 +2938,9 @@ export default function App() {
 
   // ── Reset when user signs out ────────────────────────────────────────────────
   useEffect(() => { if (!user) { invRef.current = INITIAL_INVENTORY; } }, [user]);
+
+  // Update guest flag whenever auth state changes
+  useEffect(() => { setGuestFlag(!user); }, [user]);
 
   // ── Debounced cloud save on inv change ────────────────────────────────────────
   const setInv = useCallback((valOrFn) => {
