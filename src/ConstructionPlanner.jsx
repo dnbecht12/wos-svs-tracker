@@ -1004,12 +1004,6 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
               <div className="s-val teal">{fmt(svsTotalPts)}</div>
               <div className="s-sub">construction only</div>
             </div>
-            {/* Build buff */}
-            <div className="s-tile">
-              <div className="s-label">Build buff</div>
-              <div className="s-val" style={{color:C.textPri,fontSize:18}}>{(buffTotal*100).toFixed(0)}%</div>
-              <div className="s-sub">time reduction</div>
-            </div>
           </div>
 
           {/* Inventory & Accumulation Settings */}
@@ -1044,7 +1038,7 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
           {/* Construction buffs */}
           <div>
             <div className="sec-head">Construction buffs (time reduction)</div>
-            <div style={{display:"flex",flexWrap:"wrap",gap:10,alignItems:"flex-end"}}>
+            <div style={{display:"flex",flexWrap:"wrap",gap:16,alignItems:"flex-start"}}>
               {/* Primary: user-entered overview total */}
               <div style={{display:"flex",flexDirection:"column",gap:5,minWidth:260}}>
                 <label className="inp-label">Bonus Overview Total — Construction Speed (%)</label>
@@ -1057,28 +1051,32 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
                     style={{width:100,textAlign:"right"}}
                   />
                   <span style={{fontSize:12,color:C.textSec,fontFamily:"Space Mono,monospace"}}>%</span>
-                  <span style={{fontSize:11,color:C.textSec}}>e.g. enter 91.5 for 91.5% speed</span>
+                </div>
+                <div style={{fontSize:11,color:C.textSec,marginTop:4,lineHeight:1.5}}>
+                  Non-buffed Construction speed — located in <span style={{color:C.accent,fontFamily:"Space Mono,monospace"}}>Bonus Overview &gt; Growth</span>
                 </div>
               </div>
-              {/* Remaining toggles */}
-              {[
-                {k:"pet",        label:"Pet",          val:"15%"},
-                {k:"chiefOrder", label:"Chief Order",  val:"20%"},
-                {k:"presSkill",  label:"Pres Skill",   val:"10%"},
-                {k:"presPos",    label:"Pres Position",val:"10%"},
-              ].map(b => (
-                <button key={b.k}
-                  onClick={() => toggleBuff(b.k)}
-                  style={{
-                    padding:"7px 13px",borderRadius:7,fontSize:11,fontWeight:700,cursor:"pointer",
-                    fontFamily:"Syne,sans-serif",transition:"all 0.15s",
-                    background: buffs[b.k] ? C.greenBg : C.surface,
-                    color:      buffs[b.k] ? C.green   : C.textDim,
-                    border:     `1px solid ${buffs[b.k] ? C.greenDim : C.border}`,
-                  }}>
-                  {b.label} +{b.val}
-                </button>
-              ))}
+              {/* Toggle buttons in 2x2 grid */}
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,alignSelf:"flex-end"}}>
+                {[
+                  {k:"pet",        label:"Pet",                              val:"15%"},
+                  {k:"chiefOrder", label:"Chief Order",                     val:"20%"},
+                  {k:"presSkill",  label:"President Skill — Mercantilism",  val:"10%"},
+                  {k:"presPos",    label:"Vice President",                  val:"10%"},
+                ].map(b => (
+                  <button key={b.k}
+                    onClick={() => toggleBuff(b.k)}
+                    style={{
+                      padding:"7px 13px",borderRadius:7,fontSize:11,fontWeight:700,cursor:"pointer",
+                      fontFamily:"Syne,sans-serif",transition:"all 0.15s",textAlign:"left",
+                      background: buffs[b.k] ? C.greenBg : C.surface,
+                      color:      buffs[b.k] ? C.green   : C.textDim,
+                      border:     `1px solid ${buffs[b.k] ? C.greenDim : C.border}`,
+                    }}>
+                    {b.label} <span style={{opacity:0.7}}>+{b.val}</span>
+                  </button>
+                ))}
+              </div>
             </div>
             <div style={{marginTop:10,fontSize:12,color:C.textSec}}>
               Total construction speed bonus: <span style={{color:C.green,fontFamily:"Space Mono,monospace",fontWeight:700}}>{(buffTotal*100).toFixed(1)}%</span>

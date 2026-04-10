@@ -1,5 +1,39 @@
 import { useState, useEffect, useCallback, useRef, useMemo, Component } from "react";
 import { createPortal } from "react-dom";
+import { supabase } from "./supabase.js";
+
+const ADMIN_UID = "c5c3392e-2399-4cc9-b2ab-f22a61e7b91c";
+
+// ── Stat submission helpers ───────────────────────────────────────────────────
+async function submitHeroStats(payload) {
+  const { error } = await supabase.from("stat_submissions").insert(payload);
+  return !error;
+}
+async function fetchSubmissions() {
+  const { data, error } = await supabase
+    .from("stat_submissions")
+    .select("*")
+    .order("submitted_at", { ascending: false });
+  return error ? [] : data;
+}
+async function updateSubmission(id, updates) {
+  const { error } = await supabase
+    .from("stat_submissions")
+    .update({ ...updates, reviewed_at: new Date().toISOString() })
+    .eq("id", id);
+  return !error;
+}
+async function acceptSubmission(submission) {
+  await supabase.from("hero_stats_data").insert({
+    hero_name: submission.hero_name,
+    stars:     submission.stars,
+    level:     submission.level,
+    widget:    submission.widget,
+    stats:     submission.stats,
+    accepted_by: ADMIN_UID,
+  });
+  return updateSubmission(submission.id, { status: "accepted" });
+}
 import ConstructionPlanner from "./ConstructionPlanner.jsx";
 import RFCPlanner from "./RFCPlanner.jsx";
 import SvSCalendar from "./SvSCalendar.jsx";
@@ -291,38 +325,38 @@ const GEN_ORDER = ["Base","Gen 1","Gen 2","Gen 3","Gen 4","Gen 5","Gen 6","Gen 7
 // Each entry is one recorded snapshot: { stars, level, widget, heroAtk, ... }
 // More snapshots can be added per hero as data is collected over time.
 const HERO_BASE_STATS = {
-  "Jeronimo":   {stars:5,   level:80, widget:10, heroAtk:2559,  heroDef:2782,  heroHp:50061,  escorts:10, troopCap:13470, escortHp:1687,  escortDef:927,  escortAtk:851,  infAtk:2.602,  infDef:2.602,  infLeth:0.625, infHp:0.625},
-  "Natalia":    {stars:5,   level:80, widget:6,  heroAtk:2100,  heroDef:2517,  heroHp:41085,  escorts:10, troopCap:13470, escortHp:13695, escortDef:839,  escortAtk:698,  infAtk:2.0016, infDef:2.0016, infLeth:0.333, infHp:0.333},
-  "Flint":      {stars:5,   level:80, widget:10, heroAtk:2457,  heroDef:3204,  heroHp:48060,  escorts:10, troopCap:13470, escortHp:16020, escortDef:1068, escortAtk:818,  infAtk:2.4019, infDef:2.4019, infLeth:0.6,   infHp:0.6},
-  "Logan":      {stars:4.3, level:80, widget:2,  heroAtk:2289,  heroDef:2986,  heroHp:44802,  escorts:10, troopCap:13470, escortHp:14934, escortDef:995,  escortAtk:762,  infAtk:2.4048, infDef:2.4048, infLeth:0.14,  infHp:0.14},
-  "Ahmose":     {stars:4.5, level:80, widget:4,  heroAtk:3190,  heroDef:4161,  heroHp:62436,  escorts:10, troopCap:13470, escortHp:20812, escortDef:1386, escortAtk:1060, infAtk:3.4023, infDef:3.4023, infLeth:0.37,  infHp:0.37},
-  "Hector":     {stars:5,   level:80, widget:10, heroAtk:4545,  heroDef:5927,  heroHp:88911,  escorts:10, troopCap:13470, escortHp:29367, escortDef:1975, escortAtk:1513, infAtk:4.4435, infDef:4.4435, infLeth:1.11,  infHp:1.11},
-  "Wu Ming":    {stars:3,   level:80, widget:1,  heroAtk:2628,  heroDef:3427,  heroHp:51423,  escorts:10, troopCap:13470, escortHp:17141, escortDef:1142, escortAtk:873,  infAtk:2.5628, infDef:2.5628, infLeth:0.1335,infHp:0.1335},
-  "Sergey":     {stars:5,   level:80, widget:0,  heroAtk:1361,  heroDef:2220,  heroHp:26640,  escorts:10, troopCap:13470, escortHp:8880,  escortDef:740,  escortAtk:453,  infAtk:1.4011, infDef:1.4011, infLeth:0,     infHp:0},
-  "Eugene":     {stars:5,   level:80, widget:0,  heroAtk:1106,  heroDef:2220,  heroHp:21644,  escorts:10, troopCap:13470, escortHp:7215,  escortDef:740,  escortAtk:368,  infAtk:0.9007, infDef:0.9007, infLeth:0,     infHp:0},
-  "Smith":      {stars:5,   level:80, widget:0,  heroAtk:1106,  heroDef:2220,  heroHp:21644,  escorts:10, troopCap:13470, escortHp:7215,  escortDef:740,  escortAtk:368,  infAtk:0.9007, infDef:0.9007, infLeth:0,     infHp:0},
-  "Molly":      {stars:5,   level:80, widget:10, heroAtk:2670,  heroDef:2670,  heroHp:26700,  escorts:10, troopCap:13470, escortHp:8900,  escortDef:890,  escortAtk:890,  infAtk:2.0016, infDef:2.0016, infLeth:0.5,   infHp:0.5},
-  "Philly":     {stars:5,   level:80, widget:6,  heroAtk:2988,  heroDef:2544,  heroHp:29880,  escorts:10, troopCap:13470, escortHp:9960,  escortDef:848,  escortAtk:996,  infAtk:2.4019, infDef:2.4019, infLeth:0.36,  infHp:0.36},
-  "Mia":        {stars:5,   level:80, widget:10, heroAtk:3960,  heroDef:3960,  heroHp:39600,  escorts:10, troopCap:13470, escortHp:13200, escortDef:1320, escortAtk:1320, infAtk:2.9023, infDef:2.9023, infLeth:0.7,   infHp:0.7},
-  "Reina":      {stars:5,   level:80, widget:10, heroAtk:4938,  heroDef:4938,  heroHp:49395,  escorts:10, troopCap:13470, escortHp:16465, escortDef:1646, escortAtk:1646, infAtk:3.7029, infDef:3.7029, infLeth:0.925, infHp:0.925},
-  "Norah":      {stars:5,   level:80, widget:9,  heroAtk:7199,  heroDef:5927,  heroHp:44454,  escorts:10, troopCap:13470, escortHp:14818, escortDef:1975, escortAtk:2397, infAtk:4.4435, infDef:4.4435, infLeth:1.11,  infHp:1.11},
-  "Renee":      {stars:4.1, level:80, widget:2,  heroAtk:4869,  heroDef:4869,  heroHp:48700,  escorts:10, troopCap:13470, escortHp:16232, escortDef:1622, escortAtk:1622, infAtk:3.9903, infDef:3.9903, infLeth:0.267, infHp:0.267},
-  "Jessie":     {stars:5,   level:80, widget:0,  heroAtk:1776,  heroDef:2220,  heroHp:17760,  escorts:10, troopCap:13470, escortHp:5920,  escortDef:740,  escortAtk:592,  infAtk:1.4011, infDef:1.4011, infLeth:0,     infHp:0},
-  "Ling Xue":   {stars:5,   level:80, widget:0,  heroAtk:1776,  heroDef:2220,  heroHp:17760,  escorts:10, troopCap:13470, escortHp:5920,  escortDef:740,  escortAtk:592,  infAtk:1.4011, infDef:1.4011, infLeth:0,     infHp:0},
-  "Patrick":    {stars:5,   level:80, widget:0,  heroAtk:1776,  heroDef:2220,  heroHp:17760,  escorts:10, troopCap:13470, escortHp:5920,  escortDef:740,  escortAtk:592,  infAtk:1.4011, infDef:1.4011, infLeth:0,     infHp:0},
-  "Walis Bokan":{stars:4.5, level:80, widget:0,  heroAtk:1651,  heroDef:2064,  heroHp:16512,  escorts:10, troopCap:13470, escortHp:5504,  escortDef:688,  escortAtk:550,  infAtk:1.2873, infDef:1.2873, infLeth:0,     infHp:0},
-  "Charlie":    {stars:5,   level:80, widget:0,  heroAtk:1106,  heroDef:2220,  heroHp:21644,  escorts:10, troopCap:13470, escortHp:7215,  escortDef:740,  escortAtk:368,  infAtk:0.9007, infDef:0.9007, infLeth:0,     infHp:0},
-  "Zinman":     {stars:5,   level:80, widget:8,  heroAtk:3127,  heroDef:2574,  heroHp:19305,  escorts:10, troopCap:13470, escortHp:6432,  escortDef:858,  escortAtk:1041, infAtk:2.0016, infDef:2.0016, infLeth:0.4,   infHp:0.4},
-  "Alonso":     {stars:5,   level:80, widget:10, heroAtk:3890,  heroDef:2760,  heroHp:24030,  escorts:10, troopCap:13470, escortHp:8010,  escortDef:920,  escortAtk:1295, infAtk:2.4019, infDef:2.4019, infLeth:0.6,   infHp:0.6},
-  "Greg":       {stars:5,   level:80, widget:9,  heroAtk:4718,  heroDef:3884,  heroHp:29132,  escorts:10, troopCap:13470, escortHp:9711,  escortDef:1294, escortAtk:1571, infAtk:2.9023, infDef:2.9023, infLeth:0.63,  infHp:0.63},
-  "Lynn":       {stars:5,   level:80, widget:4,  heroAtk:5407,  heroDef:4450,  heroHp:33382,  escorts:10, troopCap:13470, escortHp:11127, escortDef:1483, escortAtk:1799, infAtk:3.7029, infDef:3.7029, infLeth:0.37,  infHp:0.37},
-  "Gwen":       {stars:5,   level:80, widget:10, heroAtk:7199,  heroDef:5927,  heroHp:44454,  escorts:10, troopCap:13470, escortHp:14818, escortDef:1975, escortAtk:2397, infAtk:4.4435, infDef:4.4435, infLeth:1.11,  infHp:1.11},
-  "Wayne":      {stars:4.3, level:80, widget:3,  heroAtk:6612,  heroDef:5445,  heroHp:40849,  escorts:10, troopCap:13470, escortHp:13616, escortDef:1815, escortAtk:2201, infAtk:4.4779, infDef:4.4779, infLeth:0.4005,infHp:0.4005},
-  "Bahiti":     {stars:5,   level:80, widget:0,  heroAtk:2157,  heroDef:2220,  heroHp:13320,  escorts:10, troopCap:13470, escortHp:4440,  escortDef:740,  escortAtk:718,  infAtk:1.4011, infDef:1.4011, infLeth:0,     infHp:0},
-  "Jasser":     {stars:5,   level:80, widget:0,  heroAtk:2157,  heroDef:2220,  heroHp:13320,  escorts:10, troopCap:13470, escortHp:4440,  escortDef:740,  escortAtk:718,  infAtk:1.4011, infDef:1.4011, infLeth:0,     infHp:0},
-  "Seo-yoon":   {stars:4.3, level:80, widget:0,  heroAtk:1842,  heroDef:1896,  heroHp:11376,  escorts:10, troopCap:13470, escortHp:3792,  escortDef:632,  escortAtk:613,  infAtk:1.1609, infDef:1.1609, infLeth:0,     infHp:0},
-  "Gina":       {stars:5,   level:80, widget:0,  heroAtk:2157,  heroDef:2220,  heroHp:13320,  escorts:10, troopCap:13470, escortHp:4440,  escortDef:740,  escortAtk:718,  infAtk:1.1008, infDef:1.1008, infLeth:0,     infHp:0},
-  "Cloris":     {stars:5,   level:80, widget:0,  heroAtk:1106,  heroDef:2220,  heroHp:21644,  escorts:10, troopCap:13470, escortHp:7215,  escortDef:740,  escortAtk:368,  infAtk:0.9007, infDef:0.9007, infLeth:0,     infHp:0},
+  "Jeronimo":   {stars:5,   level:80, widget:10, levelPower:233250,  starPower:864750,  skillPower:101520, gearStrength:281250, heroAtk:2559,  heroDef:2782,  heroHp:50061,  escorts:10, troopCap:13470, escortHp:1687,  escortDef:927,  escortAtk:851,  infAtk:2.602,  infDef:2.602,  infLeth:0.625, infHp:0.625},
+  "Natalia":    {stars:5,   level:80, widget:6,  levelPower:205260,  starPower:760980,  skillPower:101520, gearStrength:148500, heroAtk:2100,  heroDef:2517,  heroHp:41085,  escorts:10, troopCap:13470, escortHp:13695, escortDef:839,  escortAtk:698,  infAtk:2.0016, infDef:2.0016, infLeth:0.333, infHp:0.333},
+  "Flint":      {stars:5,   level:80, widget:10, levelPower:223920,  starPower:830160,  skillPower:101520, gearStrength:270000, heroAtk:2457,  heroDef:3204,  heroHp:48060,  escorts:10, troopCap:13470, escortHp:16020, escortDef:1068, escortAtk:818,  infAtk:2.4019, infDef:2.4019, infLeth:0.6,   infHp:0.6},
+  "Logan":      {stars:4.3, level:80, widget:2,  levelPower:279900,  starPower:769650,  skillPower:101520, gearStrength:71400,  heroAtk:2289,  heroDef:2986,  heroHp:44802,  escorts:10, troopCap:13470, escortHp:14934, escortDef:995,  escortAtk:762,  infAtk:2.4048, infDef:2.4048, infLeth:0.14,  infHp:0.14},
+  "Ahmose":     {stars:4.5, level:80, widget:4,  levelPower:345210,  starPower:1129240, skillPower:101520, gearStrength:172050, heroAtk:3190,  heroDef:4161,  heroHp:62436,  escorts:10, troopCap:13470, escortHp:20812, escortDef:1386, escortAtk:1060, infAtk:3.4023, infDef:3.4023, infLeth:0.37,  infHp:0.37},
+  "Hector":     {stars:5,   level:80, widget:10, levelPower:414252,  starPower:1535796, skillPower:101520, gearStrength:499500, heroAtk:4545,  heroDef:5927,  heroHp:88911,  escorts:10, troopCap:13470, escortHp:29367, escortDef:1975, escortAtk:1513, infAtk:4.4435, infDef:4.4435, infLeth:1.11,  infHp:1.11},
+  "Wu Ming":    {stars:3,   level:80, widget:1,  levelPower:498222,  starPower:540942,  skillPower:64260,  gearStrength:80100,  heroAtk:2628,  heroDef:3427,  heroHp:51423,  escorts:10, troopCap:13470, escortHp:17141, escortDef:1142, escortAtk:873,  infAtk:2.5628, infDef:2.5628, infLeth:0.1335,infHp:0.1335},
+  "Sergey":     {stars:5,   level:80, widget:0,  levelPower:149280,  starPower:553440,  skillPower:67680,  gearStrength:null,   heroAtk:1361,  heroDef:2220,  heroHp:26640,  escorts:10, troopCap:13470, escortHp:8880,  escortDef:740,  escortAtk:453,  infAtk:1.4011, infDef:1.4011, infLeth:0,     infHp:0},
+  "Eugene":     {stars:5,   level:80, widget:0,  levelPower:121290,  starPower:449670,  skillPower:40608,  gearStrength:null,   heroAtk:1106,  heroDef:2220,  heroHp:21644,  escorts:10, troopCap:13470, escortHp:7215,  escortDef:740,  escortAtk:368,  infAtk:0.9007, infDef:0.9007, infLeth:0,     infHp:0},
+  "Smith":      {stars:5,   level:80, widget:0,  levelPower:121290,  starPower:449670,  skillPower:40608,  gearStrength:null,   heroAtk:1106,  heroDef:2220,  heroHp:21644,  escorts:10, troopCap:13470, escortHp:7215,  escortDef:740,  escortAtk:368,  infAtk:0.9007, infDef:0.9007, infLeth:0,     infHp:0},
+  "Molly":      {stars:5,   level:80, widget:10, levelPower:186600,  starPower:691800,  skillPower:101520, gearStrength:225000, heroAtk:2670,  heroDef:2670,  heroHp:26700,  escorts:10, troopCap:13470, escortHp:8900,  escortDef:890,  escortAtk:890,  infAtk:2.0016, infDef:2.0016, infLeth:0.5,   infHp:0.5},
+  "Philly":     {stars:5,   level:80, widget:6,  levelPower:223920,  starPower:830160,  skillPower:101520, gearStrength:162000, heroAtk:2988,  heroDef:2544,  heroHp:29880,  escorts:10, troopCap:13470, escortHp:9960,  escortDef:848,  escortAtk:996,  infAtk:2.4019, infDef:2.4019, infLeth:0.36,  infHp:0.36},
+  "Mia":        {stars:5,   level:80, widget:10, levelPower:279900,  starPower:1037700, skillPower:101520, gearStrength:315000, heroAtk:3960,  heroDef:3960,  heroHp:39600,  escorts:10, troopCap:13470, escortHp:13200, escortDef:1320, escortAtk:1320, infAtk:2.9023, infDef:2.9023, infLeth:0.7,   infHp:0.7},
+  "Reina":      {stars:5,   level:80, widget:10, levelPower:345210,  starPower:1279830, skillPower:101520, gearStrength:416250, heroAtk:4938,  heroDef:4938,  heroHp:49395,  escorts:10, troopCap:13470, escortHp:16465, escortDef:1646, escortAtk:1646, infAtk:3.7029, infDef:3.7029, infLeth:0.925, infHp:0.925},
+  "Norah":      {stars:5,   level:80, widget:9,  levelPower:414252,  starPower:1535796, skillPower:101520, gearStrength:499500, heroAtk:7199,  heroDef:5927,  heroHp:44454,  escorts:10, troopCap:13470, escortHp:14818, escortDef:1975, escortAtk:2397, infAtk:4.4435, infDef:4.4435, infLeth:1.11,  infHp:1.11},
+  "Renee":      {stars:4.1, level:80, widget:2,  levelPower:498222,  starPower:1129143, skillPower:101520, gearStrength:136170, heroAtk:4869,  heroDef:4869,  heroHp:48700,  escorts:10, troopCap:13470, escortHp:16232, escortDef:1622, escortAtk:1622, infAtk:3.9903, infDef:3.9903, infLeth:0.267, infHp:0.267},
+  "Jessie":     {stars:5,   level:80, widget:0,  levelPower:149280,  starPower:553440,  skillPower:67680,  gearStrength:null,   heroAtk:1776,  heroDef:2220,  heroHp:17760,  escorts:10, troopCap:13470, escortHp:5920,  escortDef:740,  escortAtk:592,  infAtk:1.4011, infDef:1.4011, infLeth:0,     infHp:0},
+  "Ling Xue":   {stars:5,   level:80, widget:0,  levelPower:149280,  starPower:553440,  skillPower:67680,  gearStrength:null,   heroAtk:1776,  heroDef:2220,  heroHp:17760,  escorts:10, troopCap:13470, escortHp:5920,  escortDef:740,  escortAtk:592,  infAtk:1.4011, infDef:1.4011, infLeth:0,     infHp:0},
+  "Patrick":    {stars:5,   level:80, widget:0,  levelPower:149280,  starPower:553440,  skillPower:67680,  gearStrength:null,   heroAtk:1776,  heroDef:2220,  heroHp:17760,  escorts:10, troopCap:13470, escortHp:5920,  escortDef:740,  escortAtk:592,  infAtk:1.4011, infDef:1.4011, infLeth:0,     infHp:0},
+  "Walis Bokan":{stars:4.5, level:80, widget:0,  levelPower:149280,  starPower:488320,  skillPower:67680,  gearStrength:null,   heroAtk:1651,  heroDef:2064,  heroHp:16512,  escorts:10, troopCap:13470, escortHp:5504,  escortDef:688,  escortAtk:550,  infAtk:1.2873, infDef:1.2873, infLeth:0,     infHp:0},
+  "Charlie":    {stars:5,   level:80, widget:0,  levelPower:121290,  starPower:449670,  skillPower:40608,  gearStrength:null,   heroAtk:1106,  heroDef:2220,  heroHp:21644,  escorts:10, troopCap:13470, escortHp:7215,  escortDef:740,  escortAtk:368,  infAtk:0.9007, infDef:0.9007, infLeth:0,     infHp:0},
+  "Zinman":     {stars:5,   level:80, widget:8,  levelPower:186600,  starPower:691800,  skillPower:101520, gearStrength:177000, heroAtk:3127,  heroDef:2574,  heroHp:19305,  escorts:10, troopCap:13470, escortHp:6432,  escortDef:858,  escortAtk:1041, infAtk:2.0016, infDef:2.0016, infLeth:0.4,   infHp:0.4},
+  "Alonso":     {stars:5,   level:80, widget:10, levelPower:223920,  starPower:830160,  skillPower:101520, gearStrength:270000, heroAtk:3890,  heroDef:2760,  heroHp:24030,  escorts:10, troopCap:13470, escortHp:8010,  escortDef:920,  escortAtk:1295, infAtk:2.4019, infDef:2.4019, infLeth:0.6,   infHp:0.6},
+  "Greg":       {stars:5,   level:80, widget:9,  levelPower:279900,  starPower:1037700, skillPower:101520, gearStrength:277200, heroAtk:4718,  heroDef:3884,  heroHp:29132,  escorts:10, troopCap:13470, escortHp:9711,  escortDef:1294, escortAtk:1571, infAtk:2.9023, infDef:2.9023, infLeth:0.63,  infHp:0.63},
+  "Lynn":       {stars:5,   level:80, widget:4,  levelPower:345210,  starPower:1279830, skillPower:101520, gearStrength:172050, heroAtk:5407,  heroDef:4450,  heroHp:33382,  escorts:10, troopCap:13470, escortHp:11127, escortDef:1483, escortAtk:1799, infAtk:3.7029, infDef:3.7029, infLeth:0.37,  infHp:0.37},
+  "Gwen":       {stars:5,   level:80, widget:10, levelPower:414252,  starPower:1535796, skillPower:101520, gearStrength:499500, heroAtk:7199,  heroDef:5927,  heroHp:44454,  escorts:10, troopCap:13470, escortHp:14818, escortDef:1975, escortAtk:2397, infAtk:4.4435, infDef:4.4435, infLeth:1.11,  infHp:1.11},
+  "Wayne":      {stars:4.3, level:80, widget:3,  levelPower:498222,  starPower:1369977, skillPower:101520, gearStrength:192240, heroAtk:6612,  heroDef:5445,  heroHp:40849,  escorts:10, troopCap:13470, escortHp:13616, escortDef:1815, escortAtk:2201, infAtk:4.4779, infDef:4.4779, infLeth:0.4005,infHp:0.4005},
+  "Bahiti":     {stars:5,   level:80, widget:0,  levelPower:149280,  starPower:553440,  skillPower:67680,  gearStrength:null,   heroAtk:2157,  heroDef:2220,  heroHp:13320,  escorts:10, troopCap:13470, escortHp:4440,  escortDef:740,  escortAtk:718,  infAtk:1.4011, infDef:1.4011, infLeth:0,     infHp:0},
+  "Jasser":     {stars:5,   level:80, widget:0,  levelPower:149280,  starPower:553440,  skillPower:67680,  gearStrength:null,   heroAtk:2157,  heroDef:2220,  heroHp:13320,  escorts:10, troopCap:13470, escortHp:4440,  escortDef:740,  escortAtk:718,  infAtk:1.4011, infDef:1.4011, infLeth:0,     infHp:0},
+  "Seo-yoon":   {stars:4.3, level:80, widget:0,  levelPower:149280,  starPower:410480,  skillPower:67680,  gearStrength:null,   heroAtk:1842,  heroDef:1896,  heroHp:11376,  escorts:10, troopCap:13470, escortHp:3792,  escortDef:632,  escortAtk:613,  infAtk:1.1609, infDef:1.1609, infLeth:0,     infHp:0},
+  "Gina":       {stars:5,   level:80, widget:0,  levelPower:149280,  starPower:553440,  skillPower:67680,  gearStrength:null,   heroAtk:2157,  heroDef:2220,  heroHp:13320,  escorts:10, troopCap:13470, escortHp:4440,  escortDef:740,  escortAtk:718,  infAtk:1.1008, infDef:1.1008, infLeth:0,     infHp:0},
+  "Cloris":     {stars:5,   level:80, widget:0,  levelPower:121290,  starPower:449670,  skillPower:40608,  gearStrength:null,   heroAtk:1106,  heroDef:2220,  heroHp:21644,  escorts:10, troopCap:13470, escortHp:7215,  escortDef:740,  escortAtk:368,  infAtk:0.9007, infDef:0.9007, infLeth:0,     infHp:0},
 };
 const QUALITY_ORDER = ["R","SR","SSR"]; // ascending
 
@@ -380,7 +414,9 @@ function defaultHeroStats() {
     level: 0, stars: 0, widget: 0,
     expS1: 0, expS2: 0, expS3: 0,
     expdS1: 0, expdS2: 0, expdS3: 0,
-    // Exploration base stats
+    // Power details
+    totalPower: 0, levelPower: 0, starPower: 0, skillPower: 0, gearStrength: 0,
+    // Exploration base stats (escorts & troopCap moved to power details display)
     heroAtk: 0, heroDef: 0, heroHp: 0,
     escorts: 0, troopCap: 0,
     escortHp: 0, escortDef: 0, escortAtk: 0,
@@ -490,11 +526,331 @@ function defaultHeroState(type) {
   };
 }
 
-// ─── HeroesPage ───────────────────────────────────────────────────────────────
-
 // ─── Hero Profile Modal ───────────────────────────────────────────────────────
 
-function HeroProfileModal({ hero, stats, onUpdate, onClose }) {
+function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeCharacter }) {
+  const C = COLORS;
+  const [showSubmit, setShowSubmit] = useState(false);
+  const [submitDone, setSubmitDone] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitForm, setSubmitForm] = useState({
+    heroAtk:"", heroDef:"", heroHp:"", escortHp:"", escortDef:"", escortAtk:"",
+    escorts:"", troopCap:"",
+    infAtk:"", infDef:"", infLeth:"", infHp:"",
+    totalPower:"", levelPower:"", starPower:"", skillPower:"", gearStrength:"",
+  });
+
+  if (!hero) return null;
+
+  const local   = { ...defaultHeroStats(), ...stats };
+  const set     = (field, val) => onUpdate(hero.name, field, val);
+  const isSSR   = hero.quality === "SSR";
+  const ref     = HERO_BASE_STATS[hero.name];
+
+  const qualityColor = q => q === "SSR" ? C.accent : q === "SR" ? C.blue : C.textSec;
+  const typeColor    = t => t === "Infantry" ? C.green : t === "Lancer" ? C.blue : C.amber;
+
+  const sel = {
+    background: C.card, border: `1px solid ${C.border}`, borderRadius: 5,
+    color: C.textPri, fontSize: 12, padding: "4px 8px",
+    fontFamily: "'Space Mono',monospace", outline: "none", cursor: "pointer",
+  };
+
+  const skillOpts  = Array.from({length:6},  (_,i) => i);
+  const levelOpts  = Array.from({length:81}, (_,i) => i);
+  const widgetOpts = Array.from({length:11}, (_,i) => i);
+
+  const sectionHead = (title) => (
+    <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase",
+      color:C.textDim,fontFamily:"'Space Mono',monospace",marginBottom:10,
+      paddingBottom:6,borderBottom:`1px solid ${C.border}`}}>{title}</div>
+  );
+
+  const StatRow = ({ label, val, isPercent }) => (
+    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",
+      padding:"5px 0",borderBottom:`1px solid ${C.border}`,fontSize:12}}>
+      <span style={{color:C.textSec}}>{label}</span>
+      <span style={{fontFamily:"'Space Mono',monospace",fontWeight:700,color:C.textPri}}>
+        {val == null || val === 0 ? <span style={{color:C.textDim}}>—</span>
+          : isPercent ? `${val}%` : Number(val).toLocaleString()}
+      </span>
+    </div>
+  );
+
+  const DataUnavailable = () => (
+    <div style={{padding:"12px 14px",background:C.amberBg,border:`1px solid ${C.amber}40`,
+      borderRadius:8,marginBottom:16,display:"flex",alignItems:"flex-start",gap:10}}>
+      <span style={{fontSize:16,flexShrink:0}}>⚠️</span>
+      <div>
+        <div style={{fontSize:12,fontWeight:700,color:C.amber,marginBottom:4}}>Data unavailable</div>
+        <div style={{fontSize:11,color:C.textSec,lineHeight:1.5}}>
+          Stats for this hero at their current level/stars/widget haven't been compiled yet.
+          Help the community by submitting your in-game stats!
+        </div>
+        <button onClick={() => setShowSubmit(true)}
+          style={{marginTop:8,padding:"5px 12px",borderRadius:6,fontSize:11,fontWeight:700,
+            cursor:"pointer",fontFamily:"Syne,sans-serif",border:`1px solid ${C.amber}`,
+            background:"transparent",color:C.amber}}>
+          📤 Submit My Stats
+        </button>
+      </div>
+    </div>
+  );
+
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    const statsPayload = {};
+    Object.entries(submitForm).forEach(([k,v]) => { if (v !== "") statsPayload[k] = parseFloat(v) || 0; });
+    const ok = await submitHeroStats({
+      hero_name:      hero.name,
+      submitted_by:   currentUser?.id || null,
+      character_name: activeCharacter?.name || null,
+      stars:          local.stars,
+      level:          local.level,
+      widget:         local.widget,
+      stats:          statsPayload,
+    });
+    setSubmitting(false);
+    if (ok) { setSubmitDone(true); setShowSubmit(false); }
+  };
+
+  const NumField = ({ label, field }) => (
+    <div>
+      <div style={{fontSize:11,color:C.textSec,marginBottom:3}}>{label}</div>
+      <input type="number" min={0} step="any"
+        value={submitForm[field]}
+        onChange={e => setSubmitForm(p => ({...p,[field]:e.target.value}))}
+        style={{...sel,width:"100%",padding:"5px 8px",textAlign:"right"}} />
+    </div>
+  );
+
+  return createPortal(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",zIndex:9999,
+      display:"flex",alignItems:"center",justifyContent:"center",padding:20}}
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{background:"var(--c-card)",border:"1px solid var(--c-borderHi)",
+        borderRadius:14,width:"100%",maxWidth:580,maxHeight:"92vh",overflowY:"auto",
+        boxShadow:"0 24px 80px rgba(0,0,0,0.6)"}}>
+
+        {/* Header */}
+        <div style={{padding:"20px 24px 16px",borderBottom:`1px solid ${C.border}`,
+          display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,background:"var(--c-card)",zIndex:1}}>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <div style={{width:40,height:40,borderRadius:"50%",background:C.accentBg,
+              border:`2px solid ${C.accentDim}`,display:"flex",alignItems:"center",
+              justifyContent:"center",fontSize:14,fontWeight:800,color:C.accent}}>
+              {hero.name[0]}
+            </div>
+            <div>
+              <div style={{fontSize:16,fontWeight:800,color:C.textPri}}>{hero.name}</div>
+              <div style={{display:"flex",gap:8,marginTop:2}}>
+                <span style={{fontSize:11,fontWeight:700,color:typeColor(hero.type)}}>{hero.type}</span>
+                <span style={{fontSize:11,color:C.textDim}}>·</span>
+                <span style={{fontSize:11,color:C.textDim,fontFamily:"'Space Mono',monospace"}}>{hero.gen}</span>
+                <span style={{fontSize:11,color:C.textDim}}>·</span>
+                <span style={{fontSize:11,fontWeight:700,color:qualityColor(hero.quality)}}>{hero.quality}</span>
+              </div>
+            </div>
+          </div>
+          <button onClick={onClose} style={{background:"none",border:"none",color:C.textDim,cursor:"pointer",fontSize:18,lineHeight:1,padding:4}}>✕</button>
+        </div>
+
+        <div style={{padding:"20px 24px"}}>
+
+          {/* Core stats row */}
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:20}}>
+            <div>
+              <div style={{fontSize:11,color:C.textSec,marginBottom:4}}>Level</div>
+              <select value={local.level} onChange={e => set("level", Number(e.target.value))} style={{...sel,width:"100%"}}>
+                {levelOpts.map(v => <option key={v} value={v}>{v}</option>)}
+              </select>
+            </div>
+            <div>
+              <div style={{fontSize:11,color:C.textSec,marginBottom:4}}>Stars</div>
+              <select value={local.stars} onChange={e => set("stars", parseFloat(e.target.value))} style={{...sel,width:"100%"}}>
+                {STAR_OPTS.map(v => <option key={v} value={v}>{"★".repeat(Math.floor(v))}{v % 1 > 0 ? `+${Math.round((v%1)*10)}/5` : ""} ({v})</option>)}
+              </select>
+            </div>
+            <div>
+              <div style={{fontSize:11,color:C.textSec,marginBottom:4}}>Widget</div>
+              <select value={local.widget} onChange={e => set("widget", Number(e.target.value))} style={{...sel,width:"100%"}}>
+                {widgetOpts.map(v => <option key={v} value={v}>{v}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Skills */}
+          <div style={{marginBottom:20}}>
+            {sectionHead("Skills")}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+              <div>
+                <div style={{fontSize:11,fontWeight:600,color:C.textSec,marginBottom:8}}>Exploration</div>
+                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                  {[["S1","expS1"],["S2","expS2"],["S3","expS3"]].map(([label,field]) => (
+                    <div key={field} style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                      <span style={{fontSize:12,color:C.textSec}}>{label}</span>
+                      <select value={local[field]} onChange={e => set(field, Number(e.target.value))} style={sel}>
+                        {skillOpts.map(v => <option key={v} value={v}>{v}</option>)}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div style={{fontSize:11,fontWeight:600,color:C.textSec,marginBottom:8}}>Expedition</div>
+                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                  {[["S1","expdS1"],["S2","expdS2"],["S3","expdS3"]].map(([label,field]) => (
+                    <div key={field} style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                      <span style={{fontSize:12,color:C.textSec}}>{label}</span>
+                      <select value={local[field]} onChange={e => set(field, Number(e.target.value))} style={sel}>
+                        {skillOpts.map(v => <option key={v} value={v}>{v}</option>)}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Power Details */}
+          <div style={{marginBottom:20}}>
+            {sectionHead("Power Details")}
+            {!ref ? <DataUnavailable /> : (
+              <>
+                <StatRow label="Total Power" val={(ref.levelPower||0)+(ref.starPower||0)+(ref.skillPower||0)+(isSSR?(ref.gearStrength||0):0)} isPercent={false} />
+                <StatRow label="Level Power"  val={ref.levelPower}  isPercent={false} />
+                <StatRow label="Star Power"   val={ref.starPower}   isPercent={false} />
+                <StatRow label="Skill Power"  val={ref.skillPower}  isPercent={false} />
+                {isSSR && <StatRow label="Gear Strength" val={ref.gearStrength} isPercent={false} />}
+                <div style={{marginTop:10}}>
+                  <StatRow label="Escorts"        val={ref.escorts}  isPercent={false} />
+                  <StatRow label="Troop Capacity" val={ref.troopCap} isPercent={false} />
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Exploration Base Stats */}
+          <div style={{marginBottom:20}}>
+            {sectionHead("Exploration Base Stats")}
+            {!ref ? <DataUnavailable /> : (
+              <>
+                <StatRow label="Hero Attack"   val={ref.heroAtk}   isPercent={false} />
+                <StatRow label="Hero Defense"  val={ref.heroDef}   isPercent={false} />
+                <StatRow label="Hero Health"   val={ref.heroHp}    isPercent={false} />
+                <StatRow label="Escort Health" val={ref.escortHp}  isPercent={false} />
+                <StatRow label="Escort Defense"val={ref.escortDef} isPercent={false} />
+                <StatRow label="Escort Attack" val={ref.escortAtk} isPercent={false} />
+              </>
+            )}
+          </div>
+
+          {/* Expedition Base Stats */}
+          <div style={{marginBottom:20}}>
+            {sectionHead("Expedition Base Stats")}
+            {!ref ? <DataUnavailable /> : (
+              <>
+                <StatRow label="Infantry Attack"    val={ref.infAtk}  isPercent={true} />
+                <StatRow label="Infantry Defense"   val={ref.infDef}  isPercent={true} />
+                <StatRow label="Infantry Lethality" val={ref.infLeth} isPercent={true} />
+                <StatRow label="Infantry Health"    val={ref.infHp}   isPercent={true} />
+              </>
+            )}
+          </div>
+
+          {/* Snapshot tag if data exists */}
+          {ref && (
+            <div style={{marginBottom:16,padding:"8px 12px",background:C.accentBg,
+              border:`1px solid ${C.accentDim}`,borderRadius:7,fontSize:11,
+              color:C.accent,fontFamily:"'Space Mono',monospace",display:"flex",
+              alignItems:"center",gap:10,flexWrap:"wrap"}}>
+              <span>📊 Reference snapshot</span>
+              <span style={{color:C.textDim}}>·</span>
+              <span>Stars: {ref.stars}</span>
+              <span style={{color:C.textDim}}>·</span>
+              <span>Level: {ref.level}</span>
+              <span style={{color:C.textDim}}>·</span>
+              <span>Widget: {ref.widget}</span>
+              <span style={{color:C.textDim,marginLeft:"auto",fontSize:10}}>
+                Stats recorded at this snapshot. Submit new data as your hero grows.
+              </span>
+            </div>
+          )}
+
+          {/* Submit success */}
+          {submitDone && (
+            <div style={{padding:"10px 14px",background:C.greenBg,border:`1px solid ${C.greenDim}`,
+              borderRadius:8,fontSize:12,color:C.green,marginBottom:12}}>
+              ✓ Stats submitted! They'll appear after admin review.
+            </div>
+          )}
+
+          {/* Submit button (when no data or user wants to update) */}
+          {!showSubmit && currentUser && (
+            <button onClick={() => setShowSubmit(true)}
+              style={{fontSize:11,color:C.blue,cursor:"pointer",padding:"5px 12px",borderRadius:6,
+                border:`1px solid ${C.blueDim}`,background:C.blueBg,fontFamily:"Syne,sans-serif",fontWeight:700}}>
+              📤 Submit {ref ? "Updated" : "Missing"} Stats
+            </button>
+          )}
+
+          {/* Submit form */}
+          {showSubmit && (
+            <div style={{marginTop:16,padding:"16px 18px",background:C.surface,
+              border:`1px solid ${C.border}`,borderRadius:10}}>
+              <div style={{fontSize:13,fontWeight:700,color:C.textPri,marginBottom:4}}>Submit Stats</div>
+              <div style={{fontSize:11,color:C.textSec,marginBottom:14}}>
+                Recording for: Level {local.level} · Stars {local.stars} · Widget {local.widget}
+              </div>
+              <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",
+                color:C.textDim,marginBottom:8,fontFamily:"'Space Mono',monospace"}}>Power Details</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
+                <NumField label="Level Power"  field="levelPower" />
+                <NumField label="Star Power"   field="starPower" />
+                <NumField label="Skill Power"  field="skillPower" />
+                {isSSR && <NumField label="Gear Strength" field="gearStrength" />}
+                <NumField label="Escorts"        field="escorts" />
+                <NumField label="Troop Capacity" field="troopCap" />
+              </div>
+              <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",
+                color:C.textDim,marginBottom:8,fontFamily:"'Space Mono',monospace"}}>Exploration</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
+                <NumField label="Hero Attack"    field="heroAtk" />
+                <NumField label="Hero Defense"   field="heroDef" />
+                <NumField label="Hero Health"    field="heroHp" />
+                <NumField label="Escort Health"  field="escortHp" />
+                <NumField label="Escort Defense" field="escortDef" />
+                <NumField label="Escort Attack"  field="escortAtk" />
+              </div>
+              <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",
+                color:C.textDim,marginBottom:8,fontFamily:"'Space Mono',monospace"}}>Expedition (%)</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:16}}>
+                <NumField label="Infantry Attack"    field="infAtk" />
+                <NumField label="Infantry Defense"   field="infDef" />
+                <NumField label="Infantry Lethality" field="infLeth" />
+                <NumField label="Infantry Health"    field="infHp" />
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={handleSubmit} disabled={submitting}
+                  style={{padding:"8px 18px",borderRadius:7,fontSize:12,fontWeight:700,cursor:"pointer",
+                    fontFamily:"Syne,sans-serif",border:"none",background:C.blue,color:"#fff"}}>
+                  {submitting ? "Submitting…" : "Submit for Review"}
+                </button>
+                <button onClick={() => setShowSubmit(false)}
+                  style={{padding:"8px 14px",borderRadius:7,fontSize:12,fontWeight:700,cursor:"pointer",
+                    fontFamily:"Syne,sans-serif",background:"transparent",color:C.textSec,border:`1px solid ${C.border}`}}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
   const C = COLORS;
   if (!hero) return null;
 
@@ -700,7 +1056,109 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose }) {
   );
 }
 
-function HeroesPage({ genFilter, setGenFilter, heroStats, setHeroStats }) {
+// ─── Admin Page ──────────────────────────────────────────────────────────────
+
+function AdminPage() {
+  const C = COLORS;
+  const [submissions, setSubmissions] = useState([]);
+  const [loading,     setLoading]     = useState(true);
+  const [note,        setNote]        = useState({});
+  const [busy,        setBusy]        = useState({});
+
+  const load = async () => {
+    setLoading(true);
+    const data = await fetchSubmissions();
+    setSubmissions(data);
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handle = async (sub, action) => {
+    setBusy(p => ({...p,[sub.id]:true}));
+    if (action === "accept") await acceptSubmission(sub);
+    else await updateSubmission(sub.id, { status:"rejected", admin_note: note[sub.id]||"" });
+    setBusy(p => ({...p,[sub.id]:false}));
+    load();
+  };
+
+  const statKeys = ["levelPower","starPower","skillPower","gearStrength","escorts","troopCap",
+    "heroAtk","heroDef","heroHp","escortHp","escortDef","escortAtk",
+    "infAtk","infDef","infLeth","infHp"];
+
+  const statusColor = s => s==="accepted" ? C.green : s==="rejected" ? C.red : C.amber;
+
+  return (
+    <div className="fade-in" style={{maxWidth:900}}>
+      <div className="page-title">Admin <span style={{color:C.accent}}>Panel</span></div>
+      <div className="page-sub" style={{marginBottom:20}}>Hero stat submissions pending review</div>
+      {loading && <div style={{color:C.textDim,fontFamily:"Space Mono,monospace",fontSize:12}}>Loading…</div>}
+      {!loading && submissions.length === 0 && (
+        <div style={{padding:"24px",background:C.card,border:`1px solid ${C.border}`,borderRadius:10,
+          color:C.textDim,fontFamily:"Space Mono,monospace",fontSize:12,textAlign:"center"}}>
+          No submissions yet.
+        </div>
+      )}
+      {submissions.map(sub => {
+        const stats = sub.stats || {};
+        const isPending = sub.status === "pending";
+        return (
+          <div key={sub.id} style={{background:C.card,border:`1px solid ${isPending ? C.amber+"60" : C.border}`,
+            borderRadius:12,padding:"18px 20px",marginBottom:14}}>
+            <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",gap:10,marginBottom:12}}>
+              <div>
+                <div style={{fontSize:15,fontWeight:800,color:C.textPri}}>{sub.hero_name}</div>
+                <div style={{fontSize:11,color:C.textDim,fontFamily:"Space Mono,monospace",marginTop:3}}>
+                  Stars: {sub.stars} · Level: {sub.level} · Widget: {sub.widget}
+                  {" · "}By: {sub.character_name || "Unknown"}
+                  {" · "}{new Date(sub.submitted_at).toLocaleDateString()}
+                </div>
+              </div>
+              <span style={{fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:5,
+                background: sub.status==="accepted" ? C.greenBg : sub.status==="rejected" ? C.redBg : C.amberBg,
+                color: statusColor(sub.status), border:`1px solid ${statusColor(sub.status)}40`}}>
+                {sub.status.toUpperCase()}
+              </span>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:6,marginBottom:14}}>
+              {statKeys.filter(k => stats[k] != null).map(k => (
+                <div key={k} style={{background:C.surface,borderRadius:6,padding:"6px 10px",fontSize:11}}>
+                  <span style={{color:C.textDim,fontFamily:"Space Mono,monospace"}}>{k}</span>
+                  <span style={{color:C.textPri,fontWeight:700,fontFamily:"Space Mono,monospace",float:"right"}}>{stats[k]}</span>
+                </div>
+              ))}
+            </div>
+            {isPending && (
+              <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
+                <button onClick={() => handle(sub,"accept")} disabled={busy[sub.id]}
+                  style={{padding:"6px 14px",borderRadius:6,fontSize:11,fontWeight:700,cursor:"pointer",
+                    fontFamily:"Syne,sans-serif",border:"none",background:C.green,color:"#0a0c10"}}>
+                  ✓ Accept
+                </button>
+                <input placeholder="Rejection note (optional)" value={note[sub.id]||""}
+                  onChange={e => setNote(p=>({...p,[sub.id]:e.target.value}))}
+                  style={{flex:1,minWidth:160,background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,
+                    padding:"6px 10px",color:C.textPri,fontSize:11,outline:"none",fontFamily:"Space Mono,monospace"}} />
+                <button onClick={() => handle(sub,"reject")} disabled={busy[sub.id]}
+                  style={{padding:"6px 14px",borderRadius:6,fontSize:11,fontWeight:700,cursor:"pointer",
+                    fontFamily:"Syne,sans-serif",border:`1px solid ${C.redDim}`,background:C.redBg,color:C.red}}>
+                  ✕ Reject
+                </button>
+              </div>
+            )}
+            {!isPending && sub.admin_note && (
+              <div style={{fontSize:11,color:C.textDim,fontFamily:"Space Mono,monospace",marginTop:4}}>
+                Note: {sub.admin_note}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function HeroesPage({ genFilter, setGenFilter, heroStats, setHeroStats, currentUser, activeCharacter }) {
   const [sortBy,      setSortBy]      = useLocalStorage("heroes-sort",      "quality");
   const [favorites,   setFavorites]   = useLocalStorage("heroes-favorites", []);
   const [filterType,  setFilterType]  = useState("");
@@ -922,6 +1380,8 @@ function HeroesPage({ genFilter, setGenFilter, heroStats, setHeroStats }) {
           stats={heroStats[profileHero.name] || defaultHeroStats()}
           onUpdate={updateStat}
           onClose={() => setProfileHero(null)}
+          currentUser={currentUser}
+          activeCharacter={activeCharacter}
         />
       )}
 
@@ -2420,7 +2880,9 @@ const PAGE_TITLES = {
   experts:      { title: "Expert Planner", sub: "Skill levels, sigil costs, and per-day SVS contributions" },
   "war-academy":{ title: "War Academy", sub: "Infantry, Marksman & Lancer squad upgrade tracker" },
   "svs-calendar":{ title: "SvS Calendar", sub: "Rolling 28-week schedule — SvS every 4th week, King of Icefield every 2nd week" },
-  alliance:     { title: "Alliance Scores", sub: "SvS prep scores and historical results" },};
+  alliance:     { title: "Alliance Scores", sub: "SvS prep scores and historical results" },
+  admin:        { title: "Admin", sub: "Review and approve hero stat submissions" },
+};
 
 export default function App() {
   const { theme, setTheme, resetToSystem } = useTheme();
@@ -2729,6 +3191,19 @@ export default function App() {
                 ))}
               </div>
             )}
+            {/* Admin nav — only visible to admin UID */}
+            {user?.id === ADMIN_UID && (
+              <div>
+                <div className="nav-section">Admin</div>
+                <div
+                  className={clsx("nav-item", page === "admin" && "active")}
+                  onClick={() => { setPage("admin"); setSidebarOpen(false); }}
+                >
+                  <span className="nav-icon">⚙</span>
+                  Submissions
+                </div>
+              </div>
+            )}
           </nav>
 
           {/* Auth panel (sign-in form for guests) */}
@@ -2868,7 +3343,8 @@ export default function App() {
                 onSavePlan={user ? handleSavePlan : ()=>{}}
                 onLoadPlan={handleLoadPlan}
                 openSavePopup={user ? openSavePopup : null} />}
-            {page === "heroes"      && <HeroesPage    genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} />}
+            {page === "heroes"      && <HeroesPage    genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} currentUser={user} activeCharacter={activeCharacter} />}
+            {page === "admin"       && user?.id === ADMIN_UID && <AdminPage />}
             {page === "hero-gear"   && <HeroGearPage  inv={inv} genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} />}
             {page === "experts"      && <ExpertsPage      inv={inv} />}
             {page === "war-academy"  && <WarAcademyPage   inv={inv} />}
