@@ -4,7 +4,7 @@ import { supabase } from "./supabase.js";
 
 const ADMIN_UID = "c5c3392e-2399-4cc9-b2ab-f22a61e7b91c";
 
-// ─── Per-refine lookup table ───────────────────────────────────────────────────
+// ─── Per-refine lookup table (v66b) ───────────────────────────────────────────────────
 const REFINE_TABLE = [
   {n:1,  tier:"T1",fc:20,rfc:1},  {n:2,  tier:"T1",fc:20,rfc:1},  {n:3,  tier:"T1",fc:20,rfc:1},
   {n:4,  tier:"T1",fc:20,rfc:1},  {n:5,  tier:"T1",fc:20,rfc:1},  {n:6,  tier:"T1",fc:20,rfc:1},
