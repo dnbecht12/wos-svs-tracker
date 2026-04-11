@@ -906,114 +906,8 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
                 {daysToSVS} day{daysToSVS !== 1 ? "s" : ""}
               </span>
             </div>
-            <div style={{display:"flex",gap:8,alignItems:"flex-end",paddingBottom:2}}>
-              <button onClick={openUpdateModal}
-                style={{padding:"6px 12px",borderRadius:7,fontSize:11,fontWeight:700,cursor:"pointer",
-                  fontFamily:"Syne,sans-serif",border:`1px solid ${C.blueDim}`,
-                  background:C.blueBg,color:C.blue,transition:"all 0.15s"}}
-                title="Update plan with today's actual balances">
-                🔄 Update Plan
-              </button>
-            </div>
           </div>
         </div>
-
-        {/* Update Plan Modal */}
-        {showUpdateModal && (
-          <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.7)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-            <div style={{background:C.card,border:`1px solid ${C.borderHi}`,borderRadius:14,width:"100%",maxWidth:520,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 24px 80px rgba(0,0,0,0.6)"}}>
-              <div style={{padding:"20px 24px 16px",borderBottom:`1px solid ${C.border}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                <div style={{fontSize:15,fontWeight:800,color:C.textPri}}>Update Plan</div>
-                <button onClick={() => setShowUpdateModal(false)} style={{background:"none",border:"none",color:C.textDim,cursor:"pointer",fontSize:18}}>✕</button>
-              </div>
-              <div style={{padding:"20px 24px"}}>
-
-                {/* FC / RFC confirmation inputs */}
-                <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",color:C.textSec,fontFamily:"Space Mono,monospace",marginBottom:10}}>Confirm Current Inventory</div>
-                <p style={{fontSize:11,color:C.textPri,marginBottom:12}}>
-                  Pre-filled from your Inventory tab. Correct these if needed before confirming.
-                </p>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:20}}>
-                  <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                    <label style={{fontSize:11,fontWeight:600,color:C.textPri}}>Fire Crystals (FC)</label>
-                    <NumInput className="inp-field"
-                      value={modalFC} min={0}
-                      onChange={v => setModalFC(v)}
-                      style={{background:C.surface,border:`1px solid ${C.accentDim}`,borderRadius:7,
-                        padding:"7px 10px",fontFamily:"Space Mono,monospace",fontSize:13,
-                        color:C.accent,outline:"none",width:"100%",textAlign:"right"}} />
-                  </div>
-                  <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                    <label style={{fontSize:11,fontWeight:600,color:C.textPri}}>Refined FC (RFC)</label>
-                    <NumInput className="inp-field"
-                      value={modalRFC} min={0}
-                      onChange={v => setModalRFC(v)}
-                      style={{background:C.surface,border:`1px solid ${C.amberBg}`,borderRadius:7,
-                        padding:"7px 10px",fontFamily:"Space Mono,monospace",fontSize:13,
-                        color:C.amber,outline:"none",width:"100%",textAlign:"right"}} />
-                  </div>
-                </div>
-                <p style={{fontSize:11,color:C.textSec,marginBottom:16,fontFamily:"Space Mono,monospace"}}>
-                  Will also override Day {rfcTodayIndex + 1} in the RFC Planner.
-                </p>
-
-                {/* Per-building upgrade overrides */}
-                <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",color:C.textSec,fontFamily:"Space Mono,monospace",marginBottom:10}}>Buildings Already Upgraded</div>
-                <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:16}}>
-                  {buildings.map(b => {
-                    const override = upgradeOverrides[b.name] || b.current;
-                    const goalIdx  = FC_LEVELS.indexOf(b.goal);
-                    const available = FC_LEVEL_OPTS.filter(l => {
-                      const li = FC_LEVELS.indexOf(l);
-                      return li >= FC_LEVELS.indexOf(b.current) && li <= goalIdx;
-                    });
-                    if (available.length <= 1) return null; // nothing to upgrade to
-                    return (
-                      <div key={b.name} style={{display:"flex",alignItems:"center",gap:10}}>
-                        <span style={{fontSize:12,fontWeight:600,color:C.textPri,width:120,flexShrink:0}}>{b.name}</span>
-                        <span style={{fontSize:11,color:C.textSec,fontFamily:"Space Mono,monospace",width:50}}>{b.current}</span>
-                        <span style={{fontSize:11,color:C.textDim}}>→</span>
-                        <select value={override}
-                          onChange={e => setUpgradeOverrides(prev => ({...prev,[b.name]:e.target.value}))}
-                          style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,
-                            color:C.textPri,fontSize:11,padding:"4px 8px",cursor:"pointer",outline:"none",
-                            fontFamily:"Space Mono,monospace"}}>
-                          {available.map(l => (
-                            <option key={l} value={l}>{l}{l === b.current ? " (current)" : l === b.goal ? " (goal)" : ""}</option>
-                          ))}
-                        </select>
-                        {override !== b.current && (
-                          <span style={{fontSize:10,color:C.green,fontFamily:"Space Mono,monospace"}}>✓ upgraded</span>
-                        )}
-                      </div>
-                    );
-                  }).filter(Boolean)}
-                </div>
-
-                {/* Notes */}
-                <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",color:C.textSec,fontFamily:"Space Mono,monospace",marginBottom:6}}>Notes (optional)</div>
-                <textarea value={updateNote} onChange={e => setUpdateNote(e.target.value)}
-                  placeholder="e.g. Bought a 10-pack, completed Embassy FC6 upgrade"
-                  style={{width:"100%",background:C.surface,border:`1px solid ${C.border}`,borderRadius:7,
-                    padding:"8px 12px",color:C.textPri,fontSize:12,fontFamily:"Space Mono,monospace",
-                    resize:"vertical",minHeight:60,outline:"none",boxSizing:"border-box"}} />
-
-                <div style={{display:"flex",gap:8,marginTop:16}}>
-                  <button onClick={handleConfirmUpdate}
-                    style={{padding:"9px 20px",borderRadius:7,fontSize:12,fontWeight:700,cursor:"pointer",
-                      fontFamily:"Syne,sans-serif",border:"none",background:C.blue,color:"var(--c-btnText)"}}>
-                    Confirm Update
-                  </button>
-                  <button onClick={() => { setShowUpdateModal(false); setUpgradeOverrides({}); setUpdateNote(""); setModalFC(0); setModalRFC(0); }}
-                    style={{padding:"9px 16px",borderRadius:7,fontSize:12,fontWeight:700,cursor:"pointer",
-                      fontFamily:"Syne,sans-serif",background:"transparent",color:C.textSec,border:`1px solid ${C.border}`}}>
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
         <div className="cp-body">
 
@@ -1293,10 +1187,10 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
               {[
                 {label:"Fire Crystals", needed:materialTotals.fc,   inv:inv.fireCrystals, color:C.accent},
                 {label:"Refined FC",    needed:materialTotals.rfc,  inv:inv.refinedFC,    color:C.amber},
-                {label:"Meat",          needed:materialTotals.meat, inv:inv.meat||0,      color:C.green,  raw:true},
-                {label:"Wood",          needed:materialTotals.wood, inv:inv.wood||0,      color:C.blue,   raw:true},
-                {label:"Coal",          needed:materialTotals.coal, inv:inv.coal||0,      color:C.textSec,raw:true},
-                {label:"Iron",          needed:materialTotals.iron, inv:inv.iron||0,      color:C.blue,   raw:true},
+                {label:"Meat",          needed:materialTotals.meat, inv:(inv.meat||0)*(inv.meatUnit==="B"?1e9:1e6),  color:C.green,  raw:true},
+                {label:"Wood",          needed:materialTotals.wood, inv:(inv.wood||0)*(inv.woodUnit==="B"?1e9:1e6),  color:C.blue,   raw:true},
+                {label:"Coal",          needed:materialTotals.coal, inv:(inv.coal||0)*(inv.coalUnit==="B"?1e9:1e6),  color:C.textSec,raw:true},
+                {label:"Iron",          needed:materialTotals.iron, inv:(inv.iron||0)*(inv.ironUnit==="B"?1e9:1e6),  color:C.blue,   raw:true},
               ].map(({label,needed,inv:invAmt,color,raw})=>{
                 const balance = invAmt - needed;
                 return (
