@@ -713,7 +713,6 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
     setDbRef(null);
     setDbRefLoading(true);
     const widget = isSSRHero(hero.name) ? heroWidget : null;
-    console.log("[dbRef] querying hero_stats_data:", hero.name, "level:", heroLevel, "stars:", heroStars, "widget:", widget);
     const q = supabase.from("hero_stats_data")
       .select("*")
       .eq("hero_name", hero.name)
@@ -723,7 +722,6 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
     if (widget === null) q.is("widget", null);
     else q.eq("widget", widget);
     q.maybeSingle().then(({ data, error }) => {
-      console.log("[dbRef] result:", data, "error:", error);
       setDbRef(data || null);
       setDbRefLoading(false);
     });
@@ -736,7 +734,6 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
   // Build ref: Supabase row wins over hardcoded HERO_BASE_STATS
   const hardcodedRef = HERO_BASE_STATS[hero.name];
   const ref = dbRef ? { ...dbRef, ...(dbRef.stats || {}) } : hardcodedRef;
-  console.log("[render] dbRef:", dbRef, "ref.heroAtk:", ref?.heroAtk, "statsMatch will be:", !dbRefLoading && (dbRef ? true : !!(hardcodedRef && hardcodedRef.level === local.level)));
 
   // statsMatch: true when ref data exists for current level/stars/widget
   const statsMatch = dbRefLoading ? false
@@ -3528,7 +3525,7 @@ export default function App() {
     switchCharacter, addCharacter, removeCharacter, renameCharacter, makeDefault,
   } = useCharacters(user);
 
-  const [page,          setPage]         = useState("inventory");
+  const [page,          setPage]         = useLocalStorage("wos-page", "inventory");
   const [inv,           setInvRaw]       = useLocalStorage("wos-svs-inventory", INITIAL_INVENTORY);
   const [savedPlans,    setSavedPlans]   = useLocalStorage("wos-rfc-saved-plans", {});
   const [planSnapshot,  setPlanSnapshot] = useState(null); // per-character, loaded from Supabase
