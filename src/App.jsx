@@ -25,18 +25,76 @@ async function updateSubmission(id, updates) {
     .from("stat_submissions")
     .update({ ...updates, reviewed_at: new Date().toISOString() })
     .eq("id", id);
+  if (error) console.error("updateSubmission error:", error);
   return !error;
 }
-async function acceptSubmission(submission) {
-  await supabase.from("hero_stats_data").insert({
-    hero_name: submission.hero_name,
-    stars:     submission.stars,
-    level:     submission.level,
-    widget:    submission.widget,
-    stats:     submission.stats,
-    accepted_by: ADMIN_UID,
-  });
-  return updateSubmission(submission.id, { status: "accepted" });
+
+// Fetch current hero_stats_data row for matching hero/level/stars/widget
+async function getHeroStatsFromDB(heroName, level, stars, widget) {
+  const q = supabase.from("hero_stats_data")
+    .select("*")
+    .eq("hero_name", heroName)
+    .eq("level", level)
+    .eq("stars", stars)
+    .eq("is_current", true);
+  // widget can be null for SR/R heroes
+  if (widget === null || widget === undefined) q.is("widget", null);
+  else q.eq("widget", widget);
+  const { data } = await q.maybeSingle();
+  return data || null;
+}
+
+async function acceptSubmission(submission, forceAccept = false) {
+  const now = new Date().toISOString();
+  // Check for existing current row
+  const existing = await getHeroStatsFromDB(
+    submission.hero_name, submission.level, submission.stars, submission.widget
+  );
+
+  if (existing && !forceAccept) {
+    // Check for discrepancies
+    const subStats = submission.stats || {};
+    const exStats  = existing.stats || {};
+    const diffs = Object.keys(subStats).filter(k =>
+      subStats[k] != null && exStats[k] != null &&
+      Math.abs(Number(subStats[k]) - Number(exStats[k])) > 0.0001
+    );
+    if (diffs.length > 0) return { needsValidation: true, existing, diffs };
+  }
+
+  // Archive old row if exists
+  if (existing) {
+    const { data: newRow } = await supabase.from("hero_stats_data").insert({
+      hero_name:   submission.hero_name,
+      stars:       submission.stars,
+      level:       submission.level,
+      widget:      submission.widget ?? null,
+      stats:       submission.stats,
+      accepted_at: now,
+      accepted_by: ADMIN_UID,
+      is_current:  true,
+    }).select().single();
+
+    if (newRow) {
+      await supabase.from("hero_stats_data")
+        .update({ is_current: false, superseded_at: now, superseded_by: newRow.id })
+        .eq("id", existing.id);
+    }
+  } else {
+    await supabase.from("hero_stats_data").insert({
+      hero_name:   submission.hero_name,
+      stars:       submission.stars,
+      level:       submission.level,
+      widget:      submission.widget ?? null,
+      stats:       submission.stats,
+      accepted_at: now,
+      accepted_by: ADMIN_UID,
+      is_current:  true,
+    });
+  }
+
+  await updateSubmission(submission.id, { status: "accepted" });
+  return { needsValidation: false };
 }
 import ConstructionPlanner from "./ConstructionPlanner.jsx";
 import RFCPlanner from "./RFCPlanner.jsx";
@@ -721,11 +779,12 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
 
   const NumField = ({ label, field }) => {
     const [local, setLocal] = React.useState(submitForm[field] ?? "");
+    const inputRef = React.useRef(null);
     React.useEffect(() => { setLocal(submitForm[field] ?? ""); }, [field]);
     return (
-      <div>
+      <div onMouseDown={e => { e.stopPropagation(); inputRef.current?.focus(); }}>
         <div style={{fontSize:11,color:C.textSec,marginBottom:3}}>{label}</div>
-        <input type="number" min={0} step="any"
+        <input ref={inputRef} type="number" min={0} step="any"
           value={local}
           onChange={e => setLocal(e.target.value)}
           onBlur={e => setSubmitForm(p => ({...p,[field]:e.target.value}))}
@@ -1119,10 +1178,11 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
 
 function AdminPage() {
   const C = COLORS;
-  const [submissions, setSubmissions] = useState([]);
-  const [loading,     setLoading]     = useState(true);
-  const [note,        setNote]        = useState({});
-  const [busy,        setBusy]        = useState({});
+  const [submissions,   setSubmissions]   = useState([]);
+  const [loading,       setLoading]       = useState(true);
+  const [note,          setNote]          = useState({});
+  const [busy,          setBusy]          = useState({});
+  const [validating,    setValidating]    = useState(null); // {sub, existing, diffs}
 
   const load = async () => {
     setLoading(true);
@@ -1151,9 +1211,27 @@ function AdminPage() {
 
   const handle = async (sub, action) => {
     setBusy(p => ({...p,[sub.id]:true}));
-    if (action === "accept") await acceptSubmission(sub);
-    else await updateSubmission(sub.id, { status:"rejected", admin_note: note[sub.id]||"" });
+    if (action === "accept") {
+      const result = await acceptSubmission(sub, false);
+      if (result.needsValidation) {
+        setValidating({ sub, existing: result.existing, diffs: result.diffs });
+        setBusy(p => ({...p,[sub.id]:false}));
+        return;
+      }
+    } else {
+      const ok = await updateSubmission(sub.id, { status:"rejected", admin_note: note[sub.id]||"" });
+      if (!ok) console.error("Reject failed for", sub.id);
+    }
     setBusy(p => ({...p,[sub.id]:false}));
+    load();
+  };
+
+  const handleForceAccept = async () => {
+    if (!validating) return;
+    setBusy(p => ({...p,[validating.sub.id]:true}));
+    await acceptSubmission(validating.sub, true);
+    setBusy(p => ({...p,[validating.sub.id]:false}));
+    setValidating(null);
     load();
   };
 
@@ -1161,12 +1239,93 @@ function AdminPage() {
     "heroAtk","heroDef","heroHp","escortHp","escortDef","escortAtk",
     "infAtk","infDef","infLeth","infHp"];
 
+  const statLabel = k => ({
+    levelPower:"Level Power", starPower:"Star Power", skillPower:"Skill Power",
+    gearStrength:"Gear Strength", escorts:"Escorts", troopCap:"Troop Cap",
+    heroAtk:"Hero Atk", heroDef:"Hero Def", heroHp:"Hero HP",
+    escortHp:"Escort HP", escortDef:"Escort Def", escortAtk:"Escort Atk",
+    infAtk:"Troop Atk%", infDef:"Troop Def%", infLeth:"Troop Leth%", infHp:"Troop HP%",
+  }[k] || k);
+
   const statusColor = s => s==="accepted" ? C.green : s==="rejected" ? C.red : C.amber;
 
   return (
     <div className="fade-in" style={{maxWidth:900}}>
       <div className="page-title">Admin <span style={{color:C.accent}}>Panel</span></div>
       <div className="page-sub" style={{marginBottom:20}}>Hero stat submissions pending review</div>
+
+      {/* Validation overlay */}
+      {validating && createPortal(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",zIndex:9999,
+          display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div style={{background:C.card,border:`1px solid ${C.borderHi}`,borderRadius:14,
+            width:"100%",maxWidth:560,maxHeight:"90vh",overflowY:"auto",
+            boxShadow:"0 24px 80px rgba(0,0,0,0.6)"}}>
+            <div style={{padding:"20px 24px 14px",borderBottom:`1px solid ${C.border}`,
+              display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div>
+                <div style={{fontSize:15,fontWeight:800,color:C.textPri}}>⚠️ Validate Acceptance</div>
+                <div style={{fontSize:11,color:C.textDim,fontFamily:"Space Mono,monospace",marginTop:3}}>
+                  {validating.sub.hero_name} · Stars {validating.sub.stars} · Level {validating.sub.level} · Widget {validating.sub.widget ?? "N/A"}
+                </div>
+              </div>
+              <button onClick={() => setValidating(null)}
+                style={{background:"none",border:"none",color:C.textDim,cursor:"pointer",fontSize:18}}>✕</button>
+            </div>
+            <div style={{padding:"16px 24px"}}>
+              <p style={{fontSize:12,color:C.amber,marginBottom:16,fontWeight:600}}>
+                These values differ from what's currently stored. Review before accepting.
+              </p>
+              {/* Side-by-side diff table */}
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:0,
+                border:`1px solid ${C.border}`,borderRadius:8,overflow:"hidden",marginBottom:20}}>
+                {/* Header */}
+                <div style={{background:C.surface,padding:"8px 12px",fontSize:10,fontWeight:700,
+                  color:C.textDim,fontFamily:"Space Mono,monospace",letterSpacing:"1px",textTransform:"uppercase"}}>Stat</div>
+                <div style={{background:C.surface,padding:"8px 12px",fontSize:10,fontWeight:700,
+                  color:C.blue,fontFamily:"Space Mono,monospace",letterSpacing:"1px",textTransform:"uppercase"}}>Current</div>
+                <div style={{background:C.surface,padding:"8px 12px",fontSize:10,fontWeight:700,
+                  color:C.accent,fontFamily:"Space Mono,monospace",letterSpacing:"1px",textTransform:"uppercase"}}>Submission</div>
+                {/* Diff rows */}
+                {validating.diffs.map((k,i) => {
+                  const curVal = (validating.existing.stats||{})[k];
+                  const subVal = (validating.sub.stats||{})[k];
+                  const rowBg  = i % 2 === 0 ? C.card : C.surface;
+                  return (
+                    <React.Fragment key={k}>
+                      <div style={{background:rowBg,padding:"7px 12px",fontSize:12,color:C.textSec,
+                        borderTop:`1px solid ${C.border}`}}>{statLabel(k)}</div>
+                      <div style={{background:rowBg,padding:"7px 12px",fontSize:12,fontWeight:700,
+                        color:C.blue,fontFamily:"Space Mono,monospace",borderTop:`1px solid ${C.border}`}}>
+                        {curVal ?? "—"}
+                      </div>
+                      <div style={{background:rowBg,padding:"7px 12px",fontSize:12,fontWeight:700,
+                        color:C.accent,fontFamily:"Space Mono,monospace",borderTop:`1px solid ${C.border}`}}>
+                        {subVal ?? "—"}
+                      </div>
+                    </React.Fragment>
+                  );
+                })}
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                <button onClick={handleForceAccept}
+                  style={{padding:"9px 20px",borderRadius:7,fontSize:12,fontWeight:700,cursor:"pointer",
+                    fontFamily:"Syne,sans-serif",border:"none",background:C.green,color:"#0a0c10"}}>
+                  ✓ Validate &amp; Accept
+                </button>
+                <button onClick={() => setValidating(null)}
+                  style={{padding:"9px 16px",borderRadius:7,fontSize:12,fontWeight:700,cursor:"pointer",
+                    fontFamily:"Syne,sans-serif",background:"transparent",color:C.textSec,
+                    border:`1px solid ${C.border}`}}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
       {loading && <div style={{color:C.textDim,fontFamily:"Space Mono,monospace",fontSize:12}}>Loading…</div>}
       {!loading && submissions.length === 0 && (
         <div style={{padding:"24px",background:C.card,border:`1px solid ${C.border}`,borderRadius:10,
@@ -1191,12 +1350,11 @@ function AdminPage() {
               </div>
               <span style={{fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:5,
                 background: sub.status==="accepted" ? C.greenBg : sub.status==="rejected" ? C.redBg : C.amberBg,
-                color: statusColor(sub.status), border:`1px solid ${statusColor(sub.status)}40`}}>
+                color: statusColor(sub.status||"pending"), border:`1px solid ${statusColor(sub.status||"pending")}40`}}>
                 {(sub.status || "pending").toUpperCase()}
               </span>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:6,marginBottom:14}}>
-              {/* RFC variance type */}
               {sub.stats?.type === "rfc_variance" ? (
                 <div style={{gridColumn:"1/-1"}}>
                   <div style={{fontSize:11,color:C.textSec,marginBottom:8,fontFamily:"Space Mono,monospace"}}>
@@ -1223,7 +1381,7 @@ function AdminPage() {
               ) : (
                 statKeys.filter(k => stats[k] != null).map(k => (
                   <div key={k} style={{background:C.surface,borderRadius:6,padding:"6px 10px",fontSize:11}}>
-                    <span style={{color:C.textDim,fontFamily:"Space Mono,monospace"}}>{k}</span>
+                    <span style={{color:C.textDim,fontFamily:"Space Mono,monospace"}}>{statLabel(k)}</span>
                     <span style={{color:C.textPri,fontWeight:700,fontFamily:"Space Mono,monospace",float:"right"}}>{stats[k]}</span>
                   </div>
                 ))
@@ -1232,18 +1390,22 @@ function AdminPage() {
             {isPending && (
               <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
                 <button onClick={() => handle(sub,"accept")} disabled={busy[sub.id]}
-                  style={{padding:"6px 14px",borderRadius:6,fontSize:11,fontWeight:700,cursor:"pointer",
-                    fontFamily:"Syne,sans-serif",border:"none",background:C.green,color:"#0a0c10"}}>
-                  ✓ Accept
+                  style={{padding:"6px 14px",borderRadius:6,fontSize:11,fontWeight:700,
+                    cursor:busy[sub.id]?"not-allowed":"pointer",
+                    fontFamily:"Syne,sans-serif",border:"none",background:C.green,color:"#0a0c10",
+                    opacity:busy[sub.id]?0.6:1}}>
+                  {busy[sub.id] ? "…" : "✓ Accept"}
                 </button>
                 <input placeholder="Rejection note (optional)" value={note[sub.id]||""}
                   onChange={e => setNote(p=>({...p,[sub.id]:e.target.value}))}
                   style={{flex:1,minWidth:160,background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,
                     padding:"6px 10px",color:C.textPri,fontSize:11,outline:"none",fontFamily:"Space Mono,monospace"}} />
                 <button onClick={() => handle(sub,"reject")} disabled={busy[sub.id]}
-                  style={{padding:"6px 14px",borderRadius:6,fontSize:11,fontWeight:700,cursor:"pointer",
-                    fontFamily:"Syne,sans-serif",border:`1px solid ${C.redDim}`,background:C.redBg,color:C.red}}>
-                  ✕ Reject
+                  style={{padding:"6px 14px",borderRadius:6,fontSize:11,fontWeight:700,
+                    cursor:busy[sub.id]?"not-allowed":"pointer",
+                    fontFamily:"Syne,sans-serif",border:`1px solid ${C.redDim}`,background:C.redBg,color:C.red,
+                    opacity:busy[sub.id]?0.6:1}}>
+                  {busy[sub.id] ? "…" : "✕ Reject"}
                 </button>
               </div>
             )}
