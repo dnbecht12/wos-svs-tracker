@@ -704,25 +704,29 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
   // Fetch current hero stats from Supabase first, fall back to hardcoded HERO_BASE_STATS
   const [dbRef, setDbRef] = useState(null);
   const [dbRefLoading, setDbRefLoading] = useState(false);
+  const heroLevel  = (stats && stats.level)  ?? 0;
+  const heroStars  = (stats && stats.stars)  ?? 0;
+  const heroWidget = (stats && stats.widget) ?? 0;
   useEffect(() => {
     if (!hero) return;
     setDbRef(null);
     setDbRefLoading(true);
-    const heroStats = { ...defaultHeroStats(), ...stats };
-    const widget = hero.quality === "SSR" ? (heroStats.widget ?? 0) : null;
+    const widget = hero.quality === "SSR" ? heroWidget : null;
+    console.log("[dbRef] querying hero_stats_data:", hero.name, "level:", heroLevel, "stars:", heroStars, "widget:", widget);
     const q = supabase.from("hero_stats_data")
       .select("*")
       .eq("hero_name", hero.name)
-      .eq("level", heroStats.level)
-      .eq("stars", heroStats.stars)
+      .eq("level", heroLevel)
+      .eq("stars", heroStars)
       .eq("is_current", true);
     if (widget === null) q.is("widget", null);
     else q.eq("widget", widget);
-    q.maybeSingle().then(({ data }) => {
+    q.maybeSingle().then(({ data, error }) => {
+      console.log("[dbRef] result:", data, "error:", error);
       setDbRef(data || null);
       setDbRefLoading(false);
     });
-  }, [hero?.name, stats?.level, stats?.stars, stats?.widget]);
+  }, [hero?.name, heroLevel, heroStars, heroWidget]);
 
   const local   = { ...defaultHeroStats(), ...stats };
   const set     = (field, val) => onUpdate(hero.name, field, val);
