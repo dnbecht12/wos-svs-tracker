@@ -1191,6 +1191,7 @@ function AdminPage() {
   const [note,          setNote]          = useState({});
   const [busy,          setBusy]          = useState({});
   const [validating,    setValidating]    = useState(null); // {sub, existing, diffs}
+  const [reviewedOpen,  setReviewedOpen]  = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -1217,7 +1218,10 @@ function AdminPage() {
 
   useEffect(() => { load(); }, []);
 
+  const [handleError, setHandleError] = useState("");
+
   const handle = async (sub, action) => {
+    setHandleError("");
     setBusy(p => ({...p,[sub.id]:true}));
     if (action === "accept") {
       const result = await acceptSubmission(sub, false);
@@ -1227,8 +1231,15 @@ function AdminPage() {
         return;
       }
     } else {
-      const ok = await updateSubmission(sub.id, { status:"rejected", admin_note: note[sub.id]||"" });
-      if (!ok) console.error("Reject failed for", sub.id);
+      const { error } = await supabase
+        .from("stat_submissions")
+        .update({ status: "rejected", admin_note: note[sub.id]||"" })
+        .eq("id", sub.id);
+      if (error) {
+        setHandleError(`Reject failed: ${error.message} (code: ${error.code})`);
+        setBusy(p => ({...p,[sub.id]:false}));
+        return;
+      }
     }
     setBusy(p => ({...p,[sub.id]:false}));
     load();
@@ -1335,96 +1346,143 @@ function AdminPage() {
       )}
 
       {loading && <div style={{color:C.textDim,fontFamily:"Space Mono,monospace",fontSize:12}}>Loading…</div>}
-      {!loading && submissions.length === 0 && (
-        <div style={{padding:"24px",background:C.card,border:`1px solid ${C.border}`,borderRadius:10,
-          color:C.textDim,fontFamily:"Space Mono,monospace",fontSize:12,textAlign:"center"}}>
-          No submissions yet.
+      {handleError && (
+        <div style={{padding:"10px 14px",background:C.redBg,border:`1px solid ${C.red}40`,borderRadius:8,
+          fontSize:12,color:C.red,marginBottom:16,fontFamily:"Space Mono,monospace"}}>
+          ⚠ {handleError}
         </div>
       )}
-      {submissions.map(sub => {
-        const stats = sub.stats || {};
-        const isPending = sub.status === "pending" || !sub.status;
-        return (
-          <div key={sub.id} style={{background:C.card,border:`1px solid ${isPending ? C.amber+"60" : C.border}`,
-            borderRadius:12,padding:"18px 20px",marginBottom:14}}>
-            <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",gap:10,marginBottom:12}}>
-              <div>
-                <div style={{fontSize:15,fontWeight:800,color:C.textPri}}>{sub.hero_name}</div>
-                <div style={{fontSize:11,color:C.textDim,fontFamily:"Space Mono,monospace",marginTop:3}}>
-                  Stars: {sub.stars} · Level: {sub.level} · Widget: {sub.widget}
-                  {" · "}By: {sub.character_name || "Unknown"}
-                  {" · "}{new Date(sub.submitted_at).toLocaleDateString()}
+
+      {!loading && (() => {
+        const pending  = submissions.filter(s => !s.status || s.status === "pending");
+        const reviewed = submissions.filter(s => s.status === "accepted" || s.status === "rejected");
+
+        const SubCard = ({ sub, showActions }) => {
+          const stats = sub.stats || {};
+          const isPending = !sub.status || sub.status === "pending";
+          return (
+            <div style={{background:C.card,
+              border:"1px solid " + (isPending ? C.amber+"60" : sub.status==="accepted" ? C.green+"30" : C.red+"30"),
+              borderRadius:12,padding:"18px 20px",marginBottom:14}}>
+              <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",gap:10,marginBottom:12}}>
+                <div>
+                  <div style={{fontSize:15,fontWeight:800,color:C.textPri}}>{sub.hero_name}</div>
+                  <div style={{fontSize:11,color:C.textDim,fontFamily:"Space Mono,monospace",marginTop:3}}>
+                    Stars: {sub.stars} · Level: {sub.level} · Widget: {sub.widget ?? "N/A"}
+                    {" · "}By: {sub.character_name || "Unknown"}
+                    {" · "}{sub.submitted_at ? new Date(sub.submitted_at).toLocaleDateString() : "—"}
+                  </div>
                 </div>
+                <span style={{fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:5,
+                  background: sub.status==="accepted" ? C.greenBg : sub.status==="rejected" ? C.redBg : C.amberBg,
+                  color: statusColor(sub.status||"pending"),
+                  border:"1px solid " + statusColor(sub.status||"pending") + "40"}}>
+                  {(sub.status || "pending").toUpperCase()}
+                </span>
               </div>
-              <span style={{fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:5,
-                background: sub.status==="accepted" ? C.greenBg : sub.status==="rejected" ? C.redBg : C.amberBg,
-                color: statusColor(sub.status||"pending"), border:`1px solid ${statusColor(sub.status||"pending")}40`}}>
-                {(sub.status || "pending").toUpperCase()}
-              </span>
-            </div>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:6,marginBottom:14}}>
-              {sub.stats?.type === "rfc_variance" ? (
-                <div style={{gridColumn:"1/-1"}}>
-                  <div style={{fontSize:11,color:C.textSec,marginBottom:8,fontFamily:"Space Mono,monospace"}}>
-                    RFC Variance Report — {sub.stats.variances?.length || 0} days with variance
+              <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:6,marginBottom:showActions?14:0}}>
+                {sub.stats?.type === "rfc_variance" ? (
+                  <div style={{gridColumn:"1/-1"}}>
+                    <div style={{fontSize:11,color:C.textSec,marginBottom:8,fontFamily:"Space Mono,monospace"}}>
+                      RFC Variance Report — {sub.stats.variances?.length || 0} days with variance
+                    </div>
+                    <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:8}}>
+                      {(sub.stats.variances||[]).map((v,i) => (
+                        <div key={i} style={{background:C.surface,borderRadius:6,padding:"5px 10px",fontSize:11,fontFamily:"Space Mono,monospace"}}>
+                          <span style={{color:C.textDim}}>Day {v.day} {v.weekday.slice(0,3)}</span>
+                          <span style={{color:C.textDim,margin:"0 4px"}}>·</span>
+                          <span style={{color:C.blue}}>Est:{v.estRfc}</span>
+                          <span style={{color:C.textDim,margin:"0 4px"}}>→</span>
+                          <span style={{color:v.variance>0?C.green:C.red}}>Act:{v.actualRfc}</span>
+                          <span style={{color:v.variance>0?C.green:C.red,marginLeft:4}}>{v.variance>0?"+":""}{v.variance}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <button onClick={() => downloadVarianceCSV(sub)}
+                      style={{padding:"5px 12px",borderRadius:6,fontSize:11,fontWeight:700,cursor:"pointer",
+                        fontFamily:"Syne,sans-serif",border:"1px solid " + C.blue,background:C.blueBg,color:C.blue}}>
+                      ⬇ Download CSV
+                    </button>
                   </div>
-                  <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:8}}>
-                    {(sub.stats.variances||[]).map((v,i) => (
-                      <div key={i} style={{background:C.surface,borderRadius:6,padding:"5px 10px",fontSize:11,fontFamily:"Space Mono,monospace"}}>
-                        <span style={{color:C.textDim}}>Day {v.day} {v.weekday.slice(0,3)}</span>
-                        <span style={{color:C.textDim,margin:"0 4px"}}>·</span>
-                        <span style={{color:C.blue}}>Est:{v.estRfc}</span>
-                        <span style={{color:C.textDim,margin:"0 4px"}}>→</span>
-                        <span style={{color:v.variance>0?C.green:C.red}}>Act:{v.actualRfc}</span>
-                        <span style={{color:v.variance>0?C.green:C.red,marginLeft:4}}>{v.variance>0?"+":""}{v.variance}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <button onClick={() => downloadVarianceCSV(sub)}
-                    style={{padding:"5px 12px",borderRadius:6,fontSize:11,fontWeight:700,cursor:"pointer",
-                      fontFamily:"Syne,sans-serif",border:`1px solid ${C.blue}`,background:C.blueBg,color:C.blue}}>
-                    ⬇ Download CSV
+                ) : (
+                  statKeys.filter(k => stats[k] != null).map(k => (
+                    <div key={k} style={{background:C.surface,borderRadius:6,padding:"6px 10px",fontSize:11}}>
+                      <span style={{color:C.textDim,fontFamily:"Space Mono,monospace"}}>{statLabel(k)}</span>
+                      <span style={{color:C.textPri,fontWeight:700,fontFamily:"Space Mono,monospace",float:"right"}}>{stats[k]}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+              {showActions && isPending && (
+                <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginTop:4}}>
+                  <button onClick={() => handle(sub,"accept")} disabled={busy[sub.id]}
+                    style={{padding:"6px 14px",borderRadius:6,fontSize:11,fontWeight:700,
+                      cursor:busy[sub.id]?"not-allowed":"pointer",
+                      fontFamily:"Syne,sans-serif",border:"none",background:C.green,color:"#0a0c10",
+                      opacity:busy[sub.id]?0.6:1}}>
+                    {busy[sub.id] ? "…" : "✓ Accept"}
+                  </button>
+                  <input placeholder="Rejection note (optional)" value={note[sub.id]||""}
+                    onChange={e => setNote(p=>({...p,[sub.id]:e.target.value}))}
+                    style={{flex:1,minWidth:160,background:C.surface,border:"1px solid " + C.border,borderRadius:6,
+                      padding:"6px 10px",color:C.textPri,fontSize:11,outline:"none",fontFamily:"Space Mono,monospace"}} />
+                  <button onClick={() => handle(sub,"reject")} disabled={busy[sub.id]}
+                    style={{padding:"6px 14px",borderRadius:6,fontSize:11,fontWeight:700,
+                      cursor:busy[sub.id]?"not-allowed":"pointer",
+                      fontFamily:"Syne,sans-serif",border:"1px solid " + C.redDim,background:C.redBg,color:C.red,
+                      opacity:busy[sub.id]?0.6:1}}>
+                    {busy[sub.id] ? "…" : "✕ Reject"}
                   </button>
                 </div>
-              ) : (
-                statKeys.filter(k => stats[k] != null).map(k => (
-                  <div key={k} style={{background:C.surface,borderRadius:6,padding:"6px 10px",fontSize:11}}>
-                    <span style={{color:C.textDim,fontFamily:"Space Mono,monospace"}}>{statLabel(k)}</span>
-                    <span style={{color:C.textPri,fontWeight:700,fontFamily:"Space Mono,monospace",float:"right"}}>{stats[k]}</span>
-                  </div>
-                ))
+              )}
+              {!isPending && sub.admin_note && (
+                <div style={{fontSize:11,color:C.textDim,fontFamily:"Space Mono,monospace",marginTop:8,
+                  padding:"6px 10px",background:C.surface,borderRadius:6}}>
+                  Admin note: {sub.admin_note}
+                </div>
               )}
             </div>
-            {isPending && (
-              <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-                <button onClick={() => handle(sub,"accept")} disabled={busy[sub.id]}
-                  style={{padding:"6px 14px",borderRadius:6,fontSize:11,fontWeight:700,
-                    cursor:busy[sub.id]?"not-allowed":"pointer",
-                    fontFamily:"Syne,sans-serif",border:"none",background:C.green,color:"#0a0c10",
-                    opacity:busy[sub.id]?0.6:1}}>
-                  {busy[sub.id] ? "…" : "✓ Accept"}
+          );
+        };
+
+        return (
+          <>
+            {/* Pending Review */}
+            <div style={{marginBottom:8}}>
+              <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase",
+                color:C.amber,fontFamily:"Space Mono,monospace",marginBottom:12}}>
+                ⏳ Pending Review ({pending.length})
+              </div>
+              {pending.length === 0 ? (
+                <div style={{padding:"20px",background:C.card,border:"1px solid " + C.border,borderRadius:10,
+                  color:C.textDim,fontFamily:"Space Mono,monospace",fontSize:12,textAlign:"center"}}>
+                  No pending submissions.
+                </div>
+              ) : (
+                pending.map(sub => <SubCard key={sub.id} sub={sub} showActions={true} />)
+              )}
+            </div>
+
+            {/* Reviewed — collapsible */}
+            {reviewed.length > 0 && (
+              <div style={{marginTop:24}}>
+                <button onClick={() => setReviewedOpen(o => !o)}
+                  style={{display:"flex",alignItems:"center",gap:8,background:"none",border:"none",
+                    cursor:"pointer",padding:"8px 0",marginBottom:12,width:"100%",textAlign:"left"}}>
+                  <span style={{fontSize:10,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase",
+                    color:C.textSec,fontFamily:"Space Mono,monospace"}}>
+                    📁 Reviewed ({reviewed.length})
+                  </span>
+                  <span style={{fontSize:12,color:C.textDim,marginLeft:"auto"}}>
+                    {reviewedOpen ? "▲ collapse" : "▼ expand"}
+                  </span>
                 </button>
-                <input placeholder="Rejection note (optional)" value={note[sub.id]||""}
-                  onChange={e => setNote(p=>({...p,[sub.id]:e.target.value}))}
-                  style={{flex:1,minWidth:160,background:C.surface,border:`1px solid ${C.border}`,borderRadius:6,
-                    padding:"6px 10px",color:C.textPri,fontSize:11,outline:"none",fontFamily:"Space Mono,monospace"}} />
-                <button onClick={() => handle(sub,"reject")} disabled={busy[sub.id]}
-                  style={{padding:"6px 14px",borderRadius:6,fontSize:11,fontWeight:700,
-                    cursor:busy[sub.id]?"not-allowed":"pointer",
-                    fontFamily:"Syne,sans-serif",border:`1px solid ${C.redDim}`,background:C.redBg,color:C.red,
-                    opacity:busy[sub.id]?0.6:1}}>
-                  {busy[sub.id] ? "…" : "✕ Reject"}
-                </button>
+                {reviewedOpen && reviewed.map(sub => <SubCard key={sub.id} sub={sub} showActions={false} />)}
               </div>
             )}
-            {!isPending && sub.admin_note && (
-              <div style={{fontSize:11,color:C.textDim,fontFamily:"Space Mono,monospace",marginTop:4}}>
-                Note: {sub.admin_note}
-              </div>
-            )}
-          </div>
+          </>
         );
-      })}
+      })()}
     </div>
   );
 }
