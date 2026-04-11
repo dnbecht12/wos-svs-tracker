@@ -6,7 +6,11 @@ const ADMIN_UID = "c5c3392e-2399-4cc9-b2ab-f22a61e7b91c";
 
 // ── Stat submission helpers ───────────────────────────────────────────────────
 async function submitHeroStats(payload) {
-  const { error } = await supabase.from("stat_submissions").insert(payload);
+  const { error } = await supabase.from("stat_submissions").insert({
+    ...payload,
+    status: "pending",
+    submitted_at: new Date().toISOString(),
+  });
   return !error;
 }
 async function fetchSubmissions() {
@@ -351,32 +355,32 @@ const GEN_ORDER = ["Base","Gen 1","Gen 2","Gen 3","Gen 4","Gen 5","Gen 6","Gen 7
 // More snapshots can be added per hero as data is collected over time.
 const HERO_BASE_STATS = {
   "Jeronimo":   {stars:5,   level:80, widget:10, levelPower:233250,  starPower:864750,  skillPower:101520, gearStrength:281250, heroAtk:2559,  heroDef:2782,  heroHp:50061,  escorts:10, troopCap:13470, escortHp:1687,  escortDef:927,  escortAtk:851,  infAtk:2.602,  infDef:2.602,  infLeth:0.625, infHp:0.625},
-  "Natalia":    {stars:5,   level:80, widget:6,  levelPower:205260,  starPower:760980,  skillPower:101520, gearStrength:148500, heroAtk:2100,  heroDef:2517,  heroHp:41085,  escorts:10, troopCap:13470, escortHp:13695, escortDef:839,  escortAtk:698,  infAtk:2.0016, infDef:2.0016, infLeth:0.333, infHp:0.333},
+  "Natalia":    {stars:1,   level:80, widget:0,  levelPower:205260,  starPower:136440,  skillPower:101520, gearStrength:null,   heroAtk:607,   heroDef:720,   heroHp:11880,  escorts:10, troopCap:13470, escortHp:3960,  escortDef:240,  escortAtk:201,  infAtk:0.4123, infDef:0.4123, infLeth:0,     infHp:0},
   "Flint":      {stars:5,   level:80, widget:10, levelPower:223920,  starPower:830160,  skillPower:101520, gearStrength:270000, heroAtk:2457,  heroDef:3204,  heroHp:48060,  escorts:10, troopCap:13470, escortHp:16020, escortDef:1068, escortAtk:818,  infAtk:2.4019, infDef:2.4019, infLeth:0.6,   infHp:0.6},
-  "Logan":      {stars:4.3, level:80, widget:2,  levelPower:279900,  starPower:769650,  skillPower:101520, gearStrength:71400,  heroAtk:2289,  heroDef:2986,  heroHp:44802,  escorts:10, troopCap:13470, escortHp:14934, escortDef:995,  escortAtk:762,  infAtk:2.4048, infDef:2.4048, infLeth:0.14,  infHp:0.14},
-  "Ahmose":     {stars:4.5, level:80, widget:4,  levelPower:345210,  starPower:1129240, skillPower:101520, gearStrength:172050, heroAtk:3190,  heroDef:4161,  heroHp:62436,  escorts:10, troopCap:13470, escortHp:20812, escortDef:1386, escortAtk:1060, infAtk:3.4023, infDef:3.4023, infLeth:0.37,  infHp:0.37},
+  "Logan":      {stars:3,   level:80, widget:0,  levelPower:279900,  starPower:560700,  skillPower:101520, gearStrength:null,   heroAtk:1408,  heroDef:1836,  heroHp:27540,  escorts:10, troopCap:13470, escortHp:9180,  escortDef:612,  escortAtk:468,  infAtk:1.3763, infDef:1.3763, infLeth:0,     infHp:0},
+  "Ahmose":     {stars:3.3, level:80, widget:1,  levelPower:345210,  starPower:856620,  skillPower:101520, gearStrength:56700,  heroAtk:2084,  heroDef:2719,  heroHp:40792,  escorts:10, troopCap:13470, escortHp:13597, escortDef:906,  escortAtk:693,  infAtk:2.1138, infDef:2.1138, infLeth:0.0925,infHp:0.0925},
   "Hector":     {stars:5,   level:80, widget:10, levelPower:414252,  starPower:1535796, skillPower:101520, gearStrength:499500, heroAtk:4545,  heroDef:5927,  heroHp:88911,  escorts:10, troopCap:13470, escortHp:29367, escortDef:1975, escortAtk:1513, infAtk:4.4435, infDef:4.4435, infLeth:1.11,  infHp:1.11},
-  "Wu Ming":    {stars:3,   level:80, widget:1,  levelPower:498222,  starPower:540942,  skillPower:64260,  gearStrength:80100,  heroAtk:2628,  heroDef:3427,  heroHp:51423,  escorts:10, troopCap:13470, escortHp:17141, escortDef:1142, escortAtk:873,  infAtk:2.5628, infDef:2.5628, infLeth:0.1335,infHp:0.1335},
+  "Wu Ming":    {stars:0,   level:1,  widget:0,  levelPower:41850,   starPower:0,       skillPower:0,      gearStrength:null,   heroAtk:183,   heroDef:240,   heroHp:3604,   escorts:10, troopCap:13470, escortHp:1201,  escortDef:80,   escortAtk:58,   infAtk:0.6817, infDef:0.6817, infLeth:0,     infHp:0},
   "Sergey":     {stars:5,   level:80, widget:0,  levelPower:149280,  starPower:553440,  skillPower:67680,  gearStrength:null,   heroAtk:1361,  heroDef:2220,  heroHp:26640,  escorts:10, troopCap:13470, escortHp:8880,  escortDef:740,  escortAtk:453,  infAtk:1.4011, infDef:1.4011, infLeth:0,     infHp:0},
   "Eugene":     {stars:5,   level:80, widget:0,  levelPower:121290,  starPower:449670,  skillPower:40608,  gearStrength:null,   heroAtk:1106,  heroDef:2220,  heroHp:21644,  escorts:10, troopCap:13470, escortHp:7215,  escortDef:740,  escortAtk:368,  infAtk:0.9007, infDef:0.9007, infLeth:0,     infHp:0},
   "Smith":      {stars:5,   level:80, widget:0,  levelPower:121290,  starPower:449670,  skillPower:40608,  gearStrength:null,   heroAtk:1106,  heroDef:2220,  heroHp:21644,  escorts:10, troopCap:13470, escortHp:7215,  escortDef:740,  escortAtk:368,  infAtk:0.9007, infDef:0.9007, infLeth:0,     infHp:0},
   "Molly":      {stars:5,   level:80, widget:10, levelPower:186600,  starPower:691800,  skillPower:101520, gearStrength:225000, heroAtk:2670,  heroDef:2670,  heroHp:26700,  escorts:10, troopCap:13470, escortHp:8900,  escortDef:890,  escortAtk:890,  infAtk:2.0016, infDef:2.0016, infLeth:0.5,   infHp:0.5},
-  "Philly":     {stars:5,   level:80, widget:6,  levelPower:223920,  starPower:830160,  skillPower:101520, gearStrength:162000, heroAtk:2988,  heroDef:2544,  heroHp:29880,  escorts:10, troopCap:13470, escortHp:9960,  escortDef:848,  escortAtk:996,  infAtk:2.4019, infDef:2.4019, infLeth:0.36,  infHp:0.36},
+  "Philly":     {stars:4,   level:75, widget:0,  levelPower:223920,  starPower:692640,  skillPower:101520, gearStrength:null,   heroAtk:1921,  heroDef:1602,  heroHp:19224,  escorts:10, troopCap:13470, escortHp:6408,  escortDef:534,  escortAtk:640,  infAtk:1.6653, infDef:1.6653, infLeth:0,     infHp:0},
   "Mia":        {stars:5,   level:80, widget:10, levelPower:279900,  starPower:1037700, skillPower:101520, gearStrength:315000, heroAtk:3960,  heroDef:3960,  heroHp:39600,  escorts:10, troopCap:13470, escortHp:13200, escortDef:1320, escortAtk:1320, infAtk:2.9023, infDef:2.9023, infLeth:0.7,   infHp:0.7},
   "Reina":      {stars:5,   level:80, widget:10, levelPower:345210,  starPower:1279830, skillPower:101520, gearStrength:416250, heroAtk:4938,  heroDef:4938,  heroHp:49395,  escorts:10, troopCap:13470, escortHp:16465, escortDef:1646, escortAtk:1646, infAtk:3.7029, infDef:3.7029, infLeth:0.925, infHp:0.925},
   "Norah":      {stars:5,   level:80, widget:9,  levelPower:414252,  starPower:1535796, skillPower:101520, gearStrength:499500, heroAtk:7199,  heroDef:5927,  heroHp:44454,  escorts:10, troopCap:13470, escortHp:14818, escortDef:1975, escortAtk:2397, infAtk:4.4435, infDef:4.4435, infLeth:1.11,  infHp:1.11},
-  "Renee":      {stars:4.1, level:80, widget:2,  levelPower:498222,  starPower:1129143, skillPower:101520, gearStrength:136170, heroAtk:4869,  heroDef:4869,  heroHp:48700,  escorts:10, troopCap:13470, escortHp:16232, escortDef:1622, escortAtk:1622, infAtk:3.9903, infDef:3.9903, infLeth:0.267, infHp:0.267},
+  "Renee":      {stars:3,   level:80, widget:0,  levelPower:498222,  starPower:756000,  skillPower:101520, gearStrength:null,   heroAtk:3267,  heroDef:3267,  heroHp:32680,  escorts:10, troopCap:13470, escortHp:10893, escortDef:1089, escortAtk:1089, infAtk:2.5628, infDef:2.5628, infLeth:0,     infHp:0},
   "Jessie":     {stars:5,   level:80, widget:0,  levelPower:149280,  starPower:553440,  skillPower:67680,  gearStrength:null,   heroAtk:1776,  heroDef:2220,  heroHp:17760,  escorts:10, troopCap:13470, escortHp:5920,  escortDef:740,  escortAtk:592,  infAtk:1.4011, infDef:1.4011, infLeth:0,     infHp:0},
-  "Ling Xue":   {stars:5,   level:80, widget:0,  levelPower:149280,  starPower:553440,  skillPower:67680,  gearStrength:null,   heroAtk:1776,  heroDef:2220,  heroHp:17760,  escorts:10, troopCap:13470, escortHp:5920,  escortDef:740,  escortAtk:592,  infAtk:1.4011, infDef:1.4011, infLeth:0,     infHp:0},
+  "Ling Xue":   {stars:4,   level:80, widget:0,  levelPower:149280,  starPower:440640,  skillPower:67680,  gearStrength:null,   heroAtk:1310,  heroDef:1638,  heroHp:12104,  escorts:10, troopCap:13470, escortHp:4368,  escortDef:546,  escortAtk:436,  infAtk:0.9713, infDef:0.9713, infLeth:0,     infHp:0},
   "Patrick":    {stars:5,   level:80, widget:0,  levelPower:149280,  starPower:553440,  skillPower:67680,  gearStrength:null,   heroAtk:1776,  heroDef:2220,  heroHp:17760,  escorts:10, troopCap:13470, escortHp:5920,  escortDef:740,  escortAtk:592,  infAtk:1.4011, infDef:1.4011, infLeth:0,     infHp:0},
-  "Walis Bokan":{stars:4.5, level:80, widget:0,  levelPower:149280,  starPower:488320,  skillPower:67680,  gearStrength:null,   heroAtk:1651,  heroDef:2064,  heroHp:16512,  escorts:10, troopCap:13470, escortHp:5504,  escortDef:688,  escortAtk:550,  infAtk:1.2873, infDef:1.2873, infLeth:0,     infHp:0},
+  "Walis Bokan":{stars:4.2, level:80, widget:0,  levelPower:149280,  starPower:488320,  skillPower:67680,  gearStrength:null,   heroAtk:1449,  heroDef:1812,  heroHp:14496,  escorts:10, troopCap:13470, escortHp:4832,  escortDef:604,  escortAtk:483,  infAtk:1.0977, infDef:1.0977, infLeth:0,     infHp:0},
   "Charlie":    {stars:5,   level:80, widget:0,  levelPower:121290,  starPower:449670,  skillPower:40608,  gearStrength:null,   heroAtk:1106,  heroDef:2220,  heroHp:21644,  escorts:10, troopCap:13470, escortHp:7215,  escortDef:740,  escortAtk:368,  infAtk:0.9007, infDef:0.9007, infLeth:0,     infHp:0},
-  "Zinman":     {stars:5,   level:80, widget:8,  levelPower:186600,  starPower:691800,  skillPower:101520, gearStrength:177000, heroAtk:3127,  heroDef:2574,  heroHp:19305,  escorts:10, troopCap:13470, escortHp:6432,  escortDef:858,  escortAtk:1041, infAtk:2.0016, infDef:2.0016, infLeth:0.4,   infHp:0.4},
-  "Alonso":     {stars:5,   level:80, widget:10, levelPower:223920,  starPower:830160,  skillPower:101520, gearStrength:270000, heroAtk:3890,  heroDef:2760,  heroHp:24030,  escorts:10, troopCap:13470, escortHp:8010,  escortDef:920,  escortAtk:1295, infAtk:2.4019, infDef:2.4019, infLeth:0.6,   infHp:0.6},
-  "Greg":       {stars:5,   level:80, widget:9,  levelPower:279900,  starPower:1037700, skillPower:101520, gearStrength:277200, heroAtk:4718,  heroDef:3884,  heroHp:29132,  escorts:10, troopCap:13470, escortHp:9711,  escortDef:1294, escortAtk:1571, infAtk:2.9023, infDef:2.9023, infLeth:0.63,  infHp:0.63},
+  "Zinman":     {stars:4,   level:80, widget:1,  levelPower:186600,  starPower:537600,  skillPower:101520, gearStrength:56700,  heroAtk:2061,  heroDef:1698,  heroHp:12735,  escorts:10, troopCap:13470, escortHp:4245,  escortDef:566,  escortAtk:686,  infAtk:1.3877, infDef:1.3877, infLeth:0.05,  infHp:0.05},
+  "Alonso":     {stars:4.2, level:80, widget:4,  levelPower:223920,  starPower:691200,  skillPower:101520, gearStrength:135000, heroAtk:2911,  heroDef:2035,  heroHp:17982,  escorts:10, troopCap:13470, escortHp:5994,  escortDef:678,  escortAtk:969,  infAtk:1.8818, infDef:1.8818, infLeth:0.24,  infHp:0.24},
+  "Greg":       {stars:4.1, level:80, widget:1,  levelPower:279900,  starPower:821700,  skillPower:101520, gearStrength:56700,  heroAtk:3236,  heroDef:2667,  heroHp:20002,  escorts:10, troopCap:13470, escortHp:6667,  escortDef:889,  escortAtk:1077, infAtk:2.1429, infDef:2.1429, infLeth:0.07,  infHp:0.07},
   "Lynn":       {stars:5,   level:80, widget:4,  levelPower:345210,  starPower:1279830, skillPower:101520, gearStrength:172050, heroAtk:5407,  heroDef:4450,  heroHp:33382,  escorts:10, troopCap:13470, escortHp:11127, escortDef:1483, escortAtk:1799, infAtk:3.7029, infDef:3.7029, infLeth:0.37,  infHp:0.37},
-  "Gwen":       {stars:5,   level:80, widget:10, levelPower:414252,  starPower:1535796, skillPower:101520, gearStrength:499500, heroAtk:7199,  heroDef:5927,  heroHp:44454,  escorts:10, troopCap:13470, escortHp:14818, escortDef:1975, escortAtk:2397, infAtk:4.4435, infDef:4.4435, infLeth:1.11,  infHp:1.11},
-  "Wayne":      {stars:4.3, level:80, widget:3,  levelPower:498222,  starPower:1369977, skillPower:101520, gearStrength:192240, heroAtk:6612,  heroDef:5445,  heroHp:40849,  escorts:10, troopCap:13470, escortHp:13616, escortDef:1815, escortAtk:2201, infAtk:4.4779, infDef:4.4779, infLeth:0.4005,infHp:0.4005},
+  "Gwen":       {stars:4,   level:80, widget:4,  levelPower:414252,  starPower:1152000, skillPower:101520, gearStrength:135000, heroAtk:4916,  heroDef:4048,  heroHp:30368,  escorts:10, troopCap:13470, escortHp:10122, escortDef:1249, escortAtk:1635, infAtk:3.0806, infDef:3.0806, infLeth:0.444, infHp:0.444},
+  "Wayne":      {stars:4,   level:80, widget:0,  levelPower:498222,  starPower:1150800, skillPower:101520, gearStrength:null,   heroAtk:5309,  heroDef:4372,  heroHp:32800,  escorts:10, troopCap:13470, escortHp:10933, escortDef:1457, escortAtk:1767, infAtk:3.7467, infDef:3.7467, infLeth:0,     infHp:0},
   "Bahiti":     {stars:5,   level:80, widget:0,  levelPower:149280,  starPower:553440,  skillPower:67680,  gearStrength:null,   heroAtk:2157,  heroDef:2220,  heroHp:13320,  escorts:10, troopCap:13470, escortHp:4440,  escortDef:740,  escortAtk:718,  infAtk:1.4011, infDef:1.4011, infLeth:0,     infHp:0},
   "Jasser":     {stars:5,   level:80, widget:0,  levelPower:149280,  starPower:553440,  skillPower:67680,  gearStrength:null,   heroAtk:2157,  heroDef:2220,  heroHp:13320,  escorts:10, troopCap:13470, escortHp:4440,  escortDef:740,  escortAtk:718,  infAtk:1.4011, infDef:1.4011, infLeth:0,     infHp:0},
   "Seo-yoon":   {stars:4.3, level:80, widget:0,  levelPower:149280,  starPower:410480,  skillPower:67680,  gearStrength:null,   heroAtk:1842,  heroDef:1896,  heroHp:11376,  escorts:10, troopCap:13470, escortHp:3792,  escortDef:632,  escortAtk:613,  infAtk:1.1609, infDef:1.1609, infLeth:0,     infHp:0},
@@ -1130,7 +1134,7 @@ function AdminPage() {
       )}
       {submissions.map(sub => {
         const stats = sub.stats || {};
-        const isPending = sub.status === "pending";
+        const isPending = sub.status === "pending" || !sub.status;
         return (
           <div key={sub.id} style={{background:C.card,border:`1px solid ${isPending ? C.amber+"60" : C.border}`,
             borderRadius:12,padding:"18px 20px",marginBottom:14}}>
@@ -1146,7 +1150,7 @@ function AdminPage() {
               <span style={{fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:5,
                 background: sub.status==="accepted" ? C.greenBg : sub.status==="rejected" ? C.redBg : C.amberBg,
                 color: statusColor(sub.status), border:`1px solid ${statusColor(sub.status)}40`}}>
-                {sub.status.toUpperCase()}
+                {(sub.status || "pending").toUpperCase()}
               </span>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:6,marginBottom:14}}>
