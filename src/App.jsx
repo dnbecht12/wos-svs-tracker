@@ -736,6 +736,7 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
   // Build ref: Supabase row wins over hardcoded HERO_BASE_STATS
   const hardcodedRef = HERO_BASE_STATS[hero.name];
   const ref = dbRef ? { ...dbRef, ...(dbRef.stats || {}) } : hardcodedRef;
+  console.log("[render] dbRef:", dbRef, "ref.heroAtk:", ref?.heroAtk, "statsMatch will be:", !dbRefLoading && (dbRef ? true : !!(hardcodedRef && hardcodedRef.level === local.level)));
 
   // statsMatch: true when ref data exists for current level/stars/widget
   const statsMatch = dbRefLoading ? false
