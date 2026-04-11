@@ -701,12 +701,44 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
       .then(({ data }) => setExistingSubs(data || []));
   }, [currentUser, hero?.name, submitDone]);
 
-  if (!hero) return null;
+  // Fetch current hero stats from Supabase first, fall back to hardcoded HERO_BASE_STATS
+  const [dbRef, setDbRef] = useState(null);
+  const [dbRefLoading, setDbRefLoading] = useState(false);
+  useEffect(() => {
+    if (!hero) return;
+    setDbRef(null);
+    setDbRefLoading(true);
+    const heroStats = { ...defaultHeroStats(), ...stats };
+    const widget = hero.quality === "SSR" ? (heroStats.widget ?? 0) : null;
+    const q = supabase.from("hero_stats_data")
+      .select("*")
+      .eq("hero_name", hero.name)
+      .eq("level", heroStats.level)
+      .eq("stars", heroStats.stars)
+      .eq("is_current", true);
+    if (widget === null) q.is("widget", null);
+    else q.eq("widget", widget);
+    q.maybeSingle().then(({ data }) => {
+      setDbRef(data || null);
+      setDbRefLoading(false);
+    });
+  }, [hero?.name, stats?.level, stats?.stars, stats?.widget]);
 
   const local   = { ...defaultHeroStats(), ...stats };
   const set     = (field, val) => onUpdate(hero.name, field, val);
   const isSSR   = hero.quality === "SSR";
-  const ref     = HERO_BASE_STATS[hero.name];
+
+  // Build ref: Supabase row wins over hardcoded HERO_BASE_STATS
+  const hardcodedRef = HERO_BASE_STATS[hero.name];
+  const ref = dbRef ? { ...dbRef, ...(dbRef.stats || {}) } : hardcodedRef;
+
+  // statsMatch: true when ref data exists for current level/stars/widget
+  const statsMatch = dbRefLoading ? false
+    : dbRef ? true  // fetched by exact level/stars/widget so always matches
+    : !!(hardcodedRef &&
+        hardcodedRef.level === local.level &&
+        hardcodedRef.stars === local.stars &&
+        hardcodedRef.widget === local.widget);
 
   // Find if user has an existing submission matching current level/stars/widget
   const matchingSub = existingSubs.find(s =>
@@ -1005,7 +1037,7 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
           <div style={{marginBottom:20}}>
             {sectionHead("Power Details")}
             {(() => {
-              const statsMatch = ref && ref.level === local.level && ref.stars === local.stars && ref.widget === local.widget;
+              
               if (!statsMatch) return <DataUnavailable />;
               return (
                 <>
@@ -1025,7 +1057,7 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
           <div style={{marginBottom:20}}>
             {sectionHead("Exploration Base Stats")}
             {(() => {
-              const statsMatch = ref && ref.level === local.level && ref.stars === local.stars && ref.widget === local.widget;
+              
               if (!statsMatch) return <DataUnavailable />;
               return (
                 <>
@@ -1044,7 +1076,7 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
           <div style={{marginBottom:20}}>
             {sectionHead("Expedition Base Stats")}
             {(() => {
-              const statsMatch = ref && ref.level === local.level && ref.stars === local.stars && ref.widget === local.widget;
+              
               if (!statsMatch) return <DataUnavailable />;
               const t = hero.type; // Infantry, Marksman, or Lancer
               return (
