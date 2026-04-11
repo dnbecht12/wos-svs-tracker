@@ -623,12 +623,33 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
     wgtTroopLeth:"", wgtTroopHp:"",
   });
 
+  // Fetch this user's existing submissions for this hero
+  const [existingSubs, setExistingSubs] = useState([]);
+  useEffect(() => {
+    if (!currentUser || !hero) return;
+    supabase.from("stat_submissions")
+      .select("id,hero_name,stars,level,widget,status,submitted_at,admin_note")
+      .eq("submitted_by", currentUser.id)
+      .eq("hero_name", hero.name)
+      .order("submitted_at", { ascending: false })
+      .then(({ data }) => setExistingSubs(data || []));
+  }, [currentUser, hero?.name, submitDone]);
+
   if (!hero) return null;
 
   const local   = { ...defaultHeroStats(), ...stats };
   const set     = (field, val) => onUpdate(hero.name, field, val);
   const isSSR   = hero.quality === "SSR";
   const ref     = HERO_BASE_STATS[hero.name];
+
+  // Find if user has an existing submission matching current level/stars/widget
+  const matchingSub = existingSubs.find(s =>
+    Number(s.stars)  === Number(local.stars) &&
+    Number(s.level)  === Number(local.level) &&
+    Number(s.widget ?? 0) === Number(local.widget ?? 0)
+  );
+  // "pending" or "accepted" blocks new submission; "rejected" allows resubmit
+  const subBlocked = matchingSub && (matchingSub.status === "pending" || matchingSub.status === "accepted");
 
   const qualityColor = q => q === "SSR" ? C.accent : q === "SR" ? C.blue : C.textSec;
   const typeColor    = t => t === "Infantry" ? C.green : t === "Lancer" ? C.blue : C.amber;
@@ -673,7 +694,8 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
         <button onClick={() => setShowSubmit(true)}
           style={{marginTop:8,padding:"5px 12px",borderRadius:6,fontSize:11,fontWeight:700,
             cursor:"pointer",fontFamily:"Syne,sans-serif",border:`1px solid ${C.amber}`,
-            background:"transparent",color:C.amber}}>
+            background:"transparent",color:C.amber,
+            display: subBlocked ? "none" : "inline-block"}}>
           📤 Submit My Stats
         </button>
       </div>
@@ -996,8 +1018,28 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
             </div>
           )}
 
-          {/* Submit button (when no data or user wants to update) */}
-          {!showSubmit && currentUser && (
+          {/* Submission status badge — when blocked by pending or accepted */}
+          {!submitDone && currentUser && subBlocked && (
+            <div style={{padding:"10px 14px",borderRadius:8,fontSize:12,marginBottom:12,
+              display:"flex",alignItems:"center",gap:10,
+              background: matchingSub.status === "accepted" ? C.greenBg : C.amberBg,
+              border: `1px solid ${matchingSub.status === "accepted" ? C.green : C.amber}40`}}>
+              <span style={{fontSize:14}}>{matchingSub.status === "accepted" ? "✅" : "⏳"}</span>
+              <div>
+                <div style={{fontWeight:700,color: matchingSub.status === "accepted" ? C.green : C.amber}}>
+                  {matchingSub.status === "accepted" ? "Approved" : "Pending Review"}
+                </div>
+                <div style={{fontSize:11,color:C.textSec,marginTop:1}}>
+                  {matchingSub.status === "accepted"
+                    ? "Your stats for this hero at this level/stars/widget have been approved."
+                    : "Your submission is awaiting admin review. Change level, stars, or widget to submit a new snapshot."}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Submit button — only shown when not blocked */}
+          {!showSubmit && currentUser && !subBlocked && (
             <button onClick={() => setShowSubmit(true)}
               style={{fontSize:11,color:C.blue,cursor:"pointer",padding:"5px 12px",borderRadius:6,
                 border:`1px solid ${C.blueDim}`,background:C.blueBg,fontFamily:"Syne,sans-serif",fontWeight:700}}>
@@ -2424,40 +2466,73 @@ function ProfileModal({ open, onClose, initialSection="account",
                 {!subsLoading && mySubs.length === 0 && (
                   <div style={{fontSize:12,color:C.textDim,fontFamily:"Space Mono,monospace"}}>No submissions yet.</div>
                 )}
-                {!subsLoading && mySubs.length > 0 && (
-                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                    {mySubs.map(sub => {
-                      const status = sub.status || "pending";
-                      const statusColor = status === "accepted" ? C.green : status === "rejected" ? C.red : C.amber;
-                      const statusBg    = status === "accepted" ? C.greenBg : status === "rejected" ? C.redBg : C.amberBg;
-                      return (
-                        <div key={sub.id} style={{background:C.surface,border:`1px solid ${C.border}`,
-                          borderRadius:8,padding:"10px 12px"}}>
-                          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
-                            <span style={{fontSize:13,fontWeight:700,color:C.textPri}}>{sub.hero_name}</span>
-                            <span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:4,
-                              background:statusBg,color:statusColor,border:`1px solid ${statusColor}40`,
-                              fontFamily:"Space Mono,monospace",textTransform:"uppercase"}}>
-                              {status}
-                            </span>
-                          </div>
-                          <div style={{fontSize:11,color:C.textDim,fontFamily:"Space Mono,monospace"}}>
-                            Stars: {sub.stars} · Level: {sub.level} · Widget: {sub.widget ?? "N/A"}
-                          </div>
-                          <div style={{fontSize:11,color:C.textDim,fontFamily:"Space Mono,monospace"}}>
-                            Submitted: {sub.submitted_at ? new Date(sub.submitted_at).toLocaleDateString() : "—"}
-                          </div>
-                          {status === "rejected" && sub.admin_note && (
-                            <div style={{marginTop:6,fontSize:11,color:C.red,fontFamily:"Space Mono,monospace",
-                              background:C.redBg,borderRadius:5,padding:"5px 8px"}}>
-                              Note: {sub.admin_note}
-                            </div>
-                          )}
+                {!subsLoading && mySubs.length > 0 && (() => {
+                  const pending  = mySubs.filter(s => !s.status || s.status === "pending" || s.status === "rejected");
+                  const approved = mySubs.filter(s => s.status === "accepted");
+
+                  const SubCard = ({ sub, readOnly }) => {
+                    const status = sub.status || "pending";
+                    const statusColor = status === "accepted" ? C.green : status === "rejected" ? C.red : C.amber;
+                    const statusBg    = status === "accepted" ? C.greenBg : status === "rejected" ? C.redBg : C.amberBg;
+                    return (
+                      <div style={{background:C.surface,border:`1px solid ${C.border}`,
+                        borderRadius:8,padding:"10px 12px"}}>
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+                          <span style={{fontSize:13,fontWeight:700,color:C.textPri}}>{sub.hero_name}</span>
+                          <span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:4,
+                            background:statusBg,color:statusColor,border:`1px solid ${statusColor}40`,
+                            fontFamily:"Space Mono,monospace",textTransform:"uppercase"}}>
+                            {status}
+                          </span>
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
+                        <div style={{fontSize:11,color:C.textDim,fontFamily:"Space Mono,monospace"}}>
+                          Stars: {sub.stars} · Level: {sub.level} · Widget: {sub.widget ?? "N/A"}
+                        </div>
+                        <div style={{fontSize:11,color:C.textDim,fontFamily:"Space Mono,monospace"}}>
+                          Submitted: {sub.submitted_at ? new Date(sub.submitted_at).toLocaleDateString() : "—"}
+                        </div>
+                        {status === "rejected" && sub.admin_note && (
+                          <div style={{marginTop:6,fontSize:11,color:C.red,
+                            background:C.redBg,borderRadius:5,padding:"5px 8px",fontFamily:"Space Mono,monospace"}}>
+                            Note: {sub.admin_note}
+                          </div>
+                        )}
+                        {readOnly && (
+                          <div style={{marginTop:5,fontSize:10,color:C.textDim,fontFamily:"Space Mono,monospace",fontStyle:"italic"}}>
+                            View only — approved stats cannot be edited.
+                          </div>
+                        )}
+                      </div>
+                    );
+                  };
+
+                  return (
+                    <div style={{display:"flex",flexDirection:"column",gap:16}}>
+                      {pending.length > 0 && (
+                        <div>
+                          <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",
+                            color:C.textSec,fontFamily:"Space Mono,monospace",marginBottom:8}}>
+                            Pending / Rejected
+                          </div>
+                          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                            {pending.map(sub => <SubCard key={sub.id} sub={sub} readOnly={false} />)}
+                          </div>
+                        </div>
+                      )}
+                      {approved.length > 0 && (
+                        <div>
+                          <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",
+                            color:C.green,fontFamily:"Space Mono,monospace",marginBottom:8}}>
+                            Approved
+                          </div>
+                          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                            {approved.map(sub => <SubCard key={sub.id} sub={sub} readOnly={true} />)}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
 
               <div className="modal-section">
