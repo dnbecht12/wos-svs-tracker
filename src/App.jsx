@@ -653,15 +653,21 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
     if (ok) { setSubmitDone(true); setShowSubmit(false); }
   };
 
-  const NumField = ({ label, field }) => (
-    <div>
-      <div style={{fontSize:11,color:C.textSec,marginBottom:3}}>{label}</div>
-      <input type="number" min={0} step="any"
-        value={submitForm[field]}
-        onChange={e => setSubmitForm(p => ({...p,[field]:e.target.value}))}
-        style={{...sel,width:"100%",padding:"5px 8px",textAlign:"right"}} />
-    </div>
-  );
+  const NumField = ({ label, field }) => {
+    const [local, setLocal] = React.useState(submitForm[field] ?? "");
+    React.useEffect(() => { setLocal(submitForm[field] ?? ""); }, [field]);
+    return (
+      <div>
+        <div style={{fontSize:11,color:C.textSec,marginBottom:3}}>{label}</div>
+        <input type="number" min={0} step="any"
+          value={local}
+          onChange={e => setLocal(e.target.value)}
+          onBlur={e => setSubmitForm(p => ({...p,[field]:e.target.value}))}
+          onFocus={e => e.target.select()}
+          style={{...sel,width:"100%",padding:"5px 8px",textAlign:"right"}} />
+      </div>
+    );
+  };
 
   return createPortal(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",zIndex:9999,
@@ -845,12 +851,13 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
             {(() => {
               const statsMatch = ref && ref.level === local.level && ref.stars === local.stars && ref.widget === local.widget;
               if (!statsMatch) return <DataUnavailable />;
+              const t = hero.type; // Infantry, Marksman, or Lancer
               return (
                 <>
-                  <StatRow label="Infantry Attack"    val={(ref.infAtk  * 100)} isPercent={true} />
-                  <StatRow label="Infantry Defense"   val={(ref.infDef  * 100)} isPercent={true} />
-                  <StatRow label="Infantry Lethality" val={(ref.infLeth * 100)} isPercent={true} />
-                  <StatRow label="Infantry Health"    val={(ref.infHp   * 100)} isPercent={true} />
+                  <StatRow label={`${t} Attack`}    val={(ref.infAtk  * 100)} isPercent={true} />
+                  <StatRow label={`${t} Defense`}   val={(ref.infDef  * 100)} isPercent={true} />
+                  <StatRow label={`${t} Lethality`} val={(ref.infLeth * 100)} isPercent={true} />
+                  <StatRow label={`${t} Health`}    val={(ref.infHp   * 100)} isPercent={true} />
                 </>
               );
             })()}
@@ -931,12 +938,12 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
                 <NumField label="Escort Attack"  field="escortAtk" />
               </div>
               <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",
-                color:C.textDim,marginBottom:8,fontFamily:"'Space Mono',monospace"}}>Expedition (%)</div>
+                color:C.textDim,marginBottom:8,fontFamily:"'Space Mono',monospace"}}>Expedition (%) — {hero.type}</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:16}}>
-                <NumField label="Infantry Attack"    field="infAtk" />
-                <NumField label="Infantry Defense"   field="infDef" />
-                <NumField label="Infantry Lethality" field="infLeth" />
-                <NumField label="Infantry Health"    field="infHp" />
+                <NumField label={`${hero.type} Attack`}    field="infAtk" />
+                <NumField label={`${hero.type} Defense`}   field="infDef" />
+                <NumField label={`${hero.type} Lethality`} field="infLeth" />
+                <NumField label={`${hero.type} Health`}    field="infHp" />
               </div>
               <div style={{display:"flex",gap:8}}>
                 <button onClick={handleSubmit} disabled={submitting}
