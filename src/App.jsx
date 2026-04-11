@@ -21,11 +21,19 @@ async function fetchSubmissions() {
   return error ? [] : data;
 }
 async function updateSubmission(id, updates) {
-  const { error } = await supabase
+  // Try with reviewed_at first; if that column doesn't exist, retry without it
+  let { error } = await supabase
     .from("stat_submissions")
     .update({ ...updates, reviewed_at: new Date().toISOString() })
     .eq("id", id);
-  if (error) console.error("updateSubmission error:", error);
+  if (error && error.message?.includes("reviewed_at")) {
+    const result = await supabase
+      .from("stat_submissions")
+      .update(updates)
+      .eq("id", id);
+    error = result.error;
+  }
+  if (error) console.error("updateSubmission error:", JSON.stringify(error));
   return !error;
 }
 
