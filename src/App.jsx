@@ -2550,27 +2550,48 @@ function SpeedupInput({ label, icon, dField, hField, mField, dVal, hVal, mVal, o
   const dispM = totalMins%60;
   const fmtTotal = totalMins===0 ? "—"
     : [dispD>0?`${dispD}d`:"", dispH>0?`${dispH}h`:"", dispM>0?`${dispM}m`:""].filter(Boolean).join(" ");
+  const C = new Proxy({}, { get(_, k) { return `var(--c-${k})`; } });
   const numStyle = {
-    background:"var(--c-surface)",border:"1px solid var(--c-border)",borderRadius:5,
-    padding:"4px 6px",fontSize:12,color:color||"var(--c-textPri)",outline:"none",
-    fontFamily:"Space Mono,monospace",width:52,textAlign:"right",
+    background:"var(--c-card)",border:"1px solid var(--c-border)",borderRadius:5,
+    padding:"5px 8px",fontSize:13,color:color||"var(--c-textPri)",outline:"none",
+    fontFamily:"Space Mono,monospace",width:64,textAlign:"right",fontWeight:700,
+    transition:"border-color .15s",
   };
+  const sepStyle = { fontSize:11, color:"var(--c-textDim)", fontFamily:"Space Mono,monospace", flexShrink:0 };
   return (
-    <div className="res-item" style={color?{borderColor:color+"40"}:{}}>
-      <div className="res-icon">{icon}</div>
-      <div className="res-label">{label}</div>
-      <div style={{display:"flex",alignItems:"center",gap:4,flex:1,justifyContent:"flex-end"}}>
-        <input type="number" min={0} style={numStyle} tabIndex={tabIndexBase}
-          value={dVal||0} onChange={e=>onChange(dField,Math.max(0,parseInt(e.target.value)||0))} placeholder="0" />
-        <span style={{fontSize:10,color:"var(--c-textDim)"}}>d</span>
-        <input type="number" min={0} max={23} style={numStyle} tabIndex={tabIndexBase+1}
-          value={hVal||0} onChange={e=>onChange(hField,Math.max(0,parseInt(e.target.value)||0))} placeholder="0" />
-        <span style={{fontSize:10,color:"var(--c-textDim)"}}>h</span>
-        <input type="number" min={0} max={59} style={numStyle} tabIndex={tabIndexBase+2}
-          value={mVal||0} onChange={e=>onChange(mField,Math.max(0,parseInt(e.target.value)||0))} placeholder="0" />
-        <span style={{fontSize:10,color:"var(--c-textDim)"}}>m</span>
-        <span style={{fontSize:11,color:"var(--c-textSec)",fontFamily:"Space Mono,monospace",minWidth:60,textAlign:"right"}}>{fmtTotal}</span>
-      </div>
+    <div style={{
+      display:"flex",alignItems:"center",gap:10,
+      background:"var(--c-surface)",border:"1px solid var(--c-border)",
+      borderRadius:8,padding:"10px 14px",transition:"border-color .15s",
+      borderColor: undefined,
+    }}
+    onFocus={e=>e.currentTarget.style.borderColor="var(--c-accent)"}
+    onBlur={e=>e.currentTarget.style.borderColor="var(--c-border)"}
+    >
+      {/* Icon */}
+      <span style={{fontSize:13,color:"var(--c-textSec)",fontFamily:"Space Mono,monospace",flexShrink:0,width:24,textAlign:"center"}}>{icon}</span>
+      {/* Label */}
+      <span style={{fontSize:12,fontWeight:600,color:"var(--c-textPri)",flexShrink:0,minWidth:100}}>{label}</span>
+      {/* Days */}
+      <input type="number" min={0} style={numStyle} tabIndex={tabIndexBase}
+        value={dVal||0} onChange={e=>onChange(dField,Math.max(0,parseInt(e.target.value)||0))}
+        onFocus={e=>e.target.select()} />
+      <span style={sepStyle}>d</span>
+      {/* Hours */}
+      <input type="number" min={0} max={23} style={numStyle} tabIndex={tabIndexBase+1}
+        value={hVal||0} onChange={e=>onChange(hField,Math.max(0,parseInt(e.target.value)||0))}
+        onFocus={e=>e.target.select()} />
+      <span style={sepStyle}>h</span>
+      {/* Minutes */}
+      <input type="number" min={0} max={59} style={numStyle} tabIndex={tabIndexBase+2}
+        value={mVal||0} onChange={e=>onChange(mField,Math.max(0,parseInt(e.target.value)||0))}
+        onFocus={e=>e.target.select()} />
+      <span style={sepStyle}>m</span>
+      {/* Total */}
+      <span style={{fontSize:12,color:"var(--c-textSec)",fontFamily:"Space Mono,monospace",
+        marginLeft:8,minWidth:70,flexShrink:0,color:totalMins>0?(color||"var(--c-blue)"):"var(--c-textDim)"}}>
+        {fmtTotal}
+      </span>
     </div>
   );
 }
@@ -2654,12 +2675,15 @@ function InventoryPage({ inv, setInv }) {
 
       <Section title="Other / Misc. Items" sub="Stamina & Speed-ups">
         <ResInput label="Stamina (cans)" icon="ST" field="stamina" value={inv.stamina??0} onChange={update} color={COLORS.green} tabIndex={25} />
-        <SpeedupInput label="General"        icon="GN" dField="speedGenD"      hField="speedGenH"      mField="speedGenM"      dVal={inv.speedGenD}      hVal={inv.speedGenH}      mVal={inv.speedGenM}      onChange={update} color={COLORS.blue}    tabIndexBase={26} />
-        <SpeedupInput label="Troop Training" icon="TR" dField="speedTroopD"    hField="speedTroopH"    mField="speedTroopM"    dVal={inv.speedTroopD}    hVal={inv.speedTroopH}    mVal={inv.speedTroopM}    onChange={update} color={COLORS.green}   tabIndexBase={29} />
-        <SpeedupInput label="Construction"   icon="CN" dField="speedConstD"    hField="speedConstH"    mField="speedConstM"    dVal={inv.speedConstD}    hVal={inv.speedConstH}    mVal={inv.speedConstM}    onChange={update} color={COLORS.accent}  tabIndexBase={32} />
-        <SpeedupInput label="Research"       icon="RS" dField="speedResearchD" hField="speedResearchH" mField="speedResearchM" dVal={inv.speedResearchD} hVal={inv.speedResearchH} mVal={inv.speedResearchM} onChange={update} color={COLORS.amber}   tabIndexBase={35} />
-        <SpeedupInput label="Learning"       icon="LN" dField="speedLearningD" hField="speedLearningH" mField="speedLearningM" dVal={inv.speedLearningD} hVal={inv.speedLearningH} mVal={inv.speedLearningM} onChange={update} color={COLORS.blue}    tabIndexBase={38} />
-        <SpeedupInput label="Healing"        icon="HL" dField="speedHealingD"  hField="speedHealingH"  mField="speedHealingM"  dVal={inv.speedHealingD}  hVal={inv.speedHealingH}  mVal={inv.speedHealingM}  onChange={update} color={COLORS.red??COLORS.accent} tabIndexBase={41} />
+        <div style={{gridColumn:"1/-1",display:"flex",flexDirection:"column",gap:8,marginTop:4}}>
+          <div style={{fontSize:9,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase",color:"var(--c-textSec)",fontFamily:"Space Mono,monospace",marginBottom:2}}>Speed-ups (Days · Hours · Minutes)</div>
+          <SpeedupInput label="General"        icon="GN" dField="speedGenD"      hField="speedGenH"      mField="speedGenM"      dVal={inv.speedGenD}      hVal={inv.speedGenH}      mVal={inv.speedGenM}      onChange={update} color={COLORS.blue}   tabIndexBase={26} />
+          <SpeedupInput label="Troop Training" icon="TR" dField="speedTroopD"    hField="speedTroopH"    mField="speedTroopM"    dVal={inv.speedTroopD}    hVal={inv.speedTroopH}    mVal={inv.speedTroopM}    onChange={update} color={COLORS.green}  tabIndexBase={29} />
+          <SpeedupInput label="Construction"   icon="CN" dField="speedConstD"    hField="speedConstH"    mField="speedConstM"    dVal={inv.speedConstD}    hVal={inv.speedConstH}    mVal={inv.speedConstM}    onChange={update} color={COLORS.accent} tabIndexBase={32} />
+          <SpeedupInput label="Research"       icon="RS" dField="speedResearchD" hField="speedResearchH" mField="speedResearchM" dVal={inv.speedResearchD} hVal={inv.speedResearchH} mVal={inv.speedResearchM} onChange={update} color={COLORS.amber}  tabIndexBase={35} />
+          <SpeedupInput label="Learning"       icon="LN" dField="speedLearningD" hField="speedLearningH" mField="speedLearningM" dVal={inv.speedLearningD} hVal={inv.speedLearningH} mVal={inv.speedLearningM} onChange={update} color={COLORS.blue}   tabIndexBase={38} />
+          <SpeedupInput label="Healing"        icon="HL" dField="speedHealingD"  hField="speedHealingH"  mField="speedHealingM"  dVal={inv.speedHealingD}  hVal={inv.speedHealingH}  mVal={inv.speedHealingM}  onChange={update} color={COLORS.green}  tabIndexBase={41} />
+        </div>
       </Section>
 
       <Section title="Chief Gear Materials" sub="Plans, Polish, Alloy & Amber">
