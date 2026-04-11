@@ -2206,9 +2206,22 @@ function ProfileModal({ open, onClose, initialSection="account",
   const [deleteStep, setDeleteStep] = useState(0); // 0=idle,1=email sent,2=otp entry
   const [otp, setOtp]               = useState("");
   const [busy, setBusy]             = useState(false);
+  // My Submissions
+  const [mySubs,    setMySubs]      = useState([]);
+  const [subsLoading, setSubsLoading] = useState(false);
 
   useEffect(() => { if (open) setSection(initialSection); }, [open, initialSection]);
   useEffect(() => { clearCharError?.(); clearAuthError?.(); setMsg(""); }, [section]);
+  useEffect(() => {
+    if (open && section === "account" && user) {
+      setSubsLoading(true);
+      supabase.from("stat_submissions")
+        .select("*")
+        .eq("submitted_by", user.id)
+        .order("submitted_at", { ascending: false })
+        .then(({ data }) => { setMySubs(data || []); setSubsLoading(false); });
+    }
+  }, [open, section, user]);
 
   const flash = (text, type="success") => { setMsg(text); setMsgType(type); setTimeout(()=>setMsg(""),4000); };
 
@@ -2403,6 +2416,48 @@ function ProfileModal({ open, onClose, initialSection="account",
                 <button className="modal-btn modal-btn-ghost" onClick={handlePasswordChange} disabled={busy}>
                   {busy ? "Sending…" : "Send Password Reset Email"}
                 </button>
+              </div>
+
+              <div className="modal-section">
+                <div className="modal-section-title">My Submissions</div>
+                {subsLoading && <div style={{fontSize:12,color:C.textDim,fontFamily:"Space Mono,monospace"}}>Loading…</div>}
+                {!subsLoading && mySubs.length === 0 && (
+                  <div style={{fontSize:12,color:C.textDim,fontFamily:"Space Mono,monospace"}}>No submissions yet.</div>
+                )}
+                {!subsLoading && mySubs.length > 0 && (
+                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                    {mySubs.map(sub => {
+                      const status = sub.status || "pending";
+                      const statusColor = status === "accepted" ? C.green : status === "rejected" ? C.red : C.amber;
+                      const statusBg    = status === "accepted" ? C.greenBg : status === "rejected" ? C.redBg : C.amberBg;
+                      return (
+                        <div key={sub.id} style={{background:C.surface,border:`1px solid ${C.border}`,
+                          borderRadius:8,padding:"10px 12px"}}>
+                          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
+                            <span style={{fontSize:13,fontWeight:700,color:C.textPri}}>{sub.hero_name}</span>
+                            <span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:4,
+                              background:statusBg,color:statusColor,border:`1px solid ${statusColor}40`,
+                              fontFamily:"Space Mono,monospace",textTransform:"uppercase"}}>
+                              {status}
+                            </span>
+                          </div>
+                          <div style={{fontSize:11,color:C.textDim,fontFamily:"Space Mono,monospace"}}>
+                            Stars: {sub.stars} · Level: {sub.level} · Widget: {sub.widget ?? "N/A"}
+                          </div>
+                          <div style={{fontSize:11,color:C.textDim,fontFamily:"Space Mono,monospace"}}>
+                            Submitted: {sub.submitted_at ? new Date(sub.submitted_at).toLocaleDateString() : "—"}
+                          </div>
+                          {status === "rejected" && sub.admin_note && (
+                            <div style={{marginTop:6,fontSize:11,color:C.red,fontFamily:"Space Mono,monospace",
+                              background:C.redBg,borderRadius:5,padding:"5px 8px"}}>
+                              Note: {sub.admin_note}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               <div className="modal-section">
