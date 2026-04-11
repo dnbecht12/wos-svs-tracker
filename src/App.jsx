@@ -38,29 +38,38 @@ async function updateSubmission(id, updates) {
 }
 
 // Fetch current hero_stats_data row for matching hero/level/stars/widget
+// SR/R heroes cannot have widgets — always store/query widget as null for them
+function isSSRHero(heroName) {
+  const h = HERO_ROSTER.find(h => h.name === heroName);
+  return h ? h.quality === "SSR" : true; // default to SSR if unknown
+}
+function heroWidget(heroName, widgetVal) {
+  return isSSRHero(heroName) ? (widgetVal ?? 0) : null;
+}
+
 async function getHeroStatsFromDB(heroName, level, stars, widget) {
+  const w = heroWidget(heroName, widget);
   const q = supabase.from("hero_stats_data")
     .select("*")
     .eq("hero_name", heroName)
     .eq("level", level)
     .eq("stars", stars)
     .eq("is_current", true);
-  // widget can be null for SR/R heroes
-  if (widget === null || widget === undefined) q.is("widget", null);
-  else q.eq("widget", widget);
+  if (w === null) q.is("widget", null);
+  else q.eq("widget", w);
   const { data } = await q.maybeSingle();
   return data || null;
 }
 
 async function acceptSubmission(submission, forceAccept = false) {
   const now = new Date().toISOString();
-  // Check for existing current row
+  const w = heroWidget(submission.hero_name, submission.widget);
+
   const existing = await getHeroStatsFromDB(
     submission.hero_name, submission.level, submission.stars, submission.widget
   );
 
   if (existing && !forceAccept) {
-    // Check for discrepancies
     const subStats = submission.stats || {};
     const exStats  = existing.stats || {};
     const diffs = Object.keys(subStats).filter(k =>
@@ -70,35 +79,27 @@ async function acceptSubmission(submission, forceAccept = false) {
     if (diffs.length > 0) return { needsValidation: true, existing, diffs };
   }
 
-  // Archive old row if exists
-  if (existing) {
-    const { data: newRow } = await supabase.from("hero_stats_data").insert({
-      hero_name:   submission.hero_name,
-      stars:       submission.stars,
-      level:       submission.level,
-      widget:      submission.widget ?? null,
-      stats:       submission.stats,
-      accepted_at: now,
-      accepted_by: ADMIN_UID,
-      is_current:  true,
-    }).select().single();
+  const newRowData = {
+    hero_name:   submission.hero_name,
+    stars:       submission.stars,
+    level:       submission.level,
+    widget:      w,
+    stats:       submission.stats,
+    accepted_at: now,
+    accepted_by: ADMIN_UID,
+    is_current:  true,
+  };
 
+  if (existing) {
+    const { data: newRow } = await supabase.from("hero_stats_data")
+      .insert(newRowData).select().single();
     if (newRow) {
       await supabase.from("hero_stats_data")
         .update({ is_current: false, superseded_at: now, superseded_by: newRow.id })
         .eq("id", existing.id);
     }
   } else {
-    await supabase.from("hero_stats_data").insert({
-      hero_name:   submission.hero_name,
-      stars:       submission.stars,
-      level:       submission.level,
-      widget:      submission.widget ?? null,
-      stats:       submission.stats,
-      accepted_at: now,
-      accepted_by: ADMIN_UID,
-      is_current:  true,
-    });
+    await supabase.from("hero_stats_data").insert(newRowData);
   }
 
   await updateSubmission(submission.id, { status: "accepted" });
@@ -711,7 +712,7 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
     if (!hero) return;
     setDbRef(null);
     setDbRefLoading(true);
-    const widget = hero.quality === "SSR" ? heroWidget : null;
+    const widget = isSSRHero(hero.name) ? heroWidget : null;
     console.log("[dbRef] querying hero_stats_data:", hero.name, "level:", heroLevel, "stars:", heroStars, "widget:", widget);
     const q = supabase.from("hero_stats_data")
       .select("*")
