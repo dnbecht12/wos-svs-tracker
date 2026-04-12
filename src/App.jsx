@@ -2538,13 +2538,60 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats })
                       const masteryChanged = !isWidget && (s.masteryCurrent ?? 0) !== (s.masteryGoal ?? 0);
                       const widgetChanged  = isWidget && (heroStatsForSlot.widget ?? 0) !== (s.widgetGoal ?? 0);
                       if (!gearChanged && !masteryChanged && !widgetChanged) return null;
+
                       const STAT_LABELS = ["Gear Pwr","Hero Atk","Hero HP","Esc Atk","Esc HP","Trp Leth","Trp Mast"];
                       const tdStat = {padding:"4px 8px",fontSize:10,fontFamily:"'Space Mono',monospace",borderRight:`1px solid ${C.border}`,textAlign:"center"};
+
+                      // Calculate current and goal stats using GearData lookup
+                      const gearName = !isWidget ? SLOT_TO_GEAR(slot.type, gearSlot) : null;
+                      const tier = s.status || "Legendary";
+                      const curLv  = s.gearCurrent  ?? 0;
+                      const goalLv = s.gearGoal      ?? 0;
+                      const curM   = s.masteryCurrent ?? 0;
+                      const goalM  = s.masteryGoal    ?? 0;
+
+                      const curStats  = gearName ? getGearStats(gearName, tier, curLv,  curM)  : null;
+                      const goalStats = gearName ? getGearStats(gearName, tier, goalLv, goalM) : null;
+
+                      // Format a stat value for display
+                      const fmtVal = (val, isPct) => {
+                        if (val == null) return "—";
+                        if (isPct) return val.toFixed(2) + "%";
+                        return Math.round(val).toLocaleString();
+                      };
+
+                      // Build rows: [Gear Pwr, Hero Atk/Def, Hero HP, Esc Atk/Def, Esc HP, Trp%, Trp Mast%]
+                      const getRowVals = (gs, mastery) => {
+                        if (!gs) return Array(7).fill(null);
+                        const mastPct = mastery * 10; // mastery bonus %
+                        return [
+                          gs.power,
+                          gs.heroMain,
+                          gs.heroHp,
+                          gs.escMain,
+                          gs.escHp,
+                          gs.troop,   // already a %
+                          mastPct,    // mastery %
+                        ];
+                      };
+
+                      const curVals  = getRowVals(curStats,  curM);
+                      const goalVals = getRowVals(goalStats, goalM);
+                      const chgVals  = curVals.map((v, i) => (goalVals[i] != null && v != null) ? goalVals[i] - v : null);
+                      const isPct    = [false, false, false, false, false, true, true];
+
+                      const chgColor = (v) => v == null ? C.textDim : v > 0 ? C.green : v < 0 ? C.red : C.textDim;
+
+                      const rows = [
+                        { label:"Current", color:C.textSec, bg:"transparent",               vals: curVals  },
+                        { label:"Goal",    color:C.blue,    bg:"rgba(56,139,253,0.06)",      vals: goalVals },
+                        { label:"Change",  color:C.green,   bg:"rgba(63,185,80,0.06)",       vals: chgVals, isChange: true },
+                      ];
+
                       return (
                         <tr style={{background:"rgba(56,139,253,0.04)"}}>
                           <td colSpan={12} style={{padding:"6px 10px",borderBottom:`1px solid ${C.border}`}}>
                             <div style={{display:"flex",gap:0,borderRadius:6,overflow:"hidden",border:`1px solid ${C.border}`}}>
-                              {/* Section labels */}
                               <table style={{borderCollapse:"collapse",width:"100%",fontSize:10}}>
                                 <thead>
                                   <tr>
@@ -2555,15 +2602,13 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats })
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {[
-                                    {label:"Current", color:C.textSec, bg:"transparent"},
-                                    {label:"Goal",    color:C.blue,    bg:"rgba(56,139,253,0.06)"},
-                                    {label:"Change",  color:C.green,   bg:"rgba(63,185,80,0.06)"},
-                                  ].map(row => (
+                                  {rows.map(row => (
                                     <tr key={row.label} style={{background:row.bg}}>
                                       <td style={{...tdStat,color:row.color,fontWeight:700,fontSize:9,whiteSpace:"nowrap"}}>{row.label}</td>
-                                      {STAT_LABELS.map(l => (
-                                        <td key={row.label+l} style={{...tdStat,color:C.textDim}}>TBD</td>
+                                      {row.vals.map((v, i) => (
+                                        <td key={row.label+STAT_LABELS[i]} style={{...tdStat, color: row.isChange ? chgColor(v) : (v == null ? C.textDim : C.textPri)}}>
+                                          {row.isChange && v != null && v > 0 ? "+" : ""}{fmtVal(v, isPct[i])}
+                                        </td>
                                       ))}
                                     </tr>
                                   ))}
