@@ -1368,48 +1368,77 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
           <div style={{marginBottom:20}}>
             {sectionHead("Power Details")}
             {(() => {
-              
               if (!statsMatch) return <DataUnavailable />;
+              // Sum gear power from all 4 equipped pieces
+              const gearDataForPower = getHeroGearData(hero.name);
+              const gearSlotNames = ["Goggles","Gloves","Belt","Boots"];
+              const gearPowerTotal = gearSlotNames.reduce((sum, slot) => {
+                const slotIdx = GEAR_SLOTS.indexOf(slot);
+                const s = gearDataForPower?.slots?.[slotIdx];
+                const gearName = SLOT_TO_GEAR(hero.type, slot);
+                if (!s || !gearName) return sum;
+                const gs = getGearStats(gearName, s.status || "Legendary", s.gearCurrent ?? 0, s.masteryCurrent ?? 0);
+                return sum + (gs?.power ?? 0);
+              }, 0);
+              const basePower = (ref.levelPower||0)+(ref.starPower||0)+(ref.skillPower||0)+(isSSR?(ref.gearStrength||0):0);
+              const totalPower = basePower + gearPowerTotal;
               return (
                 <>
-                  <StatRow label="Total Power" val={(ref.levelPower||0)+(ref.starPower||0)+(ref.skillPower||0)+(isSSR?(ref.gearStrength||0):0)} isPercent={false} />
-                  <StatRow label="Level Power"  val={ref.levelPower}  isPercent={false} />
-                  <StatRow label="Star Power"   val={ref.starPower}   isPercent={false} />
-                  <StatRow label="Skill Power"  val={ref.skillPower}  isPercent={false} />
+                  <StatRow label="Total Power"    val={totalPower}       isPercent={false} />
+                  <StatRow label="Level Power"     val={ref.levelPower}   isPercent={false} />
+                  <StatRow label="Star Power"      val={ref.starPower}    isPercent={false} />
+                  <StatRow label="Skill Power"     val={ref.skillPower}   isPercent={false} />
                   {isSSR && <StatRow label="Gear Strength" val={ref.gearStrength} isPercent={false} />}
-                  <StatRow label="Escorts"        val={ref.escorts}  isPercent={false} />
-                  <StatRow label="Troop Capacity" val={ref.troopCap} isPercent={false} />
+                  {gearPowerTotal > 0 && <StatRow label="Gear Power" val={gearPowerTotal} isPercent={false} />}
+                  <StatRow label="Escorts"         val={ref.escorts}     isPercent={false} />
+                  <StatRow label="Troop Capacity"  val={ref.troopCap}    isPercent={false} />
                 </>
               );
             })()}
           </div>
 
-          {/* Exploration Base Stats */}
+          {/* Exploration Stats */}
           <div style={{marginBottom:20}}>
-            {sectionHead("Exploration Base Stats")}
+            {sectionHead("Exploration Stats")}
             {(() => {
-              
               if (!statsMatch) return <DataUnavailable />;
+              // Add gear contributions to base stats
+              const gearDataForStats = getHeroGearData(hero.name);
+              const gearSlotNames = ["Goggles","Gloves","Belt","Boots"];
+              let gearHAtk = 0, gearHDef = 0, gearHHp = 0;
+              let gearEAtk = 0, gearEDef = 0, gearEHp = 0;
+              gearSlotNames.forEach(slot => {
+                const slotIdx = GEAR_SLOTS.indexOf(slot);
+                const s = gearDataForStats?.slots?.[slotIdx];
+                const gearName = SLOT_TO_GEAR(hero.type, slot);
+                if (!s || !gearName) return;
+                const gs = getGearStats(gearName, s.status || "Legendary", s.gearCurrent ?? 0, s.masteryCurrent ?? 0);
+                if (!gs) return;
+                const isATK = GEAR_TYPE[gearName] === "ATK";
+                if (isATK) { gearHAtk += gs.heroMain; gearEAtk += gs.escMain; }
+                else       { gearHDef += gs.heroMain; gearEDef += gs.escMain; }
+                gearHHp += gs.heroHp;
+                gearEHp += gs.escHp;
+              });
               return (
                 <>
-                  <StatRow label="Hero Attack"   val={ref.heroAtk}   isPercent={false} />
-                  <StatRow label="Hero Defense"  val={ref.heroDef}   isPercent={false} />
-                  <StatRow label="Hero Health"   val={ref.heroHp}    isPercent={false} />
-                  <StatRow label="Escort Health" val={ref.escortHp}  isPercent={false} />
-                  <StatRow label="Escort Defense"val={ref.escortDef} isPercent={false} />
-                  <StatRow label="Escort Attack" val={ref.escortAtk} isPercent={false} />
+                  <StatRow label="Hero Attack"    val={(ref.heroAtk||0) + gearHAtk}   isPercent={false} />
+                  <StatRow label="Hero Defense"   val={(ref.heroDef||0) + gearHDef}   isPercent={false} />
+                  <StatRow label="Hero Health"    val={(ref.heroHp||0)  + gearHHp}    isPercent={false} />
+                  <StatRow label="Escort Attack"  val={(ref.escortAtk||0) + gearEAtk} isPercent={false} />
+                  <StatRow label="Escort Defense" val={(ref.escortDef||0) + gearEDef} isPercent={false} />
+                  <StatRow label="Escort Health"  val={(ref.escortHp||0)  + gearEHp}  isPercent={false} />
                 </>
               );
             })()}
           </div>
 
-          {/* Expedition Base Stats */}
+          {/* Expedition Stats */}
           <div style={{marginBottom:20}}>
-            {sectionHead("Expedition Base Stats")}
+            {sectionHead("Expedition Stats")}
             {(() => {
-              
               if (!statsMatch) return <DataUnavailable />;
-              const t = hero.type; // Infantry, Marksman, or Lancer
+              const t = hero.type;
               return (
                 <>
                   <StatRow label={`${t} Attack`}    val={(ref.infAtk  * 100)} isPercent={true} />
