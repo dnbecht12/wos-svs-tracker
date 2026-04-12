@@ -110,6 +110,7 @@ import RFCPlanner from "./RFCPlanner.jsx";
 import SvSCalendar from "./SvSCalendar.jsx";
 import { useAuth } from "./useAuth.js";
 import { useCharacters, charLoadInventory, charSaveInventory, charLoadPlans, charSavePlan, charDeletePlan, savePlanSnapshot, loadPlanSnapshot } from "./useCharacters.js";
+import { GEAR_DB, EMPOWERMENT, GEAR_TYPE, HERO_GEAR_SET, SLOT_TO_GEAR, getGearStats, getUnlockedEmpowerments } from "./GearData.js";
 
 // ─── Theme & Design System ────────────────────────────────────────────────────
 // ─── Theme System ─────────────────────────────────────────────────────────────
@@ -681,6 +682,9 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
   const [showSubmit, setShowSubmit] = useState(false);
   const [submitDone, setSubmitDone] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [gearView, setGearView] = useState("detailed");
+  const [gearStatModal, setGearStatModal] = useState(null);
+  const [showAllStats, setShowAllStats] = useState(false);
   const [submitForm, setSubmitForm] = useState({
     heroAtk:"", heroDef:"", heroHp:"", escortHp:"", escortDef:"", escortAtk:"",
     infAtk:"", infDef:"", infLeth:"", infHp:"",
@@ -895,12 +899,123 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
           {/* Gear section */}
           {(() => {
             const gearData = getHeroGearData(hero.name);
-            const gearPieces = ["Goggles","Gloves","Belt","Boots"];
-            const statusColor = s => s === "Mythic" ? C.amber : C.textSec;
+            const troopType = hero.type; // "Infantry" | "Marksman" | "Lancer"
+            const gearSlots = ["Goggles","Gloves","Belt","Boots"];
 
-            const GearCard = ({ slotName }) => {
+            // SVG icons per slot
+            const SlotIcon = ({ slot, color }) => {
+              const stroke = color;
+              const fill = color + "22";
+              if (slot === "Goggles") return (
+                <svg width="52" height="52" viewBox="0 0 52 52">
+                  <rect x="6" y="18" width="16" height="14" rx="6" fill={fill} stroke={stroke} strokeWidth="2"/>
+                  <rect x="30" y="18" width="16" height="14" rx="6" fill={fill} stroke={stroke} strokeWidth="2"/>
+                  <rect x="8" y="21" width="12" height="7" rx="3.5" fill={color} fillOpacity="0.35"/>
+                  <rect x="32" y="21" width="12" height="7" rx="3.5" fill={color} fillOpacity="0.35"/>
+                  <line x1="22" y1="25" x2="30" y2="25" stroke={stroke} strokeWidth="2"/>
+                  <path d="M6 22 Q3 22 3 25 Q3 28 6 28" fill="none" stroke={stroke} strokeWidth="1.5"/>
+                  <path d="M46 22 Q49 22 49 25 Q49 28 46 28" fill="none" stroke={stroke} strokeWidth="1.5"/>
+                </svg>
+              );
+              if (slot === "Gloves") return (
+                <svg width="52" height="52" viewBox="0 0 52 52">
+                  <rect x="18" y="28" width="20" height="14" rx="3" fill={fill} stroke={stroke} strokeWidth="2"/>
+                  <rect x="20" y="18" width="6" height="12" rx="3" fill={fill} stroke={stroke} strokeWidth="1.5"/>
+                  <rect x="28" y="16" width="6" height="14" rx="3" fill={fill} stroke={stroke} strokeWidth="1.5"/>
+                  <rect x="36" y="18" width="6" height="12" rx="3" fill={fill} stroke={stroke} strokeWidth="1.5"/>
+                  <rect x="16" y="24" width="24" height="7" rx="3" fill={fill} stroke={stroke} strokeWidth="1.5"/>
+                  <line x1="18" y1="34" x2="38" y2="34" stroke={stroke} strokeWidth="1" strokeOpacity="0.4"/>
+                  <line x1="18" y1="38" x2="38" y2="38" stroke={stroke} strokeWidth="1" strokeOpacity="0.4"/>
+                </svg>
+              );
+              if (slot === "Belt") return (
+                <svg width="52" height="52" viewBox="0 0 52 52">
+                  <rect x="4" y="21" width="44" height="10" rx="4" fill={fill} stroke={stroke} strokeWidth="2"/>
+                  <rect x="21" y="18" width="10" height="16" rx="3" fill={fill} stroke={stroke} strokeWidth="1.5"/>
+                  <rect x="23" y="22" width="6" height="8" rx="1.5" fill={color} fillOpacity="0.3"/>
+                  <rect x="24.5" y="24.5" width="3" height="3" rx="0.75" fill={stroke} fillOpacity="0.7"/>
+                  <line x1="4" y1="25" x2="21" y2="25" stroke={stroke} strokeWidth="1" strokeOpacity="0.4"/>
+                  <line x1="31" y1="25" x2="48" y2="25" stroke={stroke} strokeWidth="1" strokeOpacity="0.4"/>
+                </svg>
+              );
+              if (slot === "Boots") return (
+                <svg width="52" height="52" viewBox="0 0 52 52">
+                  <rect x="18" y="8" width="10" height="22" rx="3" fill={fill} stroke={stroke} strokeWidth="2"/>
+                  <path d="M18 26 L18 34 Q18 38 22 40 L40 40 Q44 40 44 36 L44 34 Q44 32 42 32 L30 32 Q26 32 26 28 L26 26 Z" fill={fill} stroke={stroke} strokeWidth="2" strokeLinejoin="round"/>
+                  <rect x="22" y="40" width="22" height="5" rx="2.5" fill={fill} stroke={stroke} strokeWidth="1.5"/>
+                  <line x1="18" y1="14" x2="28" y2="14" stroke={stroke} strokeWidth="1.2" strokeOpacity="0.5"/>
+                  <line x1="18" y1="19" x2="28" y2="19" stroke={stroke} strokeWidth="1.2" strokeOpacity="0.5"/>
+                  <line x1="18" y1="24" x2="28" y2="24" stroke={stroke} strokeWidth="1.2" strokeOpacity="0.5"/>
+                </svg>
+              );
+              return null;
+            };
+
+            // Single detailed gear card
+            const DetailedGearCard = ({ slotName }) => {
               const slotIdx = GEAR_SLOTS.indexOf(slotName);
               const s = gearData?.slots?.[slotIdx];
+              const gearName = SLOT_TO_GEAR(troopType, slotName);
+              const tier = s?.status || "Legendary";
+              const gearLv = s?.gearCurrent ?? 0;
+              const mastery = s?.masteryCurrent ?? 0;
+              const isMythic = tier === "Mythic";
+              const ringColor = isMythic ? "#B8860B" : "#C0392B";
+              const tierColor = isMythic ? C.amber : C.red;
+              const stats = gearName ? getGearStats(gearName, tier, gearLv, mastery) : null;
+
+              if (!gearData || !s) return (
+                <div style={{background:C.surface,border:`1px dashed ${C.border}`,borderRadius:10,
+                  padding:"14px 10px",textAlign:"center",display:"flex",
+                  alignItems:"center",justifyContent:"center",flexDirection:"column",gap:6,minHeight:160}}>
+                  <div style={{fontSize:20,opacity:0.3}}>+</div>
+                  <div style={{fontSize:10,color:C.textDim}}>No {slotName} equipped</div>
+                </div>
+              );
+
+              return (
+                <div onClick={() => setGearStatModal({ slotName, gearName, s })}
+                  style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:10,
+                    padding:"12px 10px",textAlign:"center",cursor:"pointer",transition:"border-color 0.15s",
+                    display:"flex",flexDirection:"column",alignItems:"center",gap:6}}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = ringColor}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = C.border}>
+                  {/* Tier label */}
+                  <div style={{fontSize:10,fontWeight:700,color:tierColor,letterSpacing:"0.5px",textTransform:"uppercase"}}>{tier}</div>
+                  {/* Ring + icon + level badge */}
+                  <div style={{position:"relative",width:72,height:72,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                    <div style={{position:"absolute",inset:0,borderRadius:"50%",
+                      border:`2.5px solid ${ringColor}`,opacity:0.75}}/>
+                    <div style={{position:"absolute",inset:4,borderRadius:"50%",
+                      background:ringColor,opacity:0.08}}/>
+                    <SlotIcon slot={slotName} color={ringColor}/>
+                    {/* Level badge */}
+                    <div style={{position:"absolute",top:-4,right:-4,
+                      background:ringColor,color:"#fff",fontSize:10,fontWeight:700,
+                      padding:"2px 5px",borderRadius:6,fontFamily:"'Space Mono',monospace",
+                      lineHeight:1.2,whiteSpace:"nowrap"}}>
+                      +{gearLv}
+                    </div>
+                  </div>
+                  {/* Gear name */}
+                  <div style={{fontSize:11,fontWeight:600,color:C.textPri,lineHeight:1.3,
+                    fontFamily:"'Space Mono',monospace"}}>{gearName || slotName}</div>
+                  {/* Mastery */}
+                  <div style={{fontSize:11,color:C.textSec}}>Mastery <span style={{color:C.textPri,fontWeight:700}}>Lv. {mastery}</span></div>
+                  {/* Power */}
+                  <div style={{fontSize:12,fontWeight:700,color:C.textPri}}>
+                    <span style={{marginRight:4}}>👊</span>
+                    {stats ? stats.power.toLocaleString() : "—"}
+                  </div>
+                </div>
+              );
+            };
+
+            // Simple gear card (original condensed style)
+            const SimpleGearCard = ({ slotName }) => {
+              const slotIdx = GEAR_SLOTS.indexOf(slotName);
+              const s = gearData?.slots?.[slotIdx];
+              const statusColor = st => st === "Mythic" ? C.amber : C.red;
               if (!gearData || !s) return (
                 <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,
                   padding:"10px 12px",textAlign:"center",minHeight:72,display:"flex",
@@ -909,34 +1024,247 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
                   <div style={{fontSize:9,color:C.textDim}}>—</div>
                 </div>
               );
-              const isWidget = slotName === "Widget";
               return (
                 <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 12px"}}>
                   <div style={{fontSize:10,fontWeight:700,color:C.textDim,fontFamily:"'Space Mono',monospace",marginBottom:6}}>{slotName}</div>
-                  {!isWidget && (
-                    <div style={{fontSize:11,fontWeight:700,color:statusColor(s.status),marginBottom:3}}>{s.status || "Legendary"}</div>
-                  )}
-                  <div style={{fontSize:11,color:C.textSec}}>Lvl <span style={{color:C.textPri,fontWeight:700}}>{isWidget ? (local.widget ?? 0) : (s.gearCurrent ?? 0)}</span></div>
-                  {!isWidget && (
-                    <div style={{fontSize:11,color:C.textSec}}>Mastery <span style={{color:C.textPri,fontWeight:700}}>{s.masteryCurrent ?? 0}</span></div>
-                  )}
+                  <div style={{fontSize:11,fontWeight:700,color:statusColor(s.status),marginBottom:3}}>{s.status || "Legendary"}</div>
+                  <div style={{fontSize:11,color:C.textSec}}>Lvl <span style={{color:C.textPri,fontWeight:700}}>{s.gearCurrent ?? 0}</span></div>
+                  <div style={{fontSize:11,color:C.textSec}}>Mastery <span style={{color:C.textPri,fontWeight:700}}>{s.masteryCurrent ?? 0}</span></div>
                 </div>
+              );
+            };
+
+            // Single-piece stat modal
+            const GearStatModal = ({ slotName, gearName, s, onClose }) => {
+              const tier = s?.status || "Legendary";
+              const gearLv = s?.gearCurrent ?? 0;
+              const mastery = s?.masteryCurrent ?? 0;
+              const isATK = GEAR_TYPE[gearName] === "ATK";
+              const stats = gearName ? getGearStats(gearName, tier, gearLv, mastery) : null;
+              const emps = getUnlockedEmpowerments(gearName, tier, gearLv);
+              const isMythic = tier === "Mythic";
+              const tierColor = isMythic ? C.amber : C.red;
+
+              return createPortal(
+                <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.82)",zIndex:10100,
+                  display:"flex",alignItems:"center",justifyContent:"center",padding:20}}
+                  onClick={e => e.target === e.currentTarget && onClose()}>
+                  <div style={{background:C.card,border:`1px solid ${C.borderHi}`,borderRadius:14,
+                    width:"100%",maxWidth:380,maxHeight:"85vh",overflowY:"auto",padding:"20px 18px"}}>
+                    {/* Header */}
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
+                      <div>
+                        <div style={{fontSize:10,fontWeight:700,color:tierColor,textTransform:"uppercase",letterSpacing:"0.5px"}}>{tier}</div>
+                        <div style={{fontSize:15,fontWeight:700,color:C.textPri,marginTop:2}}>{gearName || slotName}</div>
+                        <div style={{fontSize:11,color:C.textSec,marginTop:2}}>+{gearLv} · Mastery Lv. {mastery} · 👊 {stats?.power?.toLocaleString() ?? "—"}</div>
+                      </div>
+                      <button onClick={onClose}
+                        style={{background:"none",border:"none",color:C.textSec,fontSize:18,cursor:"pointer",padding:"0 4px",lineHeight:1}}>✕</button>
+                    </div>
+
+                    {/* Stats */}
+                    <div style={{marginBottom:14}}>
+                      <div style={{fontSize:10,fontWeight:700,letterSpacing:"1px",textTransform:"uppercase",
+                        color:C.textDim,fontFamily:"'Space Mono',monospace",marginBottom:8,
+                        paddingBottom:5,borderBottom:`1px solid ${C.border}`}}>Gear Stats (Mastery ×{(1+mastery*0.1).toFixed(1)})</div>
+                      {stats && [
+                        [isATK ? "Hero Attack" : "Hero Defense", stats.heroMain],
+                        ["Hero Health", stats.heroHp],
+                        [isATK ? "Escort Attack" : "Escort Defense", stats.escMain],
+                        ["Escort Health", stats.escHp],
+                        [gearName?.split(" ")[0] + (GEAR_TYPE[gearName]==="ATK" ? " Lethality" : " Health"), null, stats.troop + "%"],
+                      ].map(([label, val, pct]) => (
+                        <div key={label} style={{display:"flex",justifyContent:"space-between",
+                          padding:"5px 0",borderBottom:`1px solid ${C.border}40`,fontSize:12}}>
+                          <span style={{color:C.textSec}}>{label}</span>
+                          <span style={{color:C.textPri,fontWeight:700,fontFamily:"'Space Mono',monospace"}}>
+                            {pct ?? Number(val).toLocaleString()}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Empowerment */}
+                    {emps.length > 0 && (
+                      <div style={{marginBottom:14}}>
+                        <div style={{fontSize:10,fontWeight:700,letterSpacing:"1px",textTransform:"uppercase",
+                          color:C.textDim,fontFamily:"'Space Mono',monospace",marginBottom:8,
+                          paddingBottom:5,borderBottom:`1px solid ${C.border}`}}>Empowerment Bonuses</div>
+                        {emps.map(({ threshold, label, value, unlocked }) => (
+                          <div key={threshold} style={{display:"flex",justifyContent:"space-between",
+                            alignItems:"center",padding:"5px 0",borderBottom:`1px solid ${C.border}40`,
+                            fontSize:12,opacity:unlocked ? 1 : 0.38}}>
+                            <div style={{display:"flex",alignItems:"center",gap:6}}>
+                              <span style={{fontSize:10,fontFamily:"'Space Mono',monospace",
+                                color:unlocked ? tierColor : C.textDim,fontWeight:700}}>+{threshold}</span>
+                              <span style={{color:unlocked ? C.textSec : C.textDim}}>{label}{!unlocked && " 🔒"}</span>
+                            </div>
+                            <span style={{color:unlocked ? C.textPri : C.textDim,fontWeight:700,
+                              fontFamily:"'Space Mono',monospace"}}>+{value}%</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* View all stats button */}
+                    <button onClick={() => { onClose(); setShowAllStats(true); }}
+                      style={{width:"100%",padding:"9px 0",borderRadius:8,fontSize:12,fontWeight:700,
+                        cursor:"pointer",border:`1px solid ${C.border}`,background:C.surface,
+                        color:C.textSec,fontFamily:"Syne,sans-serif",marginTop:4}}>
+                      View all 4 gear stats →
+                    </button>
+                  </div>
+                </div>,
+                document.body
+              );
+            };
+
+            // All-stats table modal
+            const AllStatsModal = ({ onClose }) => {
+              const pieces = gearSlots.map(slot => {
+                const slotIdx = GEAR_SLOTS.indexOf(slot);
+                const s = gearData?.slots?.[slotIdx];
+                const gearName = SLOT_TO_GEAR(troopType, slot);
+                const tier = s?.status || "Legendary";
+                const gearLv = s?.gearCurrent ?? 0;
+                const mastery = s?.masteryCurrent ?? 0;
+                const stats = gearName && s ? getGearStats(gearName, tier, gearLv, mastery) : null;
+                const isATK = GEAR_TYPE[gearName] === "ATK";
+                return { slot, gearName, tier, gearLv, mastery, stats, isATK };
+              });
+
+              const total = pieces.reduce((acc, p) => {
+                if (!p.stats) return acc;
+                acc.heroMain += p.stats.heroMain;
+                acc.heroHp   += p.stats.heroHp;
+                acc.escMain  += p.stats.escMain;
+                acc.escHp    += p.stats.escHp;
+                acc.troop    += p.stats.troop;
+                acc.power    += p.stats.power;
+                return acc;
+              }, { heroMain:0, heroHp:0, escMain:0, escHp:0, troop:0, power:0 });
+
+              const colStyle = { textAlign:"center", padding:"6px 8px", fontSize:11, borderBottom:`1px solid ${C.border}40` };
+              const hdStyle  = { ...colStyle, fontSize:10, fontWeight:700, color:C.textSec,
+                borderBottom:`1px solid ${C.border}`, paddingBottom:8, verticalAlign:"bottom" };
+              const labelStyle = { textAlign:"left", padding:"6px 8px", fontSize:11,
+                color:C.textSec, borderBottom:`1px solid ${C.border}40`, whiteSpace:"nowrap" };
+
+              return createPortal(
+                <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.82)",zIndex:10100,
+                  display:"flex",alignItems:"center",justifyContent:"center",padding:12}}
+                  onClick={e => e.target === e.currentTarget && onClose()}>
+                  <div style={{background:C.card,border:`1px solid ${C.borderHi}`,borderRadius:14,
+                    width:"100%",maxWidth:620,maxHeight:"85vh",overflowY:"auto",padding:"18px 16px"}}>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+                      <div style={{fontSize:14,fontWeight:700,color:C.textPri}}>Full Gear Stats — {hero.name}</div>
+                      <button onClick={onClose}
+                        style={{background:"none",border:"none",color:C.textSec,fontSize:18,cursor:"pointer",padding:"0 4px",lineHeight:1}}>✕</button>
+                    </div>
+                    <div style={{overflowX:"auto"}}>
+                      <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+                        <thead>
+                          <tr>
+                            <th style={hdStyle}></th>
+                            {pieces.map(p => (
+                              <th key={p.slot} style={hdStyle}>
+                                <div style={{fontFamily:"'Space Mono',monospace",fontSize:10}}>{p.slot}</div>
+                                <div style={{color:p.tier==="Mythic"?C.amber:C.red,fontSize:9,fontWeight:700}}>{p.tier} +{p.gearLv}</div>
+                                <div style={{color:C.textDim,fontSize:9}}>M{p.mastery}</div>
+                              </th>
+                            ))}
+                            <th style={{...hdStyle,color:C.accent}}>Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {[
+                            { label: "Hero Atk / Def", key: "heroMain" },
+                            { label: "Hero Health",     key: "heroHp"   },
+                            { label: "Escort Atk / Def",key: "escMain"  },
+                            { label: "Escort Health",   key: "escHp"    },
+                            { label: "Troop %",         key: "troop", pct: true },
+                            { label: "👊 Power",        key: "power"    },
+                          ].map(row => (
+                            <tr key={row.key}>
+                              <td style={labelStyle}>{row.label}</td>
+                              {pieces.map(p => (
+                                <td key={p.slot} style={{...colStyle,
+                                  fontFamily:"'Space Mono',monospace",fontWeight:600,color:C.textPri}}>
+                                  {p.stats
+                                    ? (row.pct ? p.stats[row.key].toFixed(2)+"%" : p.stats[row.key].toLocaleString())
+                                    : <span style={{color:C.textDim}}>—</span>}
+                                </td>
+                              ))}
+                              <td style={{...colStyle,fontFamily:"'Space Mono',monospace",
+                                fontWeight:700,color:C.accent}}>
+                                {row.pct ? total[row.key].toFixed(2)+"%" : total[row.key].toLocaleString()}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>,
+                document.body
               );
             };
 
             return (
               <div style={{marginBottom:20}}>
-                {sectionHead("Gear")}
-                {/* 2x2 grid for Goggles/Gloves/Belt/Boots */}
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
-                  {gearPieces.map(p => <GearCard key={p} slotName={p} />)}
+                {/* Section header with Simple/Detailed toggle */}
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+                  <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase",
+                    color:C.textDim,fontFamily:"'Space Mono',monospace"}}>Gear</div>
+                  {gearData && (
+                    <div style={{display:"flex",gap:4}}>
+                      {["simple","detailed"].map(v => (
+                        <button key={v} onClick={() => setGearView(v)}
+                          style={{padding:"3px 10px",borderRadius:6,fontSize:10,fontWeight:700,
+                            cursor:"pointer",fontFamily:"Syne,sans-serif",textTransform:"capitalize",
+                            border:`1px solid ${gearView===v ? C.accent : C.border}`,
+                            background:gearView===v ? C.accentBg : "transparent",
+                            color:gearView===v ? C.accent : C.textSec}}>
+                          {v}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                {/* Widget centered below */}
-                <div style={{display:"flex",justifyContent:"center"}}>
-                  <div style={{width:"50%"}}>
-                    <GearCard slotName="Widget" />
+                <div style={{borderBottom:`1px solid ${C.border}`,marginBottom:10}}/>
+
+                {/* Not equipped message */}
+                {!gearData && (
+                  <div style={{padding:"14px 16px",background:C.surface,border:`1px solid ${C.border}`,
+                    borderRadius:8,textAlign:"center"}}>
+                    <div style={{fontSize:12,color:C.textSec,marginBottom:4}}>This hero is not equipped with gear at this time.</div>
+                    <div style={{fontSize:11,color:C.textDim}}>Go to the <strong style={{color:C.textSec}}>Hero Gear Calculator</strong> to select this hero.</div>
                   </div>
-                </div>
+                )}
+
+                {/* 2×2 gear card grid */}
+                {gearData && (
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                    {gearSlots.map(slot =>
+                      gearView === "detailed"
+                        ? <DetailedGearCard key={slot} slotName={slot}/>
+                        : <SimpleGearCard   key={slot} slotName={slot}/>
+                    )}
+                  </div>
+                )}
+
+                {/* Single-piece stat modal */}
+                {gearStatModal && (
+                  <GearStatModal
+                    slotName={gearStatModal.slotName}
+                    gearName={gearStatModal.gearName}
+                    s={gearStatModal.s}
+                    onClose={() => setGearStatModal(null)}
+                  />
+                )}
+
+                {/* All-stats table modal */}
+                {showAllStats && <AllStatsModal onClose={() => setShowAllStats(false)} />}
               </div>
             );
           })()}
