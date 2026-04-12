@@ -2539,9 +2539,6 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats })
                       const widgetChanged  = isWidget && (heroStatsForSlot.widget ?? 0) !== (s.widgetGoal ?? 0);
                       if (!gearChanged && !masteryChanged && !widgetChanged) return null;
 
-                      const STAT_LABELS = ["Gear Pwr", GEAR_TYPE[gearName]==="ATK" ? "Hero Atk" : "Hero Def", "Hero HP", GEAR_TYPE[gearName]==="ATK" ? "Esc Atk" : "Esc Def", "Esc HP", GEAR_TYPE[gearName]==="ATK" ? "Trp Leth" : "Trp HP", "Trp Mast"];
-                      const tdStat = {padding:"4px 8px",fontSize:10,fontFamily:"'Space Mono',monospace",borderRight:`1px solid ${C.border}`,textAlign:"center"};
-
                       // Calculate current and goal stats using GearData lookup
                       const gearName = !isWidget ? SLOT_TO_GEAR(slot.type, gearSlot) : null;
                       const tier = s.status || "Legendary";
@@ -2549,6 +2546,8 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats })
                       const goalLv = s.gearGoal      ?? 0;
                       const curM   = s.masteryCurrent ?? 0;
                       const goalM  = s.masteryGoal    ?? 0;
+
+                      const STAT_LABELS = ["Gear Pwr", GEAR_TYPE[gearName]==="ATK" ? "Hero Atk" : "Hero Def", "Hero HP", GEAR_TYPE[gearName]==="ATK" ? "Esc Atk" : "Esc Def", "Esc HP", GEAR_TYPE[gearName]==="ATK" ? "Trp Leth" : "Trp HP", "Trp Mast"];
 
                       const curStats  = gearName ? getGearStats(gearName, tier, curLv,  curM)  : null;
                       const goalStats = gearName ? getGearStats(gearName, tier, goalLv, goalM) : null;
