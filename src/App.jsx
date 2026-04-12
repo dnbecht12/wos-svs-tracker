@@ -2548,6 +2548,7 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats })
                       const goalM  = s.masteryGoal    ?? 0;
 
                       const STAT_LABELS = ["Gear Pwr", GEAR_TYPE[gearName]==="ATK" ? "Hero Atk" : "Hero Def", "Hero HP", GEAR_TYPE[gearName]==="ATK" ? "Esc Atk" : "Esc Def", "Esc HP", GEAR_TYPE[gearName]==="ATK" ? "Trp Leth" : "Trp HP", "Trp Mast"];
+                      const tdStat = {padding:"4px 8px",fontSize:10,fontFamily:"'Space Mono',monospace",borderRight:`1px solid ${C.border}`,textAlign:"center"};
 
                       const curStats  = gearName ? getGearStats(gearName, tier, curLv,  curM)  : null;
                       const goalStats = gearName ? getGearStats(gearName, tier, goalLv, goalM) : null;
