@@ -2539,7 +2539,7 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats })
                       const widgetChanged  = isWidget && (heroStatsForSlot.widget ?? 0) !== (s.widgetGoal ?? 0);
                       if (!gearChanged && !masteryChanged && !widgetChanged) return null;
 
-                      const STAT_LABELS = ["Gear Pwr","Hero Atk","Hero HP","Esc Atk","Esc HP","Trp Leth","Trp Mast"];
+                      const STAT_LABELS = ["Gear Pwr", GEAR_TYPE[gearName]==="ATK" ? "Hero Atk" : "Hero Def", "Hero HP", GEAR_TYPE[gearName]==="ATK" ? "Esc Atk" : "Esc Def", "Esc HP", GEAR_TYPE[gearName]==="ATK" ? "Trp Leth" : "Trp HP", "Trp Mast"];
                       const tdStat = {padding:"4px 8px",fontSize:10,fontFamily:"'Space Mono',monospace",borderRight:`1px solid ${C.border}`,textAlign:"center"};
 
                       // Calculate current and goal stats using GearData lookup

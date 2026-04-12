@@ -64,7 +64,11 @@ export function getGearStats(gearName, tier, gearLevel, mastery) {
   const rows = GEAR_DB[gearName];
   if (!rows) return null;
   const tierCode = tier === 'Legendary' ? 'L' : 'M';
-  const row = rows.find(r => r[0] === gearLevel && r[1] === tierCode);
+  // Legendary has no level-0 row — fall back to Mythic 100 (the ascension base)
+  let row = rows.find(r => r[0] === gearLevel && r[1] === tierCode);
+  if (!row && tierCode === 'L' && gearLevel === 0) {
+    row = rows.find(r => r[0] === 100 && r[1] === 'M');
+  }
   if (!row) return null;
   const [, , heroMain, heroHp, escMain, escHp, troop, basePow] = row;
   const mult = 1 + (mastery * 0.10);
