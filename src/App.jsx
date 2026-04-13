@@ -3932,6 +3932,614 @@ function WarAcademyPage({ inv }) {
 
 
 
+// ─── Chief Gear Data ─────────────────────────────────────────────────────────
+// [step, label, plans, polish, alloy, amber, power, atkDef, deploy]
+// power/atkDef = null means TBD
+const CHIEF_GEAR_LEVELS = [
+  [1,  "UC1★",   0,   40,  3800,  0,       null,   null,  0],
+  [2,  "R",       0,   70,  7000,  0,       null,   null,  0],
+  [3,  "R1★",    0,   95,  9700,  0,       null,   null,  0],
+  [4,  "R2★",   45,    0,     0,  0,       null,   null,  0],
+  [5,  "R3★",   50,    0,     0,  0,       null,   null,  0],
+  [6,  "E",      60,    0,     0,  0,     816000,  0.34,   0],
+  [7,  "E1★",   70,    0,     0,  0,       null,   null,  0],
+  [8,  "E2★",   40,   65,  6500,  0,       null,   null,  0],
+  [9,  "E3★",   50,   80,  8000,  0,       null,   null,  0],
+  [10, "ET1",    60,   95, 10000,  0,    1093440, 0.4556,  0],
+  [11, "ET1 1★",70,  110, 11000,  0,    1162800, 0.4845,  0],
+  [12, "ET1 2★",85,  130, 13000,  0,    1232160, 0.5134,  0],
+  [13, "ET1 3★",100, 160, 15000,  0,    1301520, 0.5423,  0],
+  [14, "M",      40,  220, 22000,  0,       null,   null,  0],
+  [15, "M1★",   40,  230, 23000,  0,       null,   null,  0],
+  [16, "M2★",   45,  250, 25000,  0,       null,   null,  0],
+  [17, "M3★",   45,  260, 26000,  0,    1546320, 0.6443,  0],
+  [18, "MT1",    45,  280, 28000,  0,    1607520, 0.6698,  0],
+  [19, "MT1 1★",55,  300, 30000,  0,    1668720, 0.6953,  0],
+  [20, "MT1 2★",55,  320, 32000,  0,    1729920, 0.7208,  0],
+  [21, "MT1 3★",55,  340, 35000,  0,    1791120, 0.7463,  0],
+  [22, "MT2",    55,  390, 38000,  0,    1852320, 0.7718,  0],
+  [23, "MT2 1★",75,  430, 43000,  0,    1913520, 0.7973,  0],
+  [24, "MT2 2★",80,  460, 45000,  0,    1974720, 0.8228,  0],
+  [25, "MT2 3★",85,  500, 48000,  0,    2035920, 0.8483,  0],
+  [26, "L",      85,  530, 50000, 10,    2142000, 0.8925, 40],
+  [27, "L+1",    90,  560, 52000, 10,    2244000, 0.935,  80],
+  [28, "L+2",    95,  590, 54000, 10,    2346000, 0.9775,120],
+  [29, "L+3",   100,  620, 56000, 10,    2448000, 1.02,  160],
+  [30, "LT1",   110,  670, 59000, 15,    2550000, 1.0625,290],
+  [31, "LT1+1", 115,  700, 61000, 15,    2652000, 1.105, 330],
+  [32, "LT1+2", 120,  730, 63000, 15,    2754000, 1.1475,370],
+  [33, "LT1+3", 125,  760, 65000, 15,    2856000, 1.19,  410],
+  [34, "LT2",   135,  810, 68000, 20,    2958000, 1.2325,540],
+  [35, "LT2+1", 140,  840, 70000, 20,    3060000, 1.275, 580],
+  [36, "LT2+2", 145,  870, 72000, 20,    3162000, 1.3175,620],
+  [37, "LT2+3", 150,  900, 74000, 20,    3264000, 1.36,  660],
+  [38, "LT3",   160,  950, 77000, 25,    3366000, 1.4025,790],
+  [39, "LT3+1", 165,  990, 80000, 25,    3468000, 1.445, 830],
+  [40, "LT3+2", 170, 1030, 83000, 25,    3570000, 1.4875,870],
+  [41, "LT3+3", 180, 1070, 86000, 25,    3672000, 1.53,  910],
+  [42, "LT4",   180, 1070, 86000, 25,    3876000, 1.615,1050],
+  [43, "LT4+1", 180, 1070, 86000, 25,    4080000, 1.70, 1100],
+  [44, "LT4+2", 180, 1070, 86000, 25,    4284000, 1.785,1150],
+  [45, "LT4+3", 180, 1070, 86000, 25,    4488000, 1.87, 1200],
+];
+
+// Helper: is a level label "Legendary" tier?
+function isLegendaryGearLevel(label) {
+  return /^L/.test(label);
+}
+
+// Compute cost to go from stepIdx cur to stepIdx goal (exclusive of cur step)
+function calcChiefGearCost(curIdx, goalIdx) {
+  let plans=0, polish=0, alloy=0, amber=0;
+  for (let i = curIdx+1; i <= goalIdx; i++) {
+    const r = CHIEF_GEAR_LEVELS[i];
+    plans  += r[2]; polish += r[3]; alloy  += r[4]; amber  += r[5];
+  }
+  return { plans, polish, alloy, amber };
+}
+
+// ─── Chief Gear Pieces ───────────────────────────────────────────────────────
+const CHIEF_GEAR_PIECES = [
+  { name:"Cap",    troop:"Lancer"   },
+  { name:"Watch",  troop:"Lancer"   },
+  { name:"Coat",   troop:"Infantry" },
+  { name:"Pants",  troop:"Infantry" },
+  { name:"Belt",   troop:"Marksman" },
+  { name:"Weapon", troop:"Marksman" },
+];
+
+function defaultChiefGearSlots() {
+  return CHIEF_GEAR_PIECES.map(p => ({ piece: p.name, current: 0, goal: 0 }));
+}
+
+// ─── Chief Gear Page ─────────────────────────────────────────────────────────
+function ChiefGearPage({ inv }) {
+  const C = COLORS;
+  const sel = { background:C.surface, border:`1px solid ${C.border}`, borderRadius:6,
+    color:C.textPri, padding:"4px 6px", fontSize:11, outline:"none" };
+  const [slots, setSlots] = useLocalStorage("cg-slots", defaultChiefGearSlots());
+
+  const setSlotField = (idx, field, val) => {
+    setSlots(prev => prev.map((s,i) => {
+      if (i !== idx) return s;
+      const updated = { ...s, [field]: val };
+      if (field === "current" && val > updated.goal) updated.goal = val;
+      if (field === "goal" && val < updated.current) updated.goal = updated.current;
+      return updated;
+    }));
+  };
+
+  // Totals
+  const totals = slots.reduce((acc, s) => {
+    if (s.current === s.goal) return acc;
+    const c = calcChiefGearCost(s.current, s.goal);
+    acc.plans  += c.plans;  acc.polish += c.polish;
+    acc.alloy  += c.alloy;  acc.amber  += c.amber;
+    return acc;
+  }, { plans:0, polish:0, alloy:0, amber:0 });
+
+  const typeColor = t => t === "Infantry" ? C.green : t === "Lancer" ? C.blue : C.amber;
+
+  const thS = { padding:"8px 10px", fontSize:10, fontWeight:700, textAlign:"left",
+    borderBottom:`1px solid ${C.border}`, color:C.textSec,
+    fontFamily:"'Space Mono',monospace", whiteSpace:"nowrap" };
+  const tdS = { padding:"8px 10px", fontSize:11, borderBottom:`1px solid ${C.border}`,
+    verticalAlign:"middle" };
+  const tdMono = { ...tdS, fontFamily:"'Space Mono',monospace", textAlign:"right" };
+
+  return (
+    <div style={{ padding:"0 0 40px" }}>
+      <div style={{ overflowX:"auto" }}>
+        <table style={{ width:"100%", borderCollapse:"collapse", minWidth:700 }}>
+          <thead>
+            <tr>
+              <th style={thS}>Troop</th>
+              <th style={thS}>Piece</th>
+              <th style={thS}>Current</th>
+              <th style={thS}>Goal</th>
+              <th style={{ ...thS, textAlign:"right" }}>Plans</th>
+              <th style={{ ...thS, textAlign:"right" }}>Polish</th>
+              <th style={{ ...thS, textAlign:"right" }}>Alloy</th>
+              <th style={{ ...thS, textAlign:"right" }}>Amber</th>
+              <th style={{ ...thS, textAlign:"right" }}>Cur. Power</th>
+              <th style={{ ...thS, textAlign:"right" }}>Goal Power</th>
+              <th style={{ ...thS, textAlign:"right" }}>Deployment Buff</th>
+            </tr>
+          </thead>
+          <tbody>
+            {CHIEF_GEAR_PIECES.map((piece, idx) => {
+              const s = slots[idx] || { current:0, goal:0 };
+              const curRow = CHIEF_GEAR_LEVELS[s.current];
+              const goalRow = CHIEF_GEAR_LEVELS[s.goal];
+              const cost = calcChiefGearCost(s.current, s.goal);
+              const changed = s.current !== s.goal;
+
+              // Show troop label only on first piece of each troop group
+              const prevPiece = idx > 0 ? CHIEF_GEAR_PIECES[idx-1] : null;
+              const showTroop = !prevPiece || prevPiece.troop !== piece.troop;
+
+              const fmtStat = (val, suffix="") => val == null ? "TBD" : `${val}${suffix}`;
+
+              // Deployment buff: only show if either current or goal is Legendary
+              const showDeploy = isLegendaryGearLevel(curRow[1]) || isLegendaryGearLevel(goalRow[1]);
+
+              return (
+                <React.Fragment key={piece.name}>
+                  <tr style={{ background: idx%2===0 ? "transparent" : C.surface }}>
+                    <td style={{ ...tdS, fontWeight:700, color: typeColor(piece.troop), width:90 }}>
+                      {showTroop ? piece.troop : ""}
+                    </td>
+                    <td style={{ ...tdS, fontWeight:600 }}>{piece.name}</td>
+                    <td style={{ ...tdS, width:120 }}>
+                      <select value={s.current} onChange={e => setSlotField(idx,"current",Number(e.target.value))} style={sel}>
+                        {CHIEF_GEAR_LEVELS.map((r,i) => <option key={i} value={i}>{r[1]}</option>)}
+                      </select>
+                    </td>
+                    <td style={{ ...tdS, width:120 }}>
+                      <select value={s.goal} onChange={e => setSlotField(idx,"goal",Number(e.target.value))} style={sel}>
+                        {CHIEF_GEAR_LEVELS.map((r,i) => (
+                          <option key={i} value={i} disabled={i < s.current}>{r[1]}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td style={tdMono}>{changed ? cost.plans.toLocaleString() : "—"}</td>
+                    <td style={tdMono}>{changed ? cost.polish.toLocaleString() : "—"}</td>
+                    <td style={tdMono}>{changed ? cost.alloy.toLocaleString() : "—"}</td>
+                    <td style={tdMono}>{changed ? cost.amber.toLocaleString() : "—"}</td>
+                    <td style={tdMono}>{curRow[6] != null ? curRow[6].toLocaleString() : "TBD"}</td>
+                    <td style={tdMono}>{goalRow[6] != null ? goalRow[6].toLocaleString() : "TBD"}</td>
+                    <td style={tdMono}>{showDeploy ? (goalRow[8] > 0 ? `+${goalRow[8].toLocaleString()}` : "—") : "—"}</td>
+                  </tr>
+
+                  {/* Stat sub-row */}
+                  {changed && (() => {
+                    const LABELS = ["Power","Troop Atk","Troop Def","Deploy Buff"];
+                    const getVals = row => [
+                      row[6],
+                      row[7],
+                      row[7], // same as atk
+                      showDeploy ? row[8] : null,
+                    ];
+                    const curVals  = getVals(curRow);
+                    const goalVals = getVals(goalRow);
+                    const chgVals  = curVals.map((v,i) => (v!=null && goalVals[i]!=null) ? goalVals[i]-v : null);
+                    const fmtV = (v, i) => {
+                      if (v == null) return "TBD";
+                      if (i === 0) return v.toLocaleString();
+                      if (i === 3) return v === 0 ? "—" : `+${v}`;
+                      return `${v.toFixed(4)}%`;
+                    };
+                    const chgColor = v => v==null ? C.textDim : v>0 ? C.green : v<0 ? C.red : C.textDim;
+                    const tdSt = { padding:"4px 8px", fontSize:10,
+                      fontFamily:"'Space Mono',monospace",
+                      borderRight:`1px solid ${C.border}`, textAlign:"center" };
+                    const rows = [
+                      { label:"Current", color:C.textSec, bg:"transparent",          vals:curVals  },
+                      { label:"Goal",    color:C.blue,    bg:"rgba(56,139,253,0.06)", vals:goalVals },
+                      { label:"Change",  color:C.green,   bg:"rgba(63,185,80,0.06)",  vals:chgVals, isChange:true },
+                    ];
+                    return (
+                      <tr style={{ background:"rgba(56,139,253,0.04)" }}>
+                        <td colSpan={11} style={{ padding:"6px 10px", borderBottom:`1px solid ${C.border}` }}>
+                          <div style={{ borderRadius:6, overflow:"hidden", border:`1px solid ${C.border}` }}>
+                            <table style={{ borderCollapse:"collapse", width:"100%", fontSize:10 }}>
+                              <thead>
+                                <tr>
+                                  <td style={{ ...tdSt, width:60, color:C.textDim, fontWeight:700, fontSize:9 }}/>
+                                  {LABELS.map((l,i) => (showDeploy || i<3) && (
+                                    <td key={l} style={{ ...tdSt, color:C.textDim, fontWeight:700, fontSize:9, whiteSpace:"nowrap" }}>{l}</td>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {rows.map(row => (
+                                  <tr key={row.label} style={{ background:row.bg }}>
+                                    <td style={{ ...tdSt, color:row.color, fontWeight:700, fontSize:9 }}>{row.label}</td>
+                                    {row.vals.map((v,i) => (showDeploy || i<3) && (
+                                      <td key={i} style={{ ...tdSt, color: row.isChange ? chgColor(v) : (v==null?C.textDim:C.textPri) }}>
+                                        {row.isChange && v!=null && v>0 ? "+" : ""}{fmtV(v,i)}
+                                      </td>
+                                    ))}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })()}
+                </React.Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Material Summary */}
+      <div style={{ marginTop:28 }}>
+        <div style={{ fontSize:10, fontWeight:700, letterSpacing:"1.5px", textTransform:"uppercase",
+          color:C.textDim, fontFamily:"'Space Mono',monospace", marginBottom:10,
+          paddingBottom:6, borderBottom:`1px solid ${C.border}` }}>
+          Materials Required
+        </div>
+        <div style={{ overflowX:"auto" }}>
+          <table style={{ borderCollapse:"collapse", fontSize:11, minWidth:420 }}>
+            <thead>
+              <tr>
+                {["Material","Required","Have","Balance"].map(h => (
+                  <th key={h} style={{ ...thS, textAlign: h==="Material"?"left":"right", minWidth:100 }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                { label:"Design Plans", req:totals.plans,  have:inv.chiefPlans  ?? 0 },
+                { label:"Polish",        req:totals.polish, have:inv.chiefPolish ?? 0 },
+                { label:"Alloy",         req:totals.alloy,  have:inv.chiefAlloy  ?? 0 },
+                { label:"Amber",         req:totals.amber,  have:inv.chiefAmber  ?? 0 },
+              ].map(({ label, req, have }) => {
+                const bal = have - req;
+                const balColor = bal >= 0 ? C.green : C.red;
+                return (
+                  <tr key={label}>
+                    <td style={{ ...tdS, fontWeight:600 }}>{label}</td>
+                    <td style={tdMono}>{req.toLocaleString()}</td>
+                    <td style={tdMono}>{have.toLocaleString()}</td>
+                    <td style={{ ...tdMono, fontWeight:700, color:balColor }}>
+                      {bal >= 0 ? "+" : ""}{bal.toLocaleString()}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Chief Charms Data ────────────────────────────────────────────────────────
+// [label, guides, designs, secrets, cumulativePower, stat%]
+// Cumulative power = sum of all gains up to and including this level
+const CHIEF_CHARM_LEVELS = (() => {
+  const raw = [
+    ["Lv. 1",    5,   5,  0,  205700, 9.00],
+    ["Lv. 2",   40,  15,  0,   82300,12.00],
+    ["Lv. 3",   60,  40,  0,   82000,16.00],
+    ["Lv. 4",   80, 100,  0,   82000,19.00],
+    ["Lv. 4.1", 25,  50,  0,   31000,20.50],
+    ["Lv. 4.2", 25,  50,  0,   31000,22.00],
+    ["Lv. 4.3", 25,  50,  0,   31000,23.50],
+    ["Lv. 5",   25,  50,  0,   31000,25.00],
+    ["Lv. 5.1", 30,  75,  0,   31000,26.25],
+    ["Lv. 5.2", 30,  75,  0,   31000,27.50],
+    ["Lv. 5.3", 30,  75,  0,   31000,28.75],
+    ["Lv. 6",   30,  75,  0,   31000,30.00],
+    ["Lv. 6.1", 35, 100,  0,   31000,31.25],
+    ["Lv. 6.2", 35, 100,  0,   31000,32.50],
+    ["Lv. 6.3", 35, 100,  0,   31000,33.75],
+    ["Lv. 7",   35, 100,  0,   31000,35.00],
+    ["Lv. 7.1", 50, 100,  0,   31000,36.25],
+    ["Lv. 7.2", 50, 100,  0,   31000,37.50],
+    ["Lv. 7.3", 50, 100,  0,   31000,38.75],
+    ["Lv. 8",   50, 100,  0,   31000,40.00],
+    ["Lv. 8.1", 75, 100,  0,   31000,41.25],
+    ["Lv. 8.2", 75, 100,  0,   31000,42.50],
+    ["Lv. 8.3", 75, 100,  0,   31000,43.75],
+    ["Lv. 9",   75, 100,  0,   31000,45.00],
+    ["Lv. 9.1",105, 105,  0,   31000,46.25],
+    ["Lv. 9.2",105, 105,  0,   31000,47.50],
+    ["Lv. 9.3",105, 105,  0,   31000,48.75],
+    ["Lv. 10", 105, 105,  0,   31000,50.00],
+    ["Lv. 10.1",112, 84,  0,   24800,51.00],
+    ["Lv. 10.2",112, 84,  0,   24800,52.00],
+    ["Lv. 10.3",112, 84,  0,   24800,53.00],
+    ["Lv. 10.4",112, 84,  0,   24800,54.00],
+    ["Lv. 11", 112,  84,  0,   24800,55.00],
+    ["Lv. 11.1",116, 90,  3,   24800,56.80],
+    ["Lv. 11.2",116, 90,  3,   24800,58.60],
+    ["Lv. 11.3",116, 90,  3,   24800,60.40],
+    ["Lv. 11.4",116, 90,  3,   24800,62.20],
+    ["Lv. 12", 116,  90,  3,   24800,64.00],
+    ["Lv. 12.1",116, 90,  6,   24800,65.80],
+    ["Lv. 12.2",116, 90,  6,   24800,67.60],
+    ["Lv. 12.3",116, 90,  6,   24800,69.40],
+    ["Lv. 12.4",116, 90,  6,   24800,71.20],
+    ["Lv. 13", 116,  90,  6,   24800,73.00],
+    ["Lv. 13.1",120,100,  9,   24800,74.80],
+    ["Lv. 13.2",120,100,  9,   24800,76.60],
+    ["Lv. 13.3",120,100,  9,   24800,78.40],
+    ["Lv. 13.4",120,100,  9,   24800,80.20],
+    ["Lv. 14", 120, 100,  9,   24800,82.00],
+    ["Lv. 14.1",120,100, 14,   24800,83.80],
+    ["Lv. 14.2",120,100, 14,   24800,85.60],
+    ["Lv. 14.3",120,100, 14,   24800,87.40],
+    ["Lv. 14.4",120,100, 14,   24800,89.20],
+    ["Lv. 15", 120, 100, 14,   24800,91.00],
+    ["Lv. 15.1",130,110, 20,   24800,92.80],
+    ["Lv. 15.2",130,110, 20,   24800,94.60],
+    ["Lv. 15.3",130,110, 20,   24800,96.40],
+    ["Lv. 15.4",130,110, 20,   24800,98.20],
+    ["Lv. 16", 130, 110, 20,   24800,100.00],
+  ];
+  // Build cumulative power
+  let cum = 0;
+  return raw.map(([lbl, g, d, s, gain, stat]) => {
+    cum += gain;
+    return { label:lbl, guides:g, designs:d, secrets:s, power:cum, stat };
+  });
+})();
+
+// Chief Charm pieces: 6 gear pieces × 3 charms each = 18 total
+const CHIEF_CHARM_PIECES = [
+  { gear:"Cap",    troop:"Lancer",   charms:["Cap Charm 1","Cap Charm 2","Cap Charm 3"] },
+  { gear:"Watch",  troop:"Lancer",   charms:["Watch Charm 1","Watch Charm 2","Watch Charm 3"] },
+  { gear:"Coat",   troop:"Infantry", charms:["Coat Charm 1","Coat Charm 2","Coat Charm 3"] },
+  { gear:"Pants",  troop:"Infantry", charms:["Pants Charm 1","Pants Charm 2","Pants Charm 3"] },
+  { gear:"Belt",   troop:"Marksman", charms:["Belt Charm 1","Belt Charm 2","Belt Charm 3"] },
+  { gear:"Weapon", troop:"Marksman", charms:["Weapon Charm 1","Weapon Charm 2","Weapon Charm 3"] },
+];
+
+function defaultCharmSlots() {
+  return CHIEF_CHARM_PIECES.flatMap(p =>
+    p.charms.map(name => ({ charm:name, gear:p.gear, troop:p.troop, current:0, goal:0 }))
+  );
+}
+
+// Compute cost between two level indices (exclusive of current)
+function calcCharmCost(curIdx, goalIdx) {
+  let guides=0, designs=0, secrets=0;
+  for (let i = curIdx+1; i <= goalIdx; i++) {
+    const r = CHIEF_CHARM_LEVELS[i];
+    guides  += r.guides;
+    designs += r.designs;
+    secrets += r.secrets;
+  }
+  return { guides, designs, secrets };
+}
+
+// ─── Chief Charms Page ────────────────────────────────────────────────────────
+function ChiefCharmsPage({ inv }) {
+  const C = COLORS;
+  const sel = { background:C.surface, border:`1px solid ${C.border}`, borderRadius:6,
+    color:C.textPri, padding:"4px 6px", fontSize:11, outline:"none" };
+  const [slots, setSlots] = useLocalStorage("cc-slots", defaultCharmSlots());
+
+  const setSlotField = (idx, field, val) => {
+    setSlots(prev => prev.map((s,i) => {
+      if (i !== idx) return s;
+      const updated = { ...s, [field]: val };
+      if (field === "current" && val > updated.goal) updated.goal = val;
+      if (field === "goal" && val < updated.current) updated.goal = updated.current;
+      return updated;
+    }));
+  };
+
+  // Totals across all 18 charms
+  const totals = slots.reduce((acc, s) => {
+    if (s.current === s.goal) return acc;
+    const c = calcCharmCost(s.current, s.goal);
+    acc.guides  += c.guides;
+    acc.designs += c.designs;
+    acc.secrets += c.secrets;
+    return acc;
+  }, { guides:0, designs:0, secrets:0 });
+
+  const typeColor = t => t==="Infantry" ? C.green : t==="Lancer" ? C.blue : C.amber;
+
+  const thS = { padding:"8px 10px", fontSize:10, fontWeight:700, textAlign:"left",
+    borderBottom:`1px solid ${C.border}`, color:C.textSec,
+    fontFamily:"'Space Mono',monospace", whiteSpace:"nowrap" };
+  const tdS = { padding:"6px 10px", fontSize:11, borderBottom:`1px solid ${C.border}`,
+    verticalAlign:"middle" };
+  const tdMono = { ...tdS, fontFamily:"'Space Mono',monospace", textAlign:"right" };
+
+  // Level dropdown options — only show levels up to current major level + sub-levels
+  const levelOpts = CHIEF_CHARM_LEVELS.map((r,i) => ({ label:r.label, idx:i }));
+
+  // Charm index within its gear group (0,1,2)
+  let charmIdxInGroup = 0;
+  let lastGear = "";
+
+  return (
+    <div style={{ padding:"0 0 40px" }}>
+      <div style={{ overflowX:"auto" }}>
+        <table style={{ width:"100%", borderCollapse:"collapse", minWidth:780 }}>
+          <thead>
+            <tr>
+              <th style={thS}>Troop</th>
+              <th style={thS}>Gear</th>
+              <th style={thS}>Charm</th>
+              <th style={thS}>Current Level</th>
+              <th style={thS}>Goal Level</th>
+              <th style={{ ...thS, textAlign:"right" }}>Guides</th>
+              <th style={{ ...thS, textAlign:"right" }}>Designs</th>
+              <th style={{ ...thS, textAlign:"right" }}>Secrets</th>
+              <th style={{ ...thS, textAlign:"right" }}>Cur. Power</th>
+              <th style={{ ...thS, textAlign:"right" }}>Goal Power</th>
+              <th style={{ ...thS, textAlign:"right" }}>Lethality</th>
+              <th style={{ ...thS, textAlign:"right" }}>Health</th>
+            </tr>
+          </thead>
+          <tbody>
+            {slots.map((s, idx) => {
+              const curLvl  = s.current > 0 ? CHIEF_CHARM_LEVELS[s.current - 1] : null;
+              const goalLvl = s.goal    > 0 ? CHIEF_CHARM_LEVELS[s.goal    - 1] : null;
+              const cost = calcCharmCost(s.current, s.goal);
+              const changed = s.current !== s.goal;
+
+              // Track grouping labels
+              const showTroop = idx === 0 || slots[idx-1].troop !== s.troop;
+              const showGear  = idx === 0 || slots[idx-1].gear  !== s.gear;
+              const charmNum  = (idx % 3) + 1;
+
+              const curPow  = s.current > 0 ? CHIEF_CHARM_LEVELS[s.current-1].power : 0;
+              const goalPow = s.goal    > 0 ? CHIEF_CHARM_LEVELS[s.goal-1].power    : 0;
+              const curStat  = s.current > 0 ? CHIEF_CHARM_LEVELS[s.current-1].stat : 0;
+              const goalStat = s.goal    > 0 ? CHIEF_CHARM_LEVELS[s.goal-1].stat    : 0;
+
+              const tdSt = { padding:"4px 8px", fontSize:10,
+                fontFamily:"'Space Mono',monospace",
+                borderRight:`1px solid ${C.border}`, textAlign:"center" };
+
+              return (
+                <React.Fragment key={idx}>
+                  <tr style={{ background: Math.floor(idx/3)%2===0 ? "transparent" : C.surface }}>
+                    <td style={{ ...tdS, fontWeight:700, color:typeColor(s.troop), width:90 }}>
+                      {showTroop ? s.troop : ""}
+                    </td>
+                    <td style={{ ...tdS, fontWeight:600, color:C.textSec }}>
+                      {showGear ? s.gear : ""}
+                    </td>
+                    <td style={{ ...tdS, color:C.textDim, fontSize:10 }}>#{charmNum}</td>
+                    <td style={{ ...tdS, width:120 }}>
+                      <select value={s.current}
+                        onChange={e => setSlotField(idx,"current",Number(e.target.value))}
+                        style={sel}>
+                        <option value={0}>— None —</option>
+                        {levelOpts.map(o => (
+                          <option key={o.idx} value={o.idx+1}>{o.label}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td style={{ ...tdS, width:120 }}>
+                      <select value={s.goal}
+                        onChange={e => setSlotField(idx,"goal",Number(e.target.value))}
+                        style={sel}>
+                        <option value={0}>— None —</option>
+                        {levelOpts.map(o => (
+                          <option key={o.idx} value={o.idx+1}
+                            disabled={o.idx+1 < s.current}>{o.label}</option>
+                        ))}
+                      </select>
+                    </td>
+                    <td style={tdMono}>{changed ? cost.guides.toLocaleString()  : "—"}</td>
+                    <td style={tdMono}>{changed ? cost.designs.toLocaleString() : "—"}</td>
+                    <td style={tdMono}>{changed ? cost.secrets.toLocaleString() : "—"}</td>
+                    <td style={tdMono}>{curPow  > 0 ? curPow.toLocaleString()  : "—"}</td>
+                    <td style={tdMono}>{goalPow > 0 ? goalPow.toLocaleString() : "—"}</td>
+                    <td style={tdMono}>{goalStat > 0 ? `${goalStat.toFixed(2)}%` : "—"}</td>
+                    <td style={tdMono}>{goalStat > 0 ? `${goalStat.toFixed(2)}%` : "—"}</td>
+                  </tr>
+
+                  {/* Stat sub-row */}
+                  {changed && (() => {
+                    const LABELS = ["Power","Lethality","Health"];
+                    const curVals  = [curPow,  curStat,  curStat];
+                    const goalVals = [goalPow, goalStat, goalStat];
+                    const chgVals  = curVals.map((v,i) => goalVals[i] - v);
+                    const fmtV = (v, i) => i===0 ? v.toLocaleString() : `${v.toFixed(2)}%`;
+                    const chgColor = v => v>0 ? C.green : v<0 ? C.red : C.textDim;
+                    const rows = [
+                      { label:"Current", color:C.textSec, bg:"transparent",          vals:curVals  },
+                      { label:"Goal",    color:C.blue,    bg:"rgba(56,139,253,0.06)", vals:goalVals },
+                      { label:"Change",  color:C.green,   bg:"rgba(63,185,80,0.06)",  vals:chgVals, isChange:true },
+                    ];
+                    return (
+                      <tr style={{ background:"rgba(56,139,253,0.04)" }}>
+                        <td colSpan={12} style={{ padding:"6px 10px", borderBottom:`1px solid ${C.border}` }}>
+                          <div style={{ borderRadius:6, overflow:"hidden", border:`1px solid ${C.border}` }}>
+                            <table style={{ borderCollapse:"collapse", width:"100%", fontSize:10 }}>
+                              <thead>
+                                <tr>
+                                  <td style={{ ...tdSt, width:60, color:C.textDim, fontWeight:700, fontSize:9 }}/>
+                                  {LABELS.map(l => (
+                                    <td key={l} style={{ ...tdSt, color:C.textDim, fontWeight:700, fontSize:9, whiteSpace:"nowrap" }}>{l}</td>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {rows.map(row => (
+                                  <tr key={row.label} style={{ background:row.bg }}>
+                                    <td style={{ ...tdSt, color:row.color, fontWeight:700, fontSize:9 }}>{row.label}</td>
+                                    {row.vals.map((v,i) => (
+                                      <td key={i} style={{ ...tdSt, color: row.isChange ? chgColor(v) : C.textPri }}>
+                                        {row.isChange && v>0 ? "+" : ""}{fmtV(v,i)}
+                                      </td>
+                                    ))}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })()}
+                </React.Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Material Summary */}
+      <div style={{ marginTop:28 }}>
+        <div style={{ fontSize:10, fontWeight:700, letterSpacing:"1.5px", textTransform:"uppercase",
+          color:C.textDim, fontFamily:"'Space Mono',monospace", marginBottom:10,
+          paddingBottom:6, borderBottom:`1px solid ${C.border}` }}>
+          Materials Required
+        </div>
+        <div style={{ overflowX:"auto" }}>
+          <table style={{ borderCollapse:"collapse", fontSize:11, minWidth:420 }}>
+            <thead>
+              <tr>
+                {["Material","Required","Have","Balance"].map(h => (
+                  <th key={h} style={{ padding:"8px 10px", fontSize:10, fontWeight:700,
+                    textAlign: h==="Material"?"left":"right",
+                    borderBottom:`1px solid ${C.border}`, color:C.textSec,
+                    fontFamily:"'Space Mono',monospace", minWidth:100 }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                { label:"Charm Designs", req:totals.designs, have:inv.charmDesigns ?? 0 },
+                { label:"Guides",         req:totals.guides,  have:inv.charmGuides  ?? 0 },
+                { label:"Secrets",        req:totals.secrets, have:inv.charmSecrets ?? 0 },
+              ].map(({ label, req, have }) => {
+                const bal = have - req;
+                return (
+                  <tr key={label}>
+                    <td style={{ ...tdS, fontWeight:600 }}>{label}</td>
+                    <td style={tdMono}>{req.toLocaleString()}</td>
+                    <td style={tdMono}>{have.toLocaleString()}</td>
+                    <td style={{ ...tdMono, fontWeight:700, color: bal>=0 ? C.green : C.red }}>
+                      {bal>=0 ? "+" : ""}{bal.toLocaleString()}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Error Boundary ───────────────────────────────────────────────────────────
 export class ErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { error: null }; }
@@ -3956,10 +4564,12 @@ const PAGES = [
   { id:"inventory",    label:"Inventory",     icon:"[I]", section:"Resources"   },
   { id:"construction", label:"Construction",  icon:"[B]", section:"Resources"   },
   { id:"rfc-planner",  label:"RFC Planner",   icon:"[R]", section:"Resources"   },
-  { id:"heroes",      label:"Heroes",        icon:"[H]", section:"Combat"      },
-  { id:"hero-gear",   label:"Hero Gear",     icon:"[G]", section:"Combat"      },
-  { id:"experts",      label:"Experts",       icon:"[E]", section:"Combat"      },
-  { id:"war-academy",  label:"War Academy",   icon:"[W]", section:"Combat"      },
+  { id:"heroes",        label:"Heroes",        icon:"[H]", section:"Combat"      },
+  { id:"hero-gear",     label:"Hero Gear",     icon:"[G]", section:"Combat"      },
+  { id:"chief-gear",    label:"Chief Gear",    icon:"[C]", section:"Combat"      },
+  { id:"chief-charms",  label:"Chief Charms",  icon:"[K]", section:"Combat"      },
+  { id:"experts",       label:"Experts",       icon:"[E]", section:"Combat"      },
+  { id:"war-academy",   label:"War Academy",   icon:"[W]", section:"Combat"      },
   { id:"svs-calendar", label:"SvS Calendar",  icon:"[C]", section:"Planning"    },
 ];
 
@@ -3968,7 +4578,9 @@ const PAGE_TITLES = {
   construction: { title: "Construction", sub: "Interactive upgrade planner — set current & goal levels, track accumulation, project SVS points" },
   "rfc-planner":{ title: "RFC Planner",  sub: "28-day day-by-day refining schedule — plan vs actual, running balances, FC income tracking" },
   heroes:       { title: "Heroes", sub: "Hero roster — levels, skills, and widget tracking" },
-  "hero-gear":  { title: "Hero Gear", sub: "Gear upgrade tracker with material costs and SVS points" },
+  "hero-gear":    { title: "Hero Gear",     sub: "Gear upgrade tracker with material costs and SVS points" },
+  "chief-gear":   { title: "Chief Gear",    sub: "Chief gear upgrade planner — track level upgrades, material costs and stat gains" },
+  "chief-charms": { title: "Chief Charms",  sub: "Charm upgrade planner — 18 independent charms across 6 gear pieces, material costs and stat gains" },
   experts:      { title: "Expert Planner", sub: "Skill levels, sigil costs, and per-day SVS contributions" },
   "war-academy":{ title: "War Academy", sub: "Infantry, Marksman & Lancer squad upgrade tracker" },
   "svs-calendar":{ title: "SvS Calendar", sub: "Rolling 28-week schedule — SvS every 4th week, King of Icefield every 2nd week" },
@@ -4441,7 +5053,9 @@ export default function App() {
                 currentUser={user} />}
             {page === "heroes"      && <HeroesPage    genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} currentUser={user} activeCharacter={activeCharacter} hgHeroes={hgHeroes} />}
             {page === "admin"       && user?.id === ADMIN_UID && <AdminPage />}
-            {page === "hero-gear"   && <HeroGearPage  inv={inv} genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} hgHeroes={hgHeroes} setHgHeroes={setHgHeroes} />}
+            {page === "hero-gear"    && <HeroGearPage    inv={inv} genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} hgHeroes={hgHeroes} setHgHeroes={setHgHeroes} />}
+            {page === "chief-gear"   && <ChiefGearPage   inv={inv} />}
+            {page === "chief-charms" && <ChiefCharmsPage inv={inv} />}
             {page === "experts"      && <ExpertsPage      inv={inv} />}
             {page === "war-academy"  && <WarAcademyPage   inv={inv} />}
             {page === "svs-calendar" && <SvSCalendar />}
