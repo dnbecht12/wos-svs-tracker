@@ -1540,9 +1540,9 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
                 <NumField label="Hero Attack"    field="heroAtk" />
                 <NumField label="Hero Defense"   field="heroDef" />
                 <NumField label="Hero Health"    field="heroHp" />
-                <NumField label="Escort Health"  field="escortHp" />
-                <NumField label="Escort Defense" field="escortDef" />
                 <NumField label="Escort Attack"  field="escortAtk" />
+                <NumField label="Escort Defense" field="escortDef" />
+                <NumField label="Escort Health"  field="escortHp" />
               </div>
               <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",
                 color:C.textDim,marginBottom:8,fontFamily:"'Space Mono',monospace"}}>Expedition (%) — {hero.type}</div>
@@ -1815,7 +1815,8 @@ function AdminPage() {
                     {busy[sub.id] ? "…" : "✓ Accept"}
                   </button>
                   <input placeholder="Rejection note (optional)" value={note[sub.id]||""}
-                    onChange={e => setNote(p=>({...p,[sub.id]:e.target.value}))}
+                    onChange={e => { const v=e.target.value; setNote(p=>({...p,[sub.id]:v})); }}
+                    onBlur={e => setNote(p=>({...p,[sub.id]:e.target.value}))}
                     style={{flex:1,minWidth:160,background:C.surface,border:"1px solid " + C.border,borderRadius:6,
                       padding:"6px 10px",color:C.textPri,fontSize:11,outline:"none",fontFamily:"Space Mono,monospace"}} />
                   <button onClick={() => handle(sub,"reject")} disabled={busy[sub.id]}
