@@ -677,11 +677,16 @@ function getHeroGearData(heroName) {
 
 // ─── Hero Profile Modal ───────────────────────────────────────────────────────
 
-function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeCharacter }) {
+function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeCharacter, hgHeroes }) {
   const C = COLORS;
+  // Derive gear data live from lifted hgHeroes state so profile updates instantly
+  // when gear levels change in the Hero Gear Calculator
+  const liveGearData = hgHeroes?.find(h => h.hero === hero.name) ?? getHeroGearData(hero.name);
   const [showSubmit, setShowSubmit] = useState(false);
   const [submitDone, setSubmitDone] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [baseStatsConfirmed, setBaseStatsConfirmed] = useState(false);
+  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [gearView, setGearView] = useState("detailed");
   const [gearStatModal, setGearStatModal] = useState(null);
   const [showAllStats, setShowAllStats] = useState(false);
@@ -821,7 +826,7 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
       stats:          statsPayload,
     });
     setSubmitting(false);
-    if (ok) { setSubmitDone(true); setShowSubmit(false); }
+    if (ok) { setSubmitDone(true); setShowSubmit(false); setBaseStatsConfirmed(false); }
   };
 
   const NumField = ({ label, field }) => {
@@ -898,7 +903,7 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
 
           {/* Gear section */}
           {(() => {
-            const gearData = getHeroGearData(hero.name);
+            const gearData = liveGearData;
             const troopType = hero.type; // "Infantry" | "Marksman" | "Lancer"
             const gearSlots = ["Goggles","Gloves","Belt","Boots"];
 
@@ -1370,7 +1375,7 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
             {(() => {
               if (!statsMatch) return <DataUnavailable />;
               // Sum gear power from all 4 equipped pieces
-              const gearDataForPower = getHeroGearData(hero.name);
+              const gearDataForPower = liveGearData;
               const gearSlotNames = ["Goggles","Gloves","Belt","Boots"];
               const gearPowerTotal = gearSlotNames.reduce((sum, slot) => {
                 const slotIdx = GEAR_SLOTS.indexOf(slot);
@@ -1403,7 +1408,7 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
             {(() => {
               if (!statsMatch) return <DataUnavailable />;
               // Add gear contributions to base stats
-              const gearDataForStats = getHeroGearData(hero.name);
+              const gearDataForStats = liveGearData;
               const gearSlotNames = ["Goggles","Gloves","Belt","Boots"];
               let gearHAtk = 0, gearHDef = 0, gearHHp = 0;
               let gearEAtk = 0, gearEDef = 0, gearEHp = 0;
@@ -1552,18 +1557,72 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
                 <NumField label={`${hero.type} Lethality`} field="infLeth" />
                 <NumField label={`${hero.type} Health`}    field="infHp" />
               </div>
+              {/* Base stats confirmation checkbox */}
+              <div style={{display:"flex",alignItems:"flex-start",gap:10,padding:"10px 12px",
+                background:C.amberBg,border:`1px solid ${C.amber}40`,borderRadius:8,marginBottom:12}}>
+                <input type="checkbox" id="baseStatsCheck" checked={baseStatsConfirmed}
+                  onChange={e => setBaseStatsConfirmed(e.target.checked)}
+                  style={{marginTop:2,accentColor:C.amber,cursor:"pointer",flexShrink:0}} />
+                <label htmlFor="baseStatsCheck" style={{fontSize:11,color:C.amber,lineHeight:1.5,cursor:"pointer"}}>
+                  I confirm these stats are <strong>base stats only</strong> — recorded without any gear equipped.
+                  The only exception is the Widget, which cannot be removed.
+                </label>
+              </div>
+
               <div style={{display:"flex",gap:8}}>
-                <button onClick={handleSubmit} disabled={submitting}
-                  style={{padding:"8px 18px",borderRadius:7,fontSize:12,fontWeight:700,cursor:"pointer",
-                    fontFamily:"Syne,sans-serif",border:"none",background:C.blue,color:"#fff"}}>
+                <button onClick={() => { if (baseStatsConfirmed) setShowSubmitConfirm(true); }}
+                  disabled={submitting || !baseStatsConfirmed}
+                  style={{padding:"8px 18px",borderRadius:7,fontSize:12,fontWeight:700,
+                    cursor: baseStatsConfirmed ? "pointer" : "not-allowed",
+                    fontFamily:"Syne,sans-serif",border:"none",
+                    background: baseStatsConfirmed ? C.blue : C.border,
+                    color: baseStatsConfirmed ? "#fff" : C.textDim,
+                    opacity: submitting ? 0.6 : 1}}>
                   {submitting ? "Submitting…" : "Submit for Review"}
                 </button>
-                <button onClick={() => setShowSubmit(false)}
+                <button onClick={() => { setShowSubmit(false); setBaseStatsConfirmed(false); }}
                   style={{padding:"8px 14px",borderRadius:7,fontSize:12,fontWeight:700,cursor:"pointer",
                     fontFamily:"Syne,sans-serif",background:"transparent",color:C.textSec,border:`1px solid ${C.border}`}}>
                   Cancel
                 </button>
               </div>
+
+              {/* Confirmation overlay */}
+              {showSubmitConfirm && createPortal(
+                <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.82)",zIndex:10200,
+                  display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+                  <div style={{background:C.card,border:`1px solid ${C.borderHi}`,borderRadius:14,
+                    width:"100%",maxWidth:400,padding:"24px 20px"}}>
+                    <div style={{fontSize:16,fontWeight:700,color:C.textPri,marginBottom:12}}>
+                      Confirm Submission
+                    </div>
+                    <div style={{fontSize:13,color:C.textSec,lineHeight:1.6,marginBottom:8}}>
+                      Please confirm before submitting:
+                    </div>
+                    <div style={{background:C.amberBg,border:`1px solid ${C.amber}40`,borderRadius:8,
+                      padding:"12px 14px",marginBottom:20,fontSize:12,color:C.amber,lineHeight:1.6}}>
+                      ⚠️ These stats are <strong>base stats only</strong> — recorded with <strong>no gear equipped</strong>.
+                      The Widget is the only exception as it cannot be removed from the hero.
+                      Submitting stats that include gear bonuses will corrupt the community data.
+                    </div>
+                    <div style={{display:"flex",gap:10}}>
+                      <button onClick={() => { setShowSubmitConfirm(false); handleSubmit(); }}
+                        style={{flex:1,padding:"10px 0",borderRadius:8,fontSize:13,fontWeight:700,
+                          cursor:"pointer",fontFamily:"Syne,sans-serif",border:"none",
+                          background:C.blue,color:"#fff"}}>
+                        ✓ Yes, submit
+                      </button>
+                      <button onClick={() => setShowSubmitConfirm(false)}
+                        style={{flex:1,padding:"10px 0",borderRadius:8,fontSize:13,fontWeight:700,
+                          cursor:"pointer",fontFamily:"Syne,sans-serif",
+                          background:"transparent",color:C.textSec,border:`1px solid ${C.border}`}}>
+                        Go back
+                      </button>
+                    </div>
+                  </div>
+                </div>,
+                document.body
+              )}
             </div>
           )}
 
@@ -1880,7 +1939,7 @@ function AdminPage() {
   );
 }
 
-function HeroesPage({ genFilter, setGenFilter, heroStats, setHeroStats, currentUser, activeCharacter }) {
+function HeroesPage({ genFilter, setGenFilter, heroStats, setHeroStats, currentUser, activeCharacter, hgHeroes }) {
   const [sortBy,      setSortBy]      = useLocalStorage("heroes-sort",      "quality");
   const [favorites,   setFavorites]   = useLocalStorage("heroes-favorites", []);
   const [filterType,  setFilterType]  = useState("");
@@ -2105,6 +2164,7 @@ function HeroesPage({ genFilter, setGenFilter, heroStats, setHeroStats, currentU
           onClose={() => setProfileHero(null)}
           currentUser={currentUser}
           activeCharacter={activeCharacter}
+          hgHeroes={hgHeroes}
         />
       )}
 
@@ -2220,10 +2280,9 @@ function HeroesPage({ genFilter, setGenFilter, heroStats, setHeroStats, currentU
 
 // ─── HeroGearPage ─────────────────────────────────────────────────────────────
 
-function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats }) {
-  const [heroData, setHeroData] = useLocalStorage("hg-heroes",
-    HERO_SLOTS.map(s => defaultHeroState(s.type))
-  );
+function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, hgHeroes, setHgHeroes }) {
+  const heroData    = hgHeroes;
+  const setHeroData = setHgHeroes;
 
   // Currently selected hero names per slot (for deduplication)
   const selectedHeroes = heroData.map(h => h.hero);
@@ -3935,6 +3994,7 @@ export default function App() {
   // Shared hero state — gen filter and hero stats synced between HeroesPage and HeroGearPage
   const [genFilter,   setGenFilter]  = useLocalStorage("hg-gen-filter", "Gen 9");
   const [heroStats,   setHeroStats]  = useLocalStorage("hg-hero-stats", defaultAllHeroStats());
+  const [hgHeroes,    setHgHeroes]   = useLocalStorage("hg-heroes", HERO_SLOTS.map(s => defaultHeroState(s.type)));
   const [savedAt,       setSavedAt]      = useState(null);
   const [loadedPlanKey, setLoadedPlanKey]= useState(null);
   const [syncing,       setSyncing]      = useState(false);
@@ -4379,9 +4439,9 @@ export default function App() {
                 onLoadPlan={handleLoadPlan}
                 openSavePopup={user ? openSavePopup : null}
                 currentUser={user} />}
-            {page === "heroes"      && <HeroesPage    genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} currentUser={user} activeCharacter={activeCharacter} />}
+            {page === "heroes"      && <HeroesPage    genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} currentUser={user} activeCharacter={activeCharacter} hgHeroes={hgHeroes} />}
             {page === "admin"       && user?.id === ADMIN_UID && <AdminPage />}
-            {page === "hero-gear"   && <HeroGearPage  inv={inv} genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} />}
+            {page === "hero-gear"   && <HeroGearPage  inv={inv} genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} hgHeroes={hgHeroes} setHgHeroes={setHgHeroes} />}
             {page === "experts"      && <ExpertsPage      inv={inv} />}
             {page === "war-academy"  && <WarAcademyPage   inv={inv} />}
             {page === "svs-calendar" && <SvSCalendar />}
