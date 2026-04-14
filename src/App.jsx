@@ -3860,79 +3860,795 @@ function ExpertsPage({ inv }) {
   );
 }
 
-function WarAcademyPage({ inv }) {
-  const waSkills = [
-    { id:1,  name:"Flame Squad",       desc:"Deployment Cap",              inf:[5,5],  mks:[5,5],  lan:[5,5]  },
-    { id:2,  name:"Lethality",         desc:"",                             inf:[8,8],  mks:[8,8],  lan:[8,8]  },
-    { id:3,  name:"Health",            desc:"",                             inf:[8,8],  mks:[8,8],  lan:[8,8]  },
-    { id:4,  name:"Flame Legion",      desc:"Rally Cap",                    inf:[12,12],mks:[12,12],lan:[12,12] },
-    { id:5,  name:"Attack",            desc:"",                             inf:[12,12],mks:[12,12],lan:[12,12] },
-    { id:6,  name:"Defense",           desc:"",                             inf:[12,12],mks:[12,12],lan:[12,12] },
-    { id:7,  name:"Helios",            desc:"",                             inf:[1,1],  mks:[1,1],  lan:[1,1]  },
-    { id:8,  name:"Helios Training",   desc:"Training Cost + Deployment",   inf:[6,6],  mks:[5,6],  lan:[5,6]  },
-    { id:9,  name:"Helios Healing",    desc:"Healing Cost + Attack",        inf:[7,7],  mks:[7,7],  lan:[5,5]  },
-    { id:10, name:"Helios First Aid",  desc:"Healing Time + Defense",       inf:[7,7],  mks:[7,7],  lan:[7,7]  },
-  ];
+// ─── War Academy Data ─────────────────────────────────────────────────────────
 
-  // Shards needed for Helios Training upgrade
-  const shardsNeeded = 918;
-  const shardsBalance = inv.shards - shardsNeeded;
-  // daily shards accumulation
-  const dailyShards = inv.dailyIntel ?? 0;
-  const daysToGoal = shardsBalance < 0 ? Math.ceil(Math.abs(shardsBalance) / dailyShards) : 0;
+// Research definitions: shared costs/buffs across all 3 troop types
+// Troop-specific names differ but stats are identical
+const WA_RESEARCH = [
+  {
+    id: "flameSquad", type: "Deployment Capacity", maxLv: 5,
+    names: { Infantry:"Flame Squad", Lancer:"Flame Squad", Marksman:"Flame Squad" },
+    prereqBldg: { 1:"War Academy FC1" },
+    prereqRes:  {},
+    // [shards, steel, buff(deploy cap), power, timeMins]
+    levels: [
+      [0,     0,       0,    0,      0],
+      [16,  5000,    200, 60000,   480],
+      [25,  8000,    400,120000,   768],
+      [41, 13000,    600,180000,  1248],
+      [68, 21000,    800,240000,  2064],
+      [102,33000,   1000,300000,  3240],
+    ],
+    statLabel: "Deploy Cap", statSuffix: "",
+  },
+  {
+    id: "lethality", type: "Lethality", maxLv: 8,
+    names: { Infantry:"Flame Strike", Lancer:"Blazing Charge", Marksman:"Crystal Vision" },
+    prereqBldg: { 2:"War Academy FC2", 5:"War Academy FC3", 7:"War Academy FC4", 8:"War Academy FC5" },
+    prereqRes:  { 1:"Flame Squad Lv.3", 4:"Flame Squad Lv.4", 5:"Flame Squad Lv.5" },
+    levels: [
+      [0,      0,    0,      0,      0],
+      [40,  10000, 1.5,  82500,   1200],
+      [56,  14000, 3.0, 156750,   1680],
+      [74,  18000, 6.0, 247500,   2220],
+      [102, 25000, 9.0, 346500,   3060],
+      [136, 34000,12.0, 442200,   4080],
+      [184, 46000,15.0, 540375,   5520],
+      [248, 62000,20.0, 663300,   7440],
+      [334, 83000,25.0, 783750,  10020],
+    ],
+    statLabel: "Lethality", statSuffix: "%",
+  },
+  {
+    id: "health", type: "Health", maxLv: 8,
+    names: { Infantry:"Flame Shield", Lancer:"Blazing Armor", Marksman:"Crystal Armor" },
+    prereqBldg: { 2:"War Academy FC2", 5:"War Academy FC3", 7:"War Academy FC4", 8:"War Academy FC5" },
+    prereqRes:  { 1:"Flame Squad Lv.3", 4:"Flame Squad Lv.4", 5:"Flame Squad Lv.5" },
+    levels: [
+      [0,      0,    0,      0,      0],
+      [40,  10000, 1.5,  82500,   1200],
+      [56,  14000, 3.0, 156750,   1680],
+      [74,  18000, 6.0, 247500,   2220],
+      [102, 25000, 9.0, 346500,   3060],
+      [136, 34000,12.0, 442200,   4080],
+      [184, 46000,15.0, 540375,   5520],
+      [248, 62000,20.0, 663300,   7440],
+      [334, 83000,25.0, 783750,  10020],
+    ],
+    statLabel: "Health", statSuffix: "%",
+  },
+  {
+    id: "flameLegion", type: "Rally Capacity", maxLv: 12,
+    names: { Infantry:"Flame Legion", Lancer:"Flame Legion", Marksman:"Flame Legion" },
+    prereqBldg: { 1:"War Academy FC4", 4:"War Academy FC5" },
+    prereqRes:  { 1:"Lethality Lv.6 + Health Lv.6", 7:"Lethality Lv.7 + Health Lv.7", 8:"Lethality Lv.8 + Health Lv.8" },
+    levels: [
+      [0,        0,     0,       0,        0],
+      [83,   23000,  1500,  150000,   1760.3],
+      [102,  28000,  3000,  285000,   2165.1],
+      [125,  34000,  5000,  460000,   2640.4],
+      [150,  41000,  7000,  595000,   3168.5],
+      [184,  51000,  9500,  769500,   3872.6],
+      [225,  62000, 12000,  912000,   4752.8],
+      [276,  76000, 14500, 1058500,   5808.9],
+      [334,  93000, 17500, 1242500,   7041.1],
+      [418, 110000, 21000, 1365000,   8801.4],
+      [502, 130000, 25000, 1525000,  10561.7],
+      [602, 160000, 29000, 1682000,  12674.0],
+      [744, 200000, 33500, 1876000,  15666.5],
+    ],
+    statLabel: "Rally Cap", statSuffix: "",
+  },
+  {
+    id: "attack", type: "Attack", maxLv: 12,
+    names: { Infantry:"Flame Tomahawk", Lancer:"Blazing Lance", Marksman:"Crystal Arrow" },
+    prereqBldg: { 1:"War Academy FC3", 7:"War Academy FC5" },
+    prereqRes:  { 1:"Health Lv.6", 7:"Health Lv.7", 8:"Health Lv.8" },
+    levels: [
+      [0,       0,   0,       0,       0],
+      [54,  15000, 2.0,  120000,  1135.7],
+      [66,  18000, 4.0,  228000,  1396.9],
+      [81,  22000, 6.0,  331200,  1703.5],
+      [97,  27000, 8.5,  433500,  2044.2],
+      [118, 33000,11.0,  534600,  2498.5],
+      [145, 40000,14.0,  638400,  3066.3],
+      [178, 49000,17.0,  744600,  3747.7],
+      [216, 60000,20.0,  852000,  4542.3],
+      [270, 75000,25.0,  975000,  5678.3],
+      [324, 90000,30.0, 1098000,  6814.0],
+      [388,100000,35.0, 1218000,  8176.8],
+      [480,130000,40.0, 1344000, 10107.4],
+    ],
+    statLabel: "Attack", statSuffix: "%",
+  },
+  {
+    id: "defense", type: "Defense", maxLv: 12,
+    names: { Infantry:"Flame Protection", Lancer:"Blazing Guardian", Marksman:"Crystal Protection" },
+    prereqBldg: { 1:"War Academy FC3", 7:"War Academy FC5" },
+    prereqRes:  { 1:"Health Lv.6", 7:"Health Lv.7", 8:"Health Lv.8" },
+    levels: [
+      [0,       0,   0,       0,       0],
+      [54,  15000, 2.0,  120000,  1135.7],
+      [66,  18000, 4.0,  228000,  1396.9],
+      [81,  22000, 6.0,  331200,  1703.5],
+      [97,  27000, 8.5,  433500,  2044.2],
+      [118, 33000,11.0,  534600,  2498.5],
+      [145, 40000,14.0,  638400,  3066.3],
+      [178, 49000,17.0,  744600,  3747.7],
+      [216, 60000,20.0,  852000,  4542.3],
+      [270, 75000,25.0,  975000,  5678.3],
+      [324, 90000,30.0, 1098000,  6814.0],
+      [388,100000,35.0, 1218000,  8176.8],
+      [480,130000,40.0, 1344000, 10107.4],
+    ],
+    statLabel: "Defense", statSuffix: "%",
+  },
+  {
+    id: "helios", type: "T11 Troop Unlock", maxLv: 1,
+    names: { Infantry:"Helios Infantry", Lancer:"Helios Lancers", Marksman:"Helios Marksmen" },
+    prereqBldg: { 1:"War Academy FC5" },
+    prereqRes:  { 1:"Attack Lv.12 + Health Lv.12 + Rally Capacity Lv.12" },
+    levels: [
+      [0,    0,       0,       0,        0],
+      [2236, 1000000, 0, 8000000, 131535],
+    ],
+    statLabel: "T11 Unlocked", statSuffix: "",
+  },
+  {
+    id: "heliosHealing", type: "Helios Healing", maxLv: 10,
+    names: { Infantry:"Helios Infantry Healing", Lancer:"Helios Lancer Healing", Marksman:"Helios Marksman Healing" },
+    prereqBldg: {},
+    prereqRes:  { 1:"Helios Lv.1" },
+    // dual buffs: [shards, steel, infAtk%, healCost%, power, timeMins]
+    levels: [
+      [0,   0,      0,    0,      0,      0],
+      [102, 30000,  2.0,  5.0, 155000,  3000],
+      [137, 40000,  4.0, 10.0, 310000,  4050],
+      [188, 55000,  6.0, 15.0, 465000,  5550],
+      [255, 75000,  8.0, 20.0, 620000,  7500],
+      [341,100000, 10.0, 25.0, 775000, 10050],
+      [459,130000, 12.0, 30.0, 930000, 13500],
+      [612,180000, 14.0, 35.0,1085000, 18000],
+      [836,240000, 16.0, 40.0,1240000, 24600],
+      [1122,330000,18.0, 45.0,1395000, 33000],
+      [1530,450000,20.0, 50.0,1550000, 45000],
+    ],
+    statLabel: "Inf. Atk", statSuffix: "%", statLabel2: "Heal Cost ↓", statSuffix2: "%",
+  },
+  {
+    id: "heliosTraining", type: "Helios Training", maxLv: 10,
+    names: { Infantry:"Helios Infantry Training", Lancer:"Helios Lancer Training", Marksman:"Helios Marksman Training" },
+    prereqBldg: {},
+    prereqRes:  { 1:"Helios Lv.1" },
+    // dual buffs: [shards, steel, deployBuff, trainCost%, power, timeMins]
+    levels: [
+      [0,   0,     0,    0,     0,      0],
+      [102, 30000, 100,  5.0,  65000,  3000],
+      [137, 40000, 200, 10.0,  13000,  4050],
+      [188, 55000, 300, 15.0, 195000,  5550],
+      [255, 75000, 400, 20.0, 260000,  7500],
+      [341,100000, 500, 25.0, 325000, 10050],
+      [459,130000, 600, 30.0, 390000, 13500],
+      [612,180000, 700, 35.0, 455000, 18000],
+      [836,240000, 800, 40.0, 520000, 24600],
+      [1122,330000,900, 45.0, 585000, 33000],
+      [1530,450000,1000,50.0, 650000, 45000],
+    ],
+    statLabel: "Deploy", statSuffix: "", statLabel2: "Train Cost ↓", statSuffix2: "%",
+  },
+  {
+    id: "heliosFirstAid", type: "Helios First Aid", maxLv: 10,
+    names: { Infantry:"Helios Infantry First Aid", Lancer:"Helios Lancer First Aid", Marksman:"Helios Marksman First Aid" },
+    prereqBldg: {},
+    prereqRes:  { 1:"Helios Lv.1" },
+    // dual buffs: [shards, steel, def%, healTime%, power, timeMins]
+    levels: [
+      [0,    0,      0,     0,       0,      0],
+      [51,  15000,  2.0,  1.5,  137250,  1500],
+      [68,  20000,  4.0,  3.0,  274500,  2025],
+      [94,  27000,  6.0,  4.5,  411750,  2760],
+      [127, 37000,  8.0,  6.0,  549000,  3750],
+      [170, 50000, 10.0,  7.5,  686250,  5025],
+      [229, 67000, 12.0,  9.0,  823500,  6750],
+      [306, 90000, 14.0, 10.5,  960750,  9000],
+      [418,120000, 16.0, 12.0, 1098000, 12300],
+      [561,160000, 18.0, 13.5, 1235250, 16500],
+      [765,220000, 20.0, 15.0, 1372500, 22500],
+    ],
+    statLabel: "Defense", statSuffix: "%", statLabel2: "Heal Time ↓", statSuffix2: "%",
+  },
+];
+
+// Dual-buff research IDs
+const WA_DUAL = new Set(["heliosHealing","heliosTraining","heliosFirstAid"]);
+
+function waFmtMins(totalMins) {
+  if (!totalMins || totalMins <= 0) return "—";
+  const d = Math.floor(totalMins / 1440);
+  const h = Math.floor((totalMins % 1440) / 60);
+  const m = Math.round(totalMins % 60);
+  const parts = [];
+  if (d > 0) parts.push(`${d}d`);
+  if (h > 0) parts.push(`${h}h`);
+  if (m > 0 || parts.length === 0) parts.push(`${m}m`);
+  return parts.join(" ");
+}
+
+function waFmtStat(res, lv) {
+  if (lv === 0) return "—";
+  const row = res.levels[lv];
+  if (!row) return "—";
+  const val = row[2];
+  if (res.statSuffix === "%") return `${val.toFixed(1)}%`;
+  if (val === 0) return res.id === "helios" && lv === 1 ? "Unlocked" : "—";
+  return val.toLocaleString();
+}
+
+// Returns {shards, steel} cost to go from lvCur to lvGoal
+function waCalcCost(res, lvCur, lvGoal) {
+  let shards = 0, steel = 0;
+  for (let i = lvCur + 1; i <= lvGoal; i++) {
+    const row = res.levels[i];
+    if (row) { shards += row[0]; steel += row[1]; }
+  }
+  return { shards, steel };
+}
+
+// Returns total base-time in minutes from lvCur to lvGoal
+function waCalcTime(res, lvCur, lvGoal) {
+  let mins = 0;
+  for (let i = lvCur + 1; i <= lvGoal; i++) {
+    const row = res.levels[i];
+    if (row) mins += (WA_DUAL.has(res.id) ? row[5] : row[4]) || 0;
+  }
+  return mins;
+}
+
+// Power at a given level
+function waPower(res, lv) {
+  if (lv === 0) return 0;
+  const row = res.levels[lv];
+  return row ? (WA_DUAL.has(res.id) ? row[4] : row[3]) || 0 : 0;
+}
+
+// ─── War Academy Page ─────────────────────────────────────────────────────────
+function WarAcademyPage({ inv }) {
+  const C = COLORS;
+
+  // ── State ──────────────────────────────────────────────────────────────────
+  // Per-troop current/goal levels: { Infantry: { flameSquad: {cur,goal}, ... }, Lancer: ..., Marksman: ... }
+  const defaultLevels = () => {
+    const out = {};
+    ["Infantry","Lancer","Marksman"].forEach(t => {
+      out[t] = {};
+      WA_RESEARCH.forEach(r => { out[t][r.id] = { cur: 0, goal: 0 }; });
+    });
+    return out;
+  };
+  const [levels, setLevels] = useLocalStorage("wa-levels", defaultLevels());
+
+  // Research speed buff (mirroring Construction Planner)
+  const [speedBuff, setSpeedBuff] = useLocalStorage("wa-speedbuff", 0);
+  const [buffs, setBuffs] = useLocalStorage("wa-buffs", { presSkill: false, presPos: false });
+  const toggleBuff = k => setBuffs(prev => ({ ...prev, [k]: !prev[k] }));
+
+  const buffTotal = React.useMemo(() => {
+    let t = speedBuff / 100;
+    if (buffs.presSkill) t += 0.10;
+    if (buffs.presPos)   t += 0.10;
+    return t;
+  }, [speedBuff, buffs]);
+
+  // War Academy FC level (read from construction planner state)
+  const waFCLevel = React.useMemo(() => {
+    try {
+      const raw = localStorage.getItem("cp-buildings");
+      if (!raw) return 0;
+      const bldgs = JSON.parse(raw);
+      const wa = bldgs.find(b => b.name === "War Academy");
+      if (!wa) return 0;
+      const FC_ORDER = ["FC1","FC2","FC3","FC4","FC5","FC6","FC7","FC8","FC9","FC10"];
+      return FC_ORDER.indexOf(wa.current) + 1; // 1-based
+    } catch { return 0; }
+  }, []);
+
+  // ── SvS date calculation (Tuesday = SvS Day 2) ────────────────────────────
+  const [dailyEarnShards, setDailyEarnShards] = useLocalStorage("wa-dailyshards", 0);
+  const daysToSvSTuesday = React.useMemo(() => {
+    const today = new Date(); today.setHours(0,0,0,0);
+    // Find next Tuesday (day 2 = Tue, JS: 0=Sun, 2=Tue)
+    const day = today.getDay();
+    const daysUntilTue = day <= 2 ? 2 - day : 9 - day;
+    return daysUntilTue === 0 ? 7 : daysUntilTue; // if today is Tuesday, next Tuesday
+  }, []);
+
+  // ── Inventory (editable local override) ───────────────────────────────────
+  const [invOverride, setInvOverride] = useLocalStorage("wa-inv", { shards: null, steel: null });
+  const curShards = invOverride.shards ?? inv.shards ?? 0;
+  const curSteel  = (invOverride.steel  ?? inv.steel  ?? 0) * (inv.steelUnit === "B" ? 1000 : 1);
+  const steelRate = inv.steelHourlyRate ?? 0; // per hour
+
+  // Estimated SvS inventory
+  const estShardsAtSvS = curShards + dailyEarnShards * daysToSvSTuesday;
+  const estSteelAtSvS  = curSteel  + steelRate * 18 * daysToSvSTuesday; // 18 hrs/day effective
+
+  // ── Prerequisite checker ───────────────────────────────────────────────────
+  // Returns array of unmet prereq strings for a research at a given goal level
+  function getPrereqs(res, goalLv, troop) {
+    const warnings = [];
+    // Building prereqs: find highest FC level required at or below goalLv
+    let reqFC = 0;
+    Object.entries(res.prereqBldg).forEach(([lv, bldg]) => {
+      if (Number(lv) <= goalLv && bldg.includes("War Academy")) {
+        const fcNum = parseInt(bldg.replace(/[^0-9]/g,""));
+        if (fcNum > reqFC) reqFC = fcNum;
+      }
+    });
+    if (reqFC > 0 && waFCLevel < reqFC) {
+      warnings.push({ type:"bldg", msg:`Requires War Academy FC${reqFC} (currently FC${waFCLevel||0})` });
+    }
+    // Research prereqs
+    Object.entries(res.prereqRes).forEach(([lv, prereqStr]) => {
+      if (Number(lv) <= goalLv) {
+        warnings.push({ type:"res", msg:`Requires: ${prereqStr}` });
+      }
+    });
+    return warnings;
+  }
+
+  // ── Auto-fill prerequisites when goal is set ───────────────────────────────
+  function setGoal(troop, resId, newGoal) {
+    const res = WA_RESEARCH.find(r => r.id === resId);
+    if (!res) return;
+    setLevels(prev => {
+      const next = JSON.parse(JSON.stringify(prev));
+      const cur = next[troop][resId].cur;
+      next[troop][resId].goal = Math.max(newGoal, cur);
+
+      // Auto-fill research prereqs
+      if (resId === "flameLegion") {
+        // Lv 1 needs Lethality 6 + Health 6
+        if (newGoal >= 1) {
+          if (next[troop].lethality.goal < 6) next[troop].lethality.goal = 6;
+          if (next[troop].health.goal    < 6) next[troop].health.goal    = 6;
+        }
+        if (newGoal >= 7) {
+          if (next[troop].lethality.goal < 7) next[troop].lethality.goal = 7;
+          if (next[troop].health.goal    < 7) next[troop].health.goal    = 7;
+        }
+        if (newGoal >= 8) {
+          if (next[troop].lethality.goal < 8) next[troop].lethality.goal = 8;
+          if (next[troop].health.goal    < 8) next[troop].health.goal    = 8;
+        }
+      }
+      if (resId === "attack" || resId === "defense") {
+        if (newGoal >= 1) {
+          if (next[troop].health.goal < 6) next[troop].health.goal = 6;
+        }
+        if (newGoal >= 7) {
+          if (next[troop].health.goal < 7) next[troop].health.goal = 7;
+        }
+        if (newGoal >= 8) {
+          if (next[troop].health.goal < 8) next[troop].health.goal = 8;
+        }
+      }
+      if (["heliosHealing","heliosTraining","heliosFirstAid"].includes(resId)) {
+        if (next[troop].helios.goal < 1) next[troop].helios.goal = 1;
+      }
+      if (resId === "helios") {
+        if (next[troop].attack.goal < 12)      next[troop].attack.goal      = 12;
+        if (next[troop].health.goal < 12)      next[troop].health.goal      = 12;
+        if (next[troop].flameLegion.goal < 12) next[troop].flameLegion.goal = 12;
+      }
+      if (resId === "lethality" || resId === "health") {
+        if (newGoal >= 3 && next[troop].flameSquad.goal < 3) next[troop].flameSquad.goal = 3;
+        if (newGoal >= 4 && next[troop].flameSquad.goal < 4) next[troop].flameSquad.goal = 4;
+        if (newGoal >= 5 && next[troop].flameSquad.goal < 5) next[troop].flameSquad.goal = 5;
+      }
+      return next;
+    });
+  }
+
+  function setCurrent(troop, resId, newCur) {
+    setLevels(prev => {
+      const next = JSON.parse(JSON.stringify(prev));
+      next[troop][resId].cur = newCur;
+      if (next[troop][resId].goal < newCur) next[troop][resId].goal = newCur;
+      return next;
+    });
+  }
+
+  // ── Totals across all troops ───────────────────────────────────────────────
+  const grandTotals = React.useMemo(() => {
+    let shards = 0, steel = 0;
+    ["Infantry","Lancer","Marksman"].forEach(troop => {
+      WA_RESEARCH.forEach(res => {
+        const { cur, goal } = levels[troop]?.[res.id] || { cur:0, goal:0 };
+        const c = waCalcCost(res, cur, goal);
+        shards += c.shards; steel += c.steel;
+      });
+    });
+    return { shards, steel };
+  }, [levels]);
+
+  // ── Rendering helpers ──────────────────────────────────────────────────────
+  const C_ = { // shorthand for frequently used colors
+    green: C.green, red: C.red, amber: C.amber, blue: C.blue,
+    textSec: C.textSec, textDim: C.textDim, textPri: C.textPri,
+    border: C.border, surface: C.surface, card: C.card,
+    greenBg: C.greenBg, redBg: C.redBg, amberBg: C.amberBg,
+    greenDim: C.greenDim, amberDim: C.amberDim,
+    accent: C.accent, accentBg: C.accentBg, accentDim: C.accentDim,
+  };
+
+  const thS = { padding:"7px 8px", fontSize:9, fontWeight:700, textAlign:"left",
+    borderBottom:`1px solid ${C_.border}`, color:C_.textDim,
+    fontFamily:"'Space Mono',monospace", whiteSpace:"nowrap", letterSpacing:"0.5px",
+    textTransform:"uppercase" };
+  const tdS = { padding:"6px 8px", fontSize:11, borderBottom:`1px solid ${C_.border}`,
+    verticalAlign:"middle" };
+  const tdMono = { ...tdS, fontFamily:"'Space Mono',monospace", fontSize:10 };
+  const sel = { background:C_.surface, border:`1px solid ${C_.border}`, borderRadius:5,
+    color:C_.textPri, padding:"3px 5px", fontSize:11, outline:"none" };
+
+  const typeColor = t => t === "Infantry" ? C_.green : t === "Lancer" ? C_.blue : C_.amber;
+  const secHead = txt => (
+    <div style={{ fontSize:9, fontWeight:700, letterSpacing:"1.5px", textTransform:"uppercase",
+      color:C_.textDim, fontFamily:"'Space Mono',monospace", marginBottom:10,
+      paddingBottom:5, borderBottom:`1px solid ${C_.border}` }}>{txt}</div>
+  );
+
+  // ── Troop table renderer ───────────────────────────────────────────────────
+  const renderTroopTable = (troop) => {
+    const lvs = levels[troop] || {};
+    let troopShards = 0, troopSteel = 0;
+    WA_RESEARCH.forEach(res => {
+      const { cur, goal } = lvs[res.id] || { cur:0, goal:0 };
+      const c = waCalcCost(res, cur, goal);
+      troopShards += c.shards; troopSteel += c.steel;
+    });
+    const tc = typeColor(troop);
+
+    return (
+      <div key={troop} style={{ marginBottom:28 }}>
+        {/* Troop header */}
+        <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
+          <div style={{ fontSize:14, fontWeight:800, color:tc, fontFamily:"Syne,sans-serif" }}>{troop}</div>
+          <div style={{ fontSize:10, color:C_.textDim, fontFamily:"'Space Mono',monospace" }}>
+            War Academy Research
+          </div>
+        </div>
+
+        <div style={{ overflowX:"auto" }}>
+          <table style={{ width:"100%", borderCollapse:"collapse", minWidth:820 }}>
+            <thead>
+              <tr>
+                <th style={{ ...thS, minWidth:140 }}>Research</th>
+                <th style={{ ...thS, textAlign:"center" }}>Current</th>
+                <th style={{ ...thS }}>Cur. Stat</th>
+                <th style={{ ...thS, textAlign:"center" }}>Goal</th>
+                <th style={{ ...thS }}>Goal Stat</th>
+                <th style={{ ...thS }}>Stat Δ</th>
+                <th style={{ ...thS, textAlign:"right" }}>Shards</th>
+                <th style={{ ...thS, textAlign:"right" }}>Steel</th>
+                <th style={{ ...thS, textAlign:"right" }}>Power Δ</th>
+                <th style={{ ...thS, textAlign:"right" }}>Orig. Time</th>
+                <th style={{ ...thS, textAlign:"right", color:C_.accent }}>Actual Time</th>
+              </tr>
+            </thead>
+            <tbody>
+              {WA_RESEARCH.map((res, ri) => {
+                const { cur, goal } = lvs[res.id] || { cur:0, goal:0 };
+                const isMaxed = cur >= res.maxLv;
+                const changed = goal > cur;
+                const cost = waCalcCost(res, cur, goal);
+                const baseMins = waCalcTime(res, cur, goal);
+                const actualMins = baseMins > 0 ? Math.round(baseMins / (1 + buffTotal)) : 0;
+                const powerDelta = waPower(res, goal) - waPower(res, cur);
+
+                // Stat display
+                const fmtStat = (lv) => {
+                  if (lv === 0) return "—";
+                  const row = res.levels[lv];
+                  if (!row) return "—";
+                  const val = row[2];
+                  if (res.id === "helios") return lv >= 1 ? "Unlocked" : "—";
+                  if (res.id === "flameLegion" || res.id === "flameSquad") return val.toLocaleString();
+                  return `${val.toFixed(1)}${res.statSuffix}`;
+                };
+
+                const statDelta = () => {
+                  if (goal <= cur || goal === 0) return "—";
+                  const gRow = res.levels[goal]; const cRow = res.levels[cur];
+                  if (!gRow) return "—";
+                  const gVal = gRow[2]; const cVal = cRow ? cRow[2] : 0;
+                  const d = gVal - cVal;
+                  if (res.id === "helios") return "+T11";
+                  if (res.id === "flameLegion" || res.id === "flameSquad") return `+${d.toLocaleString()}`;
+                  return `+${d.toFixed(1)}${res.statSuffix}`;
+                };
+
+                // Prerequisite warnings
+                const prereqs = getPrereqs(res, Math.max(goal, 1), troop);
+                const hasWarn = prereqs.length > 0 && goal > 0;
+
+                // Goal dropdown options
+                const goalOpts = [];
+                for (let i = cur; i <= res.maxLv; i++) {
+                  goalOpts.push(i);
+                }
+
+                return (
+                  <React.Fragment key={res.id}>
+                    <tr style={{ background: ri%2===0 ? "transparent" : C_.surface,
+                      opacity: isMaxed && goal === res.maxLv ? 0.7 : 1 }}>
+                      {/* Research name */}
+                      <td style={{ ...tdS, fontWeight:600 }}>
+                        <div style={{ fontSize:11, color:C_.textPri }}>{res.type}</div>
+                        <div style={{ fontSize:9, color:C_.textDim, fontFamily:"'Space Mono',monospace", marginTop:1 }}>
+                          {res.names[troop]}
+                        </div>
+                      </td>
+
+                      {/* Current level */}
+                      <td style={{ ...tdS, textAlign:"center", width:70 }}>
+                        <select value={cur} onChange={e => setCurrent(troop, res.id, Number(e.target.value))} style={sel}>
+                          {Array.from({length: res.maxLv+1}, (_,i)=>i).map(i => (
+                            <option key={i} value={i}>{i === 0 ? "0" : i}</option>
+                          ))}
+                        </select>
+                      </td>
+
+                      {/* Current stat */}
+                      <td style={{ ...tdMono, color:C_.textSec }}>{fmtStat(cur)}</td>
+
+                      {/* Goal level */}
+                      <td style={{ ...tdS, textAlign:"center", width:70 }}>
+                        {isMaxed ? (
+                          <span style={{ fontSize:10, color:C_.green, fontFamily:"'Space Mono',monospace",
+                            fontWeight:700 }}>Maxed</span>
+                        ) : (
+                          <select value={goal}
+                            onChange={e => setGoal(troop, res.id, Number(e.target.value))}
+                            style={{ ...sel, color: goal > cur ? C_.accent : C_.textPri }}>
+                            {goalOpts.map(i => (
+                              <option key={i} value={i}>{i}</option>
+                            ))}
+                          </select>
+                        )}
+                      </td>
+
+                      {/* Goal stat */}
+                      <td style={{ ...tdMono, color: goal > cur ? C_.accent : C_.textSec }}>
+                        {fmtStat(goal)}
+                      </td>
+
+                      {/* Stat delta */}
+                      <td style={{ ...tdMono, color: goal > cur ? C_.green : C_.textDim }}>
+                        {statDelta()}
+                      </td>
+
+                      {/* Shards */}
+                      <td style={{ ...tdMono, textAlign:"right",
+                        color: changed ? C_.textPri : C_.textDim }}>
+                        {changed ? cost.shards.toLocaleString() : "—"}
+                      </td>
+
+                      {/* Steel */}
+                      <td style={{ ...tdMono, textAlign:"right",
+                        color: changed ? C_.textPri : C_.textDim }}>
+                        {changed ? cost.steel.toLocaleString() : "—"}
+                      </td>
+
+                      {/* Power delta */}
+                      <td style={{ ...tdMono, textAlign:"right",
+                        color: powerDelta > 0 ? C_.green : C_.textDim }}>
+                        {powerDelta > 0 ? `+${powerDelta.toLocaleString()}` : "—"}
+                      </td>
+
+                      {/* Original time */}
+                      <td style={{ ...tdMono, textAlign:"right", color:C_.textDim }}>
+                        {changed ? waFmtMins(baseMins) : "—"}
+                      </td>
+
+                      {/* Actual time */}
+                      <td style={{ ...tdMono, textAlign:"right",
+                        color: changed ? C_.accent : C_.textDim, fontWeight: changed ? 700 : 400 }}>
+                        {changed ? waFmtMins(actualMins) : "—"}
+                      </td>
+                    </tr>
+
+                    {/* Prerequisite warning row */}
+                    {hasWarn && prereqs.map((w, wi) => (
+                      <tr key={`warn-${res.id}-${wi}`}
+                        style={{ background: w.type === "bldg" ? C_.amberBg : "rgba(56,139,253,0.06)" }}>
+                        <td colSpan={11} style={{ padding:"4px 10px",
+                          borderBottom:`1px solid ${C_.border}` }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:8, fontSize:10 }}>
+                            <span style={{ color: w.type==="bldg" ? C_.amber : C_.blue, fontWeight:700 }}>
+                              {w.type==="bldg" ? "⚠ Building" : "⚠ Research"}
+                            </span>
+                            <span style={{ color: w.type==="bldg" ? C_.amber : C_.blue,
+                              fontFamily:"'Space Mono',monospace" }}>
+                              {w.msg}
+                            </span>
+                            {/* Checkmark if goal already meets prereq */}
+                            {w.type==="res" && (
+                              <span style={{ marginLeft:"auto", color:C_.green, fontSize:11 }}>
+                                {/* Check is implicit — shown in goal column */}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </React.Fragment>
+                );
+              })}
+
+              {/* Troop subtotal row */}
+              <tr style={{ background:C_.surface, borderTop:`2px solid ${C_.border}` }}>
+                <td colSpan={6} style={{ ...tdS, fontWeight:700, color:tc }}>
+                  {troop} Total
+                </td>
+                <td style={{ ...tdMono, textAlign:"right", fontWeight:700, color:C_.textPri }}>
+                  {troopShards > 0 ? troopShards.toLocaleString() : "—"}
+                </td>
+                <td style={{ ...tdMono, textAlign:"right", fontWeight:700, color:C_.textPri }}>
+                  {troopSteel > 0 ? troopSteel.toLocaleString() : "—"}
+                </td>
+                <td colSpan={3} style={{ ...tdS }} />
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
+  // ── Summary section ────────────────────────────────────────────────────────
+  const SummaryRow = ({ label, val, color, bold }) => (
+    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
+      padding:"6px 0", borderBottom:`1px solid ${C_.border}40` }}>
+      <span style={{ fontSize:12, color:C_.textSec }}>{label}</span>
+      <span style={{ fontSize:12, fontFamily:"'Space Mono',monospace", fontWeight: bold?700:400,
+        color: color || C_.textPri }}>
+        {typeof val === "number" ? val.toLocaleString(undefined,{maximumFractionDigits:0}) : val}
+      </span>
+    </div>
+  );
+
+  const balShards = estShardsAtSvS - grandTotals.shards;
+  const balSteel  = estSteelAtSvS  - grandTotals.steel;
 
   return (
-    <div className="fade-in">
-      <div className="stat-grid">
-        <StatCard label="Shards" value={inv.shards} sub={`+${Math.round(dailyShards)}/day`} color="accent" />
-        <StatCard label="Steel" value={inv.steel} sub="current inventory" />
-        <StatCard label="Shards needed" value={shardsNeeded} sub="all pending upgrades" />
-        <StatCard label="Shards balance" value={shardsBalance} sub={daysToGoal > 0 ? `${daysToGoal} days to goal` : "sufficient"} />
+    <div className="fade-in" style={{ padding:"0 0 40px" }}>
+
+      {/* ── Research Speed Buffs ─────────────────────────────────────────── */}
+      <div style={{ marginBottom:24, padding:"16px", background:C_.surface,
+        borderRadius:8, border:`1px solid ${C_.border}` }}>
+        {secHead("Research Buffs (Time Reduction)")}
+        <div style={{ display:"flex", flexWrap:"wrap", gap:16, alignItems:"flex-start" }}>
+          {/* Speed input */}
+          <div style={{ display:"flex", flexDirection:"column", gap:5, minWidth:260 }}>
+            <label style={{ fontSize:11, color:C_.textSec }}>
+              Bonus Overview Total — Research Speed (%)
+            </label>
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              <input type="number" min={0} max={500} step={0.5}
+                value={speedBuff}
+                onChange={e => setSpeedBuff(Number(e.target.value))}
+                style={{ width:100, textAlign:"right", background:C_.card,
+                  border:`1px solid ${C_.border}`, borderRadius:6,
+                  color:C_.textPri, padding:"5px 8px", fontSize:12, outline:"none" }} />
+              <span style={{ fontSize:12, color:C_.textSec, fontFamily:"Space Mono,monospace" }}>%</span>
+            </div>
+            <div style={{ fontSize:11, color:C_.textSec, marginTop:2, lineHeight:1.5 }}>
+              Non-buffed Research speed — located in{" "}
+              <span style={{ color:C_.accent, fontFamily:"Space Mono,monospace" }}>
+                Bonus Overview &gt; Growth
+              </span>
+            </div>
+          </div>
+          {/* Toggle buttons */}
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, alignSelf:"flex-end" }}>
+            {[
+              { k:"presSkill", label:"President Skill — Research Advancement", val:"10%" },
+              { k:"presPos",   label:"Vice President",                          val:"10%" },
+            ].map(b => (
+              <button key={b.k} onClick={() => toggleBuff(b.k)}
+                style={{ padding:"7px 13px", borderRadius:7, fontSize:11, fontWeight:700,
+                  cursor:"pointer", fontFamily:"Syne,sans-serif", transition:"all 0.15s",
+                  textAlign:"left",
+                  background: buffs[b.k] ? C_.greenBg  : C_.surface,
+                  color:      buffs[b.k] ? C_.green    : C_.textDim,
+                  border:     `1px solid ${buffs[b.k] ? C_.greenDim : C_.border}` }}>
+                {b.label} <span style={{ opacity:0.7 }}>+{b.val}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{ marginTop:10, fontSize:12, color:C_.textSec }}>
+          Total research speed bonus:{" "}
+          <span style={{ color:C_.green, fontFamily:"Space Mono,monospace", fontWeight:700 }}>
+            {(buffTotal*100).toFixed(1)}%
+          </span>
+          {" · "}Actual time = base time ÷ (1 + {(buffTotal*100).toFixed(1)}%)
+        </div>
       </div>
 
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))", gap:16, marginBottom:24 }}>
-        {["Infantry","Marksman","Lancer"].map((troop, ti) => {
-          const key = ["inf","mks","lan"][ti];
-          return (
-            <div className="card" key={troop}>
-              <div className="card-header">
-                <div className="card-title">{troop}</div>
-                <span className="badge badge-blue">{troop.slice(0,3).toUpperCase()}</span>
-              </div>
-              <div className="card-body" style={{padding:0}}>
-                <table style={{width:"100%"}}>
-                  <thead>
-                    <tr>
-                      <th>Skill</th>
-                      <th style={{textAlign:"center"}}>Cur</th>
-                      <th style={{textAlign:"center"}}>Goal</th>
-                      <th style={{textAlign:"center"}}>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {waSkills.map(s => {
-                      const [cur, goal] = s[key];
-                      const done = cur >= goal;
-                      return (
-                        <tr key={s.id}>
-                          <td className="pri" style={{fontSize:12}}>{s.name}</td>
-                          <td className="mono" style={{textAlign:"center"}}>{cur}</td>
-                          <td className="mono" style={{textAlign:"center"}}>{goal}</td>
-                          <td style={{textAlign:"center"}}>
-                            {done
-                              ? <span className="badge badge-green" style={{fontSize:10}}>DONE</span>
-                              : <span className="badge badge-amber" style={{fontSize:10}}>PENDING</span>
-                            }
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+      {/* ── Three troop tables ───────────────────────────────────────────── */}
+      {["Infantry","Lancer","Marksman"].map(t => renderTroopTable(t))}
+
+      {/* ── Summary ─────────────────────────────────────────────────────── */}
+      <div style={{ marginTop:8, padding:"20px", background:C_.surface,
+        borderRadius:8, border:`1px solid ${C_.border}` }}>
+        {secHead("Materials Summary")}
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:24 }}>
+
+          {/* Shards column */}
+          <div>
+            <div style={{ fontSize:10, fontWeight:700, color:C_.textDim,
+              fontFamily:"'Space Mono',monospace", marginBottom:8, letterSpacing:"1px" }}>
+              FC SHARDS
             </div>
-          );
-        })}
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
+              <span style={{ fontSize:11, color:C_.textSec }}>Current Inventory</span>
+              <input type="number" min={0}
+                value={invOverride.shards ?? inv.shards ?? 0}
+                onChange={e => setInvOverride(p=>({...p,shards:Number(e.target.value)}))}
+                style={{ width:90, textAlign:"right", background:C_.card,
+                  border:`1px solid ${C_.border}`, borderRadius:5,
+                  color:C_.textPri, padding:"3px 6px", fontSize:11, outline:"none",
+                  fontFamily:"'Space Mono',monospace" }} />
+            </div>
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:12 }}>
+              <span style={{ fontSize:11, color:C_.textSec }}>Daily Earn (shards)</span>
+              <input type="number" min={0}
+                value={dailyEarnShards}
+                onChange={e => setDailyEarnShards(Number(e.target.value))}
+                style={{ width:90, textAlign:"right", background:C_.card,
+                  border:`1px solid ${C_.border}`, borderRadius:5,
+                  color:C_.textPri, padding:"3px 6px", fontSize:11, outline:"none",
+                  fontFamily:"'Space Mono',monospace" }} />
+            </div>
+            <SummaryRow label={`Est. by SvS Tue (${daysToSvSTuesday}d)`}
+              val={Math.round(estShardsAtSvS)} />
+            <SummaryRow label="Total Required" val={grandTotals.shards} />
+            <SummaryRow label="Balance"
+              val={(balShards >= 0 ? "+" : "") + Math.round(balShards).toLocaleString()}
+              color={balShards >= 0 ? C_.green : C_.red}
+              bold />
+          </div>
+
+          {/* Steel column */}
+          <div>
+            <div style={{ fontSize:10, fontWeight:700, color:C_.textDim,
+              fontFamily:"'Space Mono',monospace", marginBottom:8, letterSpacing:"1px" }}>
+              STEEL
+            </div>
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
+              <span style={{ fontSize:11, color:C_.textSec }}>Current Inventory</span>
+              <input type="number" min={0}
+                value={Math.round(curSteel)}
+                onChange={e => setInvOverride(p=>({...p,steel:Number(e.target.value)}))}
+                style={{ width:110, textAlign:"right", background:C_.card,
+                  border:`1px solid ${C_.border}`, borderRadius:5,
+                  color:C_.textPri, padding:"3px 6px", fontSize:11, outline:"none",
+                  fontFamily:"'Space Mono',monospace" }} />
+            </div>
+            <div style={{ fontSize:10, color:C_.textDim, marginBottom:12, lineHeight:1.5 }}>
+              Rate: {steelRate.toLocaleString()}/hr · 18hr/day effective · {daysToSvSTuesday}d to SvS Tue
+            </div>
+            <SummaryRow label={`Est. by SvS Tue (${daysToSvSTuesday}d)`}
+              val={Math.round(estSteelAtSvS)} />
+            <SummaryRow label="Total Required" val={grandTotals.steel} />
+            <SummaryRow label="Balance"
+              val={(balSteel >= 0 ? "+" : "") + Math.round(balSteel).toLocaleString()}
+              color={balSteel >= 0 ? C_.green : C_.red}
+              bold />
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -4066,6 +4782,43 @@ function calcChiefGearCost(curIdx, goalIdx) {
   return { plans, polish, alloy, amber };
 }
 
+// Build two-level grouping: main levels (no "+") each hold their sub-levels (with "+")
+// GEAR_GROUPS[i] = { label, stepIdx, subs: [{label, stepIdx}] }
+const GEAR_GROUPS = (() => {
+  const groups = [];
+  let last = null;
+  CHIEF_GEAR_LEVELS.forEach((r, i) => {
+    if (!r[1].includes('+')) {
+      last = { label: r[1], stepIdx: i, subs: [] };
+      groups.push(last);
+    } else {
+      last.subs.push({ label: r[1], stepIdx: i });
+    }
+  });
+  return groups;
+})();
+
+// Given a flat stepIdx, return { groupIdx, subIdx }
+// subIdx 0 = the main level itself, 1+ = sub-levels
+function stepToGroupSub(stepIdx) {
+  for (let g = 0; g < GEAR_GROUPS.length; g++) {
+    const grp = GEAR_GROUPS[g];
+    if (grp.stepIdx === stepIdx) return { groupIdx: g, subIdx: 0 };
+    for (let s = 0; s < grp.subs.length; s++) {
+      if (grp.subs[s].stepIdx === stepIdx) return { groupIdx: g, subIdx: s + 1 };
+    }
+  }
+  return { groupIdx: 0, subIdx: 0 };
+}
+
+// Given groupIdx + subIdx, return flat stepIdx
+function groupSubToStep(groupIdx, subIdx) {
+  const grp = GEAR_GROUPS[groupIdx];
+  if (!grp) return 0;
+  if (subIdx === 0) return grp.stepIdx;
+  return grp.subs[subIdx - 1]?.stepIdx ?? grp.stepIdx;
+}
+
 // ─── Chief Gear Pieces ───────────────────────────────────────────────────────
 const CHIEF_GEAR_PIECES = [
   { name:"Cap",    troop:"Lancer"   },
@@ -4081,6 +4834,65 @@ function defaultChiefGearSlots() {
 }
 
 // ─── Chief Gear Page ─────────────────────────────────────────────────────────
+// Two-dropdown level picker: main tier + sub-level
+function GearLevelPicker({ value, onChange, minStep, sel }) {
+  const { groupIdx, subIdx } = stepToGroupSub(value);
+  const grp = GEAR_GROUPS[groupIdx] || GEAR_GROUPS[0];
+  const hasSubs = grp.subs.length > 0;
+
+  // Available main groups (for goal: only those whose last step >= minStep)
+  const availableGroups = GEAR_GROUPS.reduce((acc, g, gi) => {
+    if (minStep != null) {
+      const lastStep = g.subs.length > 0 ? g.subs[g.subs.length-1].stepIdx : g.stepIdx;
+      if (lastStep < minStep) return acc;
+    }
+    acc.push({ g, gi });
+    return acc;
+  }, []);
+
+  // Sub options for current group (base + subs), filtered to >= minStep
+  const subOpts = [
+    { label:"Base", si:0, stepIdx:grp.stepIdx },
+    ...grp.subs.map((s, i) => ({
+      label:`+${s.label.split('+').pop()}`,
+      si: i+1,
+      stepIdx: s.stepIdx,
+    })),
+  ].filter(o => minStep == null || o.stepIdx >= minStep);
+
+  const handleMain = e => {
+    const newGi = Number(e.target.value);
+    const newGrp = GEAR_GROUPS[newGi];
+    if (!newGrp) return;
+    // Use base step, unless it's below minStep — then use minStep
+    const base = newGrp.stepIdx;
+    const step = (minStep != null && base < minStep) ? minStep : base;
+    onChange(step);
+  };
+
+  const handleSub = e => {
+    const si = Number(e.target.value);
+    onChange(si === 0 ? grp.stepIdx : grp.subs[si-1].stepIdx);
+  };
+
+  return (
+    <div style={{display:"flex",gap:4,alignItems:"center"}}>
+      <select value={groupIdx} onChange={handleMain} style={{...sel,minWidth:90}}>
+        {availableGroups.map(({g,gi}) => (
+          <option key={gi} value={gi}>{g.label}</option>
+        ))}
+      </select>
+      {hasSubs && subOpts.length > 0 && (
+        <select key={`sub-${groupIdx}`} value={subIdx} onChange={handleSub}
+          style={{...sel,minWidth:52}}>
+          {subOpts.map(o => (
+            <option key={o.si} value={o.si}>{o.label}</option>
+          ))}
+        </select>
+      )}
+    </div>
+  );
+}
 function ChiefGearPage({ inv }) {
   const C = COLORS;
   const sel = { background:C.surface, border:`1px solid ${C.border}`, borderRadius:6,
@@ -4134,9 +4946,7 @@ function ChiefGearPage({ inv }) {
         border:`1px solid ${C.border}` }}>
         <div style={{ display:"flex", alignItems:"center", gap:8 }}>
           <span style={{ fontSize:11, color:C.textSec, whiteSpace:"nowrap" }}>Set all Current to:</span>
-          <select value={bulkCurrent} onChange={e => setBulkCurrent(Number(e.target.value))} style={sel}>
-            {CHIEF_GEAR_LEVELS.map((r,i) => <option key={i} value={i}>{r[1]}</option>)}
-          </select>
+          <GearLevelPicker value={bulkCurrent} onChange={setBulkCurrent} sel={sel} />
           <button onClick={applyBulkCurrent}
             style={{ padding:"5px 12px", borderRadius:6, fontSize:11, fontWeight:700,
               cursor:"pointer", fontFamily:"Syne,sans-serif", border:`1px solid ${C.blue}`,
@@ -4144,9 +4954,7 @@ function ChiefGearPage({ inv }) {
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:8 }}>
           <span style={{ fontSize:11, color:C.textSec, whiteSpace:"nowrap" }}>Set all Goal to:</span>
-          <select value={bulkGoal} onChange={e => setBulkGoal(Number(e.target.value))} style={sel}>
-            {CHIEF_GEAR_LEVELS.map((r,i) => <option key={i} value={i}>{r[1]}</option>)}
-          </select>
+          <GearLevelPicker value={bulkGoal} onChange={setBulkGoal} sel={sel} />
           <button onClick={applyBulkGoal}
             style={{ padding:"5px 12px", borderRadius:6, fontSize:11, fontWeight:700,
               cursor:"pointer", fontFamily:"Syne,sans-serif", border:`1px solid ${C.green}`,
@@ -4160,8 +4968,8 @@ function ChiefGearPage({ inv }) {
             <tr>
               <th style={thS}>Troop</th>
               <th style={thS}>Piece</th>
-              <th style={thS}>Current</th>
-              <th style={thS}>Goal</th>
+              <th style={thS}>Current Level</th>
+              <th style={thS}>Goal Level</th>
               <th style={{ ...thS, textAlign:"right" }}>Plans</th>
               <th style={{ ...thS, textAlign:"right" }}>Polish</th>
               <th style={{ ...thS, textAlign:"right" }}>Alloy</th>
@@ -4193,18 +5001,20 @@ function ChiefGearPage({ inv }) {
                       {showTroop ? piece.troop : ""}
                     </td>
                     <td style={{ ...tdS, fontWeight:600 }}>{piece.name}</td>
-                    <td style={{ ...tdS, width:120 }}>
-                      <select value={s.current} onChange={e => setSlotField(idx,"current",Number(e.target.value))} style={sel}>
-                        {CHIEF_GEAR_LEVELS.map((r,i) => <option key={i} value={i}>{r[1]}</option>)}
-                      </select>
+                    <td style={{ ...tdS, width:180 }}>
+                      <GearLevelPicker
+                        value={s.current}
+                        onChange={v => setSlotField(idx,"current",v)}
+                        sel={sel}
+                      />
                     </td>
-                    <td style={{ ...tdS, width:120 }}>
-                      <select value={s.goal} onChange={e => setSlotField(idx,"goal",Number(e.target.value))} style={sel}>
-                        {CHIEF_GEAR_LEVELS.filter((_,i) => i >= s.current).map((r,_,arr) => {
-                          const i = CHIEF_GEAR_LEVELS.indexOf(r);
-                          return <option key={i} value={i}>{r[1]}</option>;
-                        })}
-                      </select>
+                    <td style={{ ...tdS, width:180 }}>
+                      <GearLevelPicker
+                        value={s.goal}
+                        onChange={v => setSlotField(idx,"goal",v)}
+                        minStep={s.current}
+                        sel={sel}
+                      />
                     </td>
                     <td style={tdMono}>{changed ? cost.plans.toLocaleString() : "—"}</td>
                     <td style={tdMono}>{changed ? cost.polish.toLocaleString() : "—"}</td>
@@ -4230,7 +5040,7 @@ function ChiefGearPage({ inv }) {
                     const fmtV = (v, i) => {
                       if (v == null) return "TBD";
                       if (i === 0) return v.toLocaleString();
-                      if (i === 3) return v === 0 ? "—" : `+${v}`;
+                      if (i === 3) return v === 0 ? "—" : `+${v.toLocaleString()}`;
                       return `${(v * 100).toFixed(2)}%`;
                     };
                     const chgColor = v => v==null ? C.textDim : v>0 ? C.green : v<0 ? C.red : C.textDim;
@@ -4261,7 +5071,7 @@ function ChiefGearPage({ inv }) {
                                     <td style={{ ...tdSt, color:row.color, fontWeight:700, fontSize:9 }}>{row.label}</td>
                                     {row.vals.map((v,i) => (showDeploy || i<3) && (
                                       <td key={i} style={{ ...tdSt, color: row.isChange ? chgColor(v) : (v==null?C.textDim:C.textPri) }}>
-                                        {row.isChange && v!=null && v>0 ? "+" : ""}{fmtV(v,i)}
+                                        {row.isChange && v!=null && v>0 && i!==3 ? "+" : ""}{fmtV(v,i)}
                                       </td>
                                     ))}
                                   </tr>
@@ -4417,6 +5227,107 @@ function calcCharmCost(curIdx, goalIdx) {
 }
 
 // ─── Chief Charms Page ────────────────────────────────────────────────────────
+// Build two-level grouping for charm levels
+// Main = no decimal in number (Lv. 1, Lv. 4, Lv. 10)
+// Sub  = has decimal (Lv. 4.1, Lv. 10.3)
+// idx here is 0-based array index; stored value is idx+1 (1-based, 0=None)
+const CHARM_GROUPS = (() => {
+  const groups = [];
+  let last = null;
+  CHIEF_CHARM_LEVELS.forEach((r, i) => {
+    const isSub = /Lv[.\s]+\d+\.\d+/.test(r.label);
+    if (!isSub) {
+      last = { label: r.label, idx: i, subs: [] };
+      groups.push(last);
+    } else {
+      last.subs.push({ label: r.label, idx: i });
+    }
+  });
+  return groups;
+})();
+
+function charmIdxToGroupSub(storedVal) {
+  // storedVal is 1-based (0 = None). Convert to 0-based idx.
+  if (!storedVal) return { groupIdx: -1, subIdx: 0 };
+  const idx = storedVal - 1;
+  for (let g = 0; g < CHARM_GROUPS.length; g++) {
+    const grp = CHARM_GROUPS[g];
+    if (grp.idx === idx) return { groupIdx: g, subIdx: 0 };
+    for (let s = 0; s < grp.subs.length; s++) {
+      if (grp.subs[s].idx === idx) return { groupIdx: g, subIdx: s + 1 };
+    }
+  }
+  return { groupIdx: -1, subIdx: 0 };
+}
+
+function charmGroupSubToStored(groupIdx, subIdx) {
+  if (groupIdx < 0) return 0; // None
+  const grp = CHARM_GROUPS[groupIdx];
+  if (!grp) return 0;
+  const idx = subIdx === 0 ? grp.idx : (grp.subs[subIdx - 1]?.idx ?? grp.idx);
+  return idx + 1; // convert to 1-based
+}
+
+function CharmLevelPicker({ value, onChange, minVal, sel }) {
+  // value and minVal are 1-based stored values (0 = None)
+  const { groupIdx, subIdx } = charmIdxToGroupSub(value);
+  const grp = groupIdx >= 0 ? CHARM_GROUPS[groupIdx] : null;
+  const hasSubs = grp && grp.subs.length > 0;
+
+  // Available main groups: last step's stored val >= minVal
+  const availableGroups = CHARM_GROUPS.reduce((acc, g, gi) => {
+    if (minVal != null && minVal > 0) {
+      const lastIdx = g.subs.length > 0 ? g.subs[g.subs.length-1].idx : g.idx;
+      if (lastIdx + 1 < minVal) return acc;
+    }
+    acc.push({ g, gi });
+    return acc;
+  }, []);
+
+  // Sub options for current group, filtered to >= minVal
+  const subOpts = grp ? [
+    { label:"Base", si:0, stored: grp.idx + 1 },
+    ...grp.subs.map((s, i) => ({
+      label: `.${s.label.split('.').pop()}`,
+      si: i + 1,
+      stored: s.idx + 1,
+    })),
+  ].filter(o => minVal == null || minVal === 0 || o.stored >= minVal) : [];
+
+  const handleMain = e => {
+    const newGi = Number(e.target.value);
+    const newGrp = CHARM_GROUPS[newGi];
+    if (!newGrp) return;
+    const base = newGrp.idx + 1;
+    const stored = (minVal && base < minVal) ? minVal : base;
+    onChange(stored);
+  };
+
+  const handleSub = e => {
+    onChange(charmGroupSubToStored(groupIdx, Number(e.target.value)));
+  };
+
+  return (
+    <div style={{display:"flex",gap:4,alignItems:"center"}}>
+      {/* None option + main dropdown */}
+      <select value={groupIdx} onChange={handleMain} style={{...sel,minWidth:80}}>
+        <option value={-1}>— None —</option>
+        {availableGroups.map(({g,gi}) => (
+          <option key={gi} value={gi}>{g.label}</option>
+        ))}
+      </select>
+      {hasSubs && subOpts.length > 0 && (
+        <select key={`csub-${groupIdx}`} value={subIdx} onChange={handleSub}
+          style={{...sel,minWidth:52}}>
+          {subOpts.map(o => (
+            <option key={o.si} value={o.si}>{o.label}</option>
+          ))}
+        </select>
+      )}
+    </div>
+  );
+}
+
 function ChiefCharmsPage({ inv }) {
   const C = COLORS;
   const sel = { background:C.surface, border:`1px solid ${C.border}`, borderRadius:6,
@@ -4462,9 +5373,6 @@ function ChiefCharmsPage({ inv }) {
     verticalAlign:"middle" };
   const tdMono = { ...tdS, fontFamily:"'Space Mono',monospace", textAlign:"right" };
 
-  // Level dropdown options — only show levels up to current major level + sub-levels
-  const levelOpts = CHIEF_CHARM_LEVELS.map((r,i) => ({ label:r.label, idx:i }));
-
   // Charm index within its gear group (0,1,2)
   let charmIdxInGroup = 0;
   let lastGear = "";
@@ -4478,10 +5386,7 @@ function ChiefCharmsPage({ inv }) {
         border:`1px solid ${C.border}` }}>
         <div style={{ display:"flex", alignItems:"center", gap:8 }}>
           <span style={{ fontSize:11, color:C.textSec, whiteSpace:"nowrap" }}>Set all Current Charms to:</span>
-          <select value={bulkCurrent} onChange={e => setBulkCurrent(Number(e.target.value))} style={sel}>
-            <option value={0}>— None —</option>
-            {CHIEF_CHARM_LEVELS.map((r,i) => <option key={i} value={i+1}>{r.label}</option>)}
-          </select>
+          <CharmLevelPicker value={bulkCurrent} onChange={setBulkCurrent} sel={sel} />
           <button onClick={applyBulkCurrent}
             style={{ padding:"5px 12px", borderRadius:6, fontSize:11, fontWeight:700,
               cursor:"pointer", fontFamily:"Syne,sans-serif", border:`1px solid ${C.blue}`,
@@ -4489,10 +5394,7 @@ function ChiefCharmsPage({ inv }) {
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:8 }}>
           <span style={{ fontSize:11, color:C.textSec, whiteSpace:"nowrap" }}>Set all Goal Charms to:</span>
-          <select value={bulkGoal} onChange={e => setBulkGoal(Number(e.target.value))} style={sel}>
-            <option value={0}>— None —</option>
-            {CHIEF_CHARM_LEVELS.map((r,i) => <option key={i} value={i+1}>{r.label}</option>)}
-          </select>
+          <CharmLevelPicker value={bulkGoal} onChange={setBulkGoal} sel={sel} />
           <button onClick={applyBulkGoal}
             style={{ padding:"5px 12px", borderRadius:6, fontSize:11, fontWeight:700,
               cursor:"pointer", fontFamily:"Syne,sans-serif", border:`1px solid ${C.green}`,
@@ -4551,25 +5453,20 @@ function ChiefCharmsPage({ inv }) {
                       {showGear ? s.gear : ""}
                     </td>
                     <td style={{ ...tdS, color:C.textDim, fontSize:10 }}>#{charmNum}</td>
-                    <td style={{ ...tdS, width:120 }}>
-                      <select value={s.current}
-                        onChange={e => setSlotField(idx,"current",Number(e.target.value))}
-                        style={sel}>
-                        <option value={0}>— None —</option>
-                        {levelOpts.map(o => (
-                          <option key={o.idx} value={o.idx+1}>{o.label}</option>
-                        ))}
-                      </select>
+                    <td style={{ ...tdS, width:180 }}>
+                      <CharmLevelPicker
+                        value={s.current}
+                        onChange={v => setSlotField(idx,"current",v)}
+                        sel={sel}
+                      />
                     </td>
-                    <td style={{ ...tdS, width:120 }}>
-                      <select value={s.goal}
-                        onChange={e => setSlotField(idx,"goal",Number(e.target.value))}
-                        style={sel}>
-                        <option value={0}>— None —</option>
-                        {levelOpts.filter(o => o.idx+1 >= s.current).map(o => (
-                          <option key={o.idx} value={o.idx+1}>{o.label}</option>
-                        ))}
-                      </select>
+                    <td style={{ ...tdS, width:180 }}>
+                      <CharmLevelPicker
+                        value={s.goal}
+                        onChange={v => setSlotField(idx,"goal",v)}
+                        minVal={s.current}
+                        sel={sel}
+                      />
                     </td>
                     <td style={tdMono}>{changed ? cost.guides.toLocaleString()  : "—"}</td>
                     <td style={tdMono}>{changed ? cost.designs.toLocaleString() : "—"}</td>
@@ -4676,6 +5573,300 @@ function ChiefCharmsPage({ inv }) {
   );
 }
 
+// ─── Character Profile Page ───────────────────────────────────────────────────
+function CharacterProfilePage({ hgHeroes, inv }) {
+  const C = COLORS;
+
+  // ── Read all power sources from localStorage ────────────────────────────────
+
+  // Hero Gear power — sum across all 4 slots (Goggles/Gloves/Belt/Boots) × 3 heroes
+  const heroGearPower = React.useMemo(() => {
+    if (!hgHeroes) return 0;
+    let total = 0;
+    const gearSlotNames = ["Goggles","Gloves","Belt","Boots"];
+    hgHeroes.forEach(hd => {
+      if (!hd?.hero) return;
+      const troopType = HERO_ROSTER.find(h => h.name === hd.hero)?.type;
+      if (!troopType) return;
+      gearSlotNames.forEach(slot => {
+        const slotIdx = GEAR_SLOTS.indexOf(slot);
+        const s = hd.slots?.[slotIdx];
+        if (!s) return;
+        const gearName = SLOT_TO_GEAR(troopType, slot);
+        if (!gearName) return;
+        const gs = getGearStats(gearName, s.status || "Legendary", s.gearCurrent ?? 0, s.masteryCurrent ?? 0);
+        total += gs?.power ?? 0;
+      });
+    });
+    return Math.round(total);
+  }, [hgHeroes]);
+
+  // Hero Power — levelPower + starPower + skillPower + gearStrength from submitted stats
+  const heroPower = React.useMemo(() => {
+    try {
+      const raw = localStorage.getItem("hg-hero-stats");
+      if (!raw) return 0;
+      const heroStats = JSON.parse(raw);
+      let total = 0;
+      Object.values(heroStats).forEach(s => {
+        total += (s.levelPower || 0) + (s.starPower || 0) + (s.skillPower || 0) + (s.gearStrength || 0);
+      });
+      return Math.round(total);
+    } catch { return 0; }
+  }, []);
+
+  // Chief Gear power — sum of current level power across all 6 pieces
+  const chiefGearPower = React.useMemo(() => {
+    try {
+      const raw = localStorage.getItem("cg-slots");
+      if (!raw) return 0;
+      const slots = JSON.parse(raw);
+      return slots.reduce((sum, s) => {
+        const row = CHIEF_GEAR_LEVELS[s.current ?? 0];
+        return sum + (row?.[6] ?? 0);
+      }, 0);
+    } catch { return 0; }
+  }, []);
+
+  // Chief Charms power — sum of current level power across all 18 charms
+  const chiefCharmsPower = React.useMemo(() => {
+    try {
+      const raw = localStorage.getItem("cc-slots");
+      if (!raw) return 0;
+      const slots = JSON.parse(raw);
+      return slots.reduce((sum, s) => {
+        const cur = s.current ?? 0;
+        if (cur === 0) return sum;
+        return sum + (CHIEF_CHARM_LEVELS[cur - 1]?.power ?? 0);
+      }, 0);
+    } catch { return 0; }
+  }, []);
+
+  // War Academy (Tech) power — sum of current level power across all researches × 3 troops
+  const techPower = React.useMemo(() => {
+    try {
+      const raw = localStorage.getItem("wa-levels");
+      if (!raw) return 0;
+      const levels = JSON.parse(raw);
+      let total = 0;
+      ["Infantry","Lancer","Marksman"].forEach(troop => {
+        WA_RESEARCH.forEach(res => {
+          const cur = levels[troop]?.[res.id]?.cur ?? 0;
+          total += waPower(res, cur);
+        });
+      });
+      return Math.round(total);
+    } catch { return 0; }
+  }, []);
+
+  // Deployment Capacity — sum from War Academy (Flame Squad) + Chief Gear deploy buff
+  const deployCapacity = React.useMemo(() => {
+    let total = 0;
+    // War Academy: Flame Squad deploy buff is per-troop but affects global deploy
+    // Use Infantry as representative (all 3 troops have same values)
+    try {
+      const raw = localStorage.getItem("wa-levels");
+      if (raw) {
+        const levels = JSON.parse(raw);
+        ["Infantry","Lancer","Marksman"].forEach(troop => {
+          const fsCur = levels[troop]?.flameSquad?.cur ?? 0;
+          const row = WA_RESEARCH[0].levels[fsCur];
+          total += row?.[2] ?? 0; // deploy buf col
+        });
+        // Helios Training deploy buff (Infantry only as shared)
+        ["Infantry","Lancer","Marksman"].forEach(troop => {
+          const htCur = levels[troop]?.heliosTraining?.cur ?? 0;
+          const row = WA_RESEARCH.find(r => r.id === "heliosTraining")?.levels[htCur];
+          total += row?.[2] ?? 0;
+        });
+      }
+    } catch {}
+    // Chief Gear deploy buff (only appears at Legendary tier)
+    try {
+      const raw = localStorage.getItem("cg-slots");
+      if (raw) {
+        const slots = JSON.parse(raw);
+        slots.forEach(s => {
+          const row = CHIEF_GEAR_LEVELS[s.current ?? 0];
+          total += row?.[9] ?? 0;
+        });
+      }
+    } catch {}
+    return Math.round(total);
+  }, []);
+
+  // Construction Speed — read from cp-speedbuff
+  const [constructionSpeed, setConstructionSpeed] = React.useState(() => {
+    try { return Number(localStorage.getItem("cp-speedbuff") || 0); } catch { return 0; }
+  });
+
+  // Research Speed — read from wa-speedbuff
+  const [researchSpeed, setResearchSpeed] = React.useState(() => {
+    try { return Number(localStorage.getItem("wa-speedbuff") || 0); } catch { return 0; }
+  });
+
+  // User-entry fields
+  const [troopsPower, setTroopsPower] = useLocalStorage("cp-troops-power", 0);
+
+  // Grand total power
+  const totalPower = techPower + chiefGearPower + chiefCharmsPower + heroPower + heroGearPower + troopsPower;
+
+  // ── Styles ─────────────────────────────────────────────────────────────────
+  const sectionHead = (label, sub) => (
+    <div style={{ marginBottom:16 }}>
+      <div style={{ fontSize:16, fontWeight:800, color:C.textPri, fontFamily:"Syne,sans-serif",
+        letterSpacing:"0.3px" }}>{label}</div>
+      {sub && <div style={{ fontSize:11, color:C.textDim, marginTop:2 }}>{sub}</div>}
+    </div>
+  );
+
+  const fmt = n => Math.round(n).toLocaleString();
+
+  const Row = ({ label, value, source, isEntry, onEntry, entryVal, accent, dim, suffix="" }) => (
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+      padding:"9px 0", borderBottom:`1px solid ${C.border}40` }}>
+      <div style={{ flex:1 }}>
+        <div style={{ fontSize:12, color: dim ? C.textDim : C.textSec }}>{label}</div>
+        {source && <div style={{ fontSize:10, color:C.textDim, fontFamily:"'Space Mono',monospace",
+          marginTop:1 }}>{source}</div>}
+      </div>
+      {isEntry ? (
+        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+          <input type="number" min={0} value={entryVal}
+            onChange={e => onEntry(Number(e.target.value))}
+            style={{ width:110, textAlign:"right", background:C.card,
+              border:`1px solid ${C.border}`, borderRadius:5,
+              color:C.textPri, padding:"4px 8px", fontSize:12, outline:"none",
+              fontFamily:"'Space Mono',monospace" }} />
+          {suffix && <span style={{ fontSize:11, color:C.textDim }}>{suffix}</span>}
+        </div>
+      ) : (
+        <div style={{ fontSize:13, fontFamily:"'Space Mono',monospace", fontWeight:600,
+          color: accent ? C.accent : dim ? C.textDim : C.textPri }}>
+          {value}{suffix}
+        </div>
+      )}
+    </div>
+  );
+
+  const SectionCard = ({ children, style }) => (
+    <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10,
+      padding:"20px 20px", marginBottom:16, ...style }}>
+      {children}
+    </div>
+  );
+
+  // Total power header card
+  const TotalCard = () => (
+    <div style={{ background:C.accentBg, border:`1px solid ${C.accentDim}`,
+      borderRadius:10, padding:"20px 24px", marginBottom:20,
+      display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:12 }}>
+      <div>
+        <div style={{ fontSize:11, fontWeight:700, letterSpacing:"2px", textTransform:"uppercase",
+          color:C.accent, fontFamily:"'Space Mono',monospace", marginBottom:4 }}>Total Power</div>
+        <div style={{ fontSize:32, fontWeight:800, color:C.textPri, fontFamily:"Syne,sans-serif",
+          letterSpacing:"-0.5px" }}>{fmt(totalPower)}</div>
+        <div style={{ fontSize:11, color:C.textDim, marginTop:4 }}>
+          Sum of all tracked power sources
+        </div>
+      </div>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"4px 24px", fontSize:11,
+        fontFamily:"'Space Mono',monospace" }}>
+        {[
+          ["Tech",         techPower],
+          ["Chief Gear",   chiefGearPower],
+          ["Chief Charms", chiefCharmsPower],
+          ["Hero",         heroPower + heroGearPower],
+          ["Troops",       troopsPower],
+        ].map(([lbl, val]) => (
+          <div key={lbl} style={{ display:"flex", justifyContent:"space-between", gap:16 }}>
+            <span style={{ color:C.textDim }}>{lbl}</span>
+            <span style={{ color:C.textSec }}>{fmt(val)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="fade-in" style={{ maxWidth:680, padding:"0 0 40px" }}>
+
+      <TotalCard />
+
+      {/* ── Power Breakdown ─────────────────────────────────────────────── */}
+      <SectionCard>
+        {sectionHead("Power Breakdown", "Current levels across all tracked categories")}
+
+        <Row label="Tech Power" value={fmt(techPower)}
+          source="War Academy (current levels) · Research Center (coming soon)" />
+
+        <Row label="Chief Gear Power" value={fmt(chiefGearPower)}
+          source="Chief Gear tab · current levels" />
+
+        <Row label="Chief Charms Power" value={fmt(chiefCharmsPower)}
+          source="Chief Charms tab · current levels (18 charms)" />
+
+        <Row label="Hero Power" value={fmt(heroPower)}
+          source="Heroes tab · level + star + skill + gear strength (submitted stats)" />
+
+        <Row label="Hero Gear Power" value={fmt(heroGearPower)}
+          source="Hero Gear Calculator · 4 gear slots × 3 hero slots" />
+
+        <Row label="Pet Power" value="—"
+          source="Coming soon" dim />
+
+        <Row label="Expert Power" value="—"
+          source="Coming soon" dim />
+
+        <Row label="Troops Power"
+          isEntry onEntry={setTroopsPower} entryVal={troopsPower}
+          source="Enter manually from in-game Troop Power" />
+      </SectionCard>
+
+      {/* ── Military ────────────────────────────────────────────────────── */}
+      <SectionCard>
+        {sectionHead("Military", "March, deployment and training stats")}
+
+        <Row label="March Queue" value="—"
+          source="Research Center (coming soon)" dim />
+
+        <Row label="Deployment Capacity"
+          value={deployCapacity > 0 ? `+${fmt(deployCapacity)}` : "—"}
+          source="War Academy (Flame Squad + Helios Training) · Chief Gear deploy buff · more coming soon" />
+
+        <Row label="Training Speed" value="—"
+          source="Research Center (coming soon)" dim />
+      </SectionCard>
+
+      {/* ── Growth ──────────────────────────────────────────────────────── */}
+      <SectionCard>
+        {sectionHead("Growth", "Construction and research speed — synced with Construction and War Academy tabs")}
+
+        <Row label="Construction Speed"
+          isEntry
+          entryVal={constructionSpeed}
+          onEntry={v => {
+            setConstructionSpeed(v);
+            try { localStorage.setItem("cp-speedbuff", JSON.stringify(v)); } catch {}
+          }}
+          source="Synced with Construction tab · Bonus Overview > Growth"
+          suffix="%" />
+
+        <Row label="Research Speed"
+          isEntry
+          entryVal={researchSpeed}
+          onEntry={v => {
+            setResearchSpeed(v);
+            try { localStorage.setItem("wa-speedbuff", JSON.stringify(v)); } catch {}
+          }}
+          source="Synced with War Academy tab · Bonus Overview > Growth"
+          suffix="%" />
+      </SectionCard>
+
+    </div>
+  );
+}
+
 // ─── Error Boundary ───────────────────────────────────────────────────────────
 export class ErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { error: null }; }
@@ -4697,16 +5888,17 @@ export class ErrorBoundary extends Component {
 
 // ─── Layout / Nav ─────────────────────────────────────────────────────────────
 const PAGES = [
+  { id:"char-profile",    label:"Character Profile", icon:"[P]", section:"Character"   },
   { id:"inventory",    label:"Inventory",     icon:"[I]", section:"Resources"   },
   { id:"construction", label:"Construction",  icon:"[B]", section:"Resources"   },
   { id:"rfc-planner",  label:"RFC Planner",   icon:"[R]", section:"Resources"   },
+  { id:"war-academy",  label:"War Academy",   icon:"[W]", section:"Resources"   },
   { id:"heroes",        label:"Heroes",        icon:"[H]", section:"Combat"      },
   { id:"hero-gear",     label:"Hero Gear",     icon:"[G]", section:"Combat"      },
   { id:"chief-gear",    label:"Chief Gear",    icon:"[C]", section:"Combat"      },
   { id:"chief-charms",  label:"Chief Charms",  icon:"[K]", section:"Combat"      },
   { id:"experts",       label:"Experts",       icon:"[E]", section:"Combat"      },
-  { id:"war-academy",   label:"War Academy",   icon:"[W]", section:"Combat"      },
-  { id:"svs-calendar", label:"SvS Calendar",  icon:"[C]", section:"Planning"    },
+  { id:"svs-calendar",  label:"SvS Calendar",  icon:"[C]", section:"Planning"    },
 ];
 
 const PAGE_TITLES = {
@@ -4718,8 +5910,9 @@ const PAGE_TITLES = {
   "chief-gear":   { title: "Chief Gear",    sub: "Chief gear upgrade planner — track level upgrades, material costs and stat gains" },
   "chief-charms": { title: "Chief Charms",  sub: "Charm upgrade planner — 18 independent charms across 6 gear pieces, material costs and stat gains" },
   experts:      { title: "Expert Planner", sub: "Skill levels, sigil costs, and per-day SVS contributions" },
-  "war-academy":{ title: "War Academy", sub: "Infantry, Marksman & Lancer squad upgrade tracker" },
+  "war-academy":{ title: "War Academy", sub: "Research upgrade planner — track shards, steel, time costs and stat gains across all three troop types" },
   "svs-calendar":{ title: "SvS Calendar", sub: "Rolling 28-week schedule — SvS every 4th week, King of Icefield every 2nd week" },
+  "char-profile": { title: "Character Profile", sub: "Total power summary — tech, gear, heroes, charms, military and growth stats" },
   alliance:     { title: "Alliance Scores", sub: "SvS prep scores and historical results" },
   admin:        { title: "Admin", sub: "Review and approve hero stat submissions" },
 };
@@ -4967,7 +6160,7 @@ export default function App() {
         <aside className={`sidebar${sidebarOpen ? " open" : ""}`}>
           <div style={{background:"#0D1B2A",borderBottom:"1px solid #1E3A52",position:"relative",flexShrink:0}}>
             {/* Top ice bar */}
-            <div style={{height:3,background:"#4A9EBF",width:"100%"}} />
+            <div style={{height:1,background:"#4A9EBF",width:"100%"}} />
             {/* Corner brackets */}
             <div style={{position:"absolute",top:9,left:9,width:8,height:8,borderTop:"1px solid #4A9EBF",borderLeft:"1px solid #4A9EBF",opacity:0.7}} />
             <div style={{position:"absolute",top:9,right:9,width:8,height:8,borderTop:"1px solid #4A9EBF",borderRight:"1px solid #4A9EBF",opacity:0.7}} />
@@ -5260,6 +6453,7 @@ export default function App() {
             {page === "experts"      && <ExpertsPage      inv={inv} />}
             {page === "war-academy"  && <WarAcademyPage   inv={inv} />}
             {page === "svs-calendar" && <SvSCalendar />}
+            {page === "char-profile" && <CharacterProfilePage hgHeroes={hgHeroes} inv={inv} />}
           </div>
         </main>
       </div>
