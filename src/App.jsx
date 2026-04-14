@@ -4223,7 +4223,7 @@ function ChiefGearPage({ inv }) {
                       if (v == null) return "TBD";
                       if (i === 0) return v.toLocaleString();
                       if (i === 3) return v === 0 ? "—" : `+${v}`;
-                      return `${v.toFixed(4)}%`;
+                      return `${(v * 100).toFixed(2)}%`;
                     };
                     const chgColor = v => v==null ? C.textDim : v>0 ? C.green : v<0 ? C.red : C.textDim;
                     const tdSt = { padding:"4px 8px", fontSize:10,
@@ -4568,8 +4568,8 @@ function ChiefCharmsPage({ inv }) {
                     <td style={tdMono}>{changed ? cost.secrets.toLocaleString() : "—"}</td>
                     <td style={tdMono}>{curPow   > 0 ? curPow.toLocaleString()       : "—"}</td>
                     <td style={tdMono}>{goalPow  > 0 ? goalPow.toLocaleString()      : "—"}</td>
-                    <td style={tdMono}>{goalLeth > 0 ? `${goalLeth.toFixed(4)}%`    : "—"}</td>
-                    <td style={tdMono}>{goalHp   > 0 ? `${goalHp.toFixed(4)}%`      : "—"}</td>
+                    <td style={tdMono}>{goalLeth > 0 ? `${(goalLeth * 100).toFixed(2)}%` : "—"}</td>
+                    <td style={tdMono}>{goalHp   > 0 ? `${(goalHp   * 100).toFixed(2)}%` : "—"}</td>
                   </tr>
 
                   {/* Stat sub-row */}
@@ -4578,7 +4578,7 @@ function ChiefCharmsPage({ inv }) {
                     const curVals  = [curPow,  curLeth,  curHp];
                     const goalVals = [goalPow, goalLeth, goalHp];
                     const chgVals  = curVals.map((v,i) => goalVals[i] - v);
-                    const fmtV = (v, i) => i===0 ? v.toLocaleString() : `${v.toFixed(4)}%`;
+                    const fmtV = (v, i) => i===0 ? v.toLocaleString() : `${(v * 100).toFixed(2)}%`;
                     const chgColor = v => v>0 ? C.green : v<0 ? C.red : C.textDim;
                     const rows = [
                       { label:"Current", color:C.textSec, bg:"transparent",          vals:curVals  },
