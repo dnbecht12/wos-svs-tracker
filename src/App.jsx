@@ -4173,26 +4173,59 @@ function WarAcademyPage({ inv }) {
   const estSteelAtSvS  = curSteel  + steelRate * 18 * daysToSvSTuesday; // 18 hrs/day effective
 
   // ── Prerequisite checker ───────────────────────────────────────────────────
-  // Returns array of unmet prereq strings for a research at a given goal level
-  function getPrereqs(res, goalLv, troop) {
+  // Returns array of unmet prereq warnings for a research at a given goal level
+  // Only fires when goal > cur (upgrade is actually planned)
+  // Checks current levels of prereq researches — warns only if unmet
+  function getPrereqs(res, cur, goal, troop) {
+    if (goal <= cur) return []; // no upgrade planned — no warnings
     const warnings = [];
-    // Building prereqs: find highest FC level required at or below goalLv
+    const lvs = levels[troop] || {};
+
+    // Building prereq: find highest FC level required for any level ≤ goal
     let reqFC = 0;
     Object.entries(res.prereqBldg).forEach(([lv, bldg]) => {
-      if (Number(lv) <= goalLv && bldg.includes("War Academy")) {
+      if (Number(lv) <= goal && bldg.includes("War Academy")) {
         const fcNum = parseInt(bldg.replace(/[^0-9]/g,""));
         if (fcNum > reqFC) reqFC = fcNum;
       }
     });
+    // Only warn if construction level doesn't already meet it
     if (reqFC > 0 && waFCLevel < reqFC) {
       warnings.push({ type:"bldg", msg:`Requires War Academy FC${reqFC} (currently FC${waFCLevel||0})` });
     }
-    // Research prereqs
+
+    // Research prereqs: parse the string to extract research id and required level
+    // Format examples: "Flame Squad Lv.3", "Lethality Lv.6 + Health Lv.6", "Helios Lv.1"
+    const parsePrereqStr = str => {
+      const parts = str.split("+").map(s => s.trim());
+      return parts.map(part => {
+        const m = part.match(/^(.+?)\s+Lv\.(\d+)$/i);
+        if (!m) return null;
+        return { name: m[1].trim(), level: parseInt(m[2]) };
+      }).filter(Boolean);
+    };
+
+    // Map display names to research ids
+    const nameToId = {
+      "Flame Squad": "flameSquad", "Lethality": "lethality", "Health": "health",
+      "Rally Capacity": "flameLegion", "Attack": "attack", "Defense": "defense",
+      "Helios": "helios", "Helios Healing": "heliosHealing",
+      "Helios Training": "heliosTraining", "Helios First Aid": "heliosFirstAid",
+    };
+
     Object.entries(res.prereqRes).forEach(([lv, prereqStr]) => {
-      if (Number(lv) <= goalLv) {
-        warnings.push({ type:"res", msg:`Requires: ${prereqStr}` });
-      }
+      if (Number(lv) > goal) return; // this prereq doesn't apply yet
+      const reqs = parsePrereqStr(prereqStr);
+      reqs.forEach(({ name, level }) => {
+        const id = nameToId[name];
+        if (!id) return;
+        const prereqCur = lvs[id]?.cur ?? 0;
+        if (prereqCur < level) {
+          warnings.push({ type:"res", msg:`Requires ${name} Lv.${level} (currently Lv.${prereqCur})` });
+        }
+      });
     });
+
     return warnings;
   }
 
@@ -4369,8 +4402,8 @@ function WarAcademyPage({ inv }) {
                 };
 
                 // Prerequisite warnings
-                const prereqs = getPrereqs(res, Math.max(goal, 1), troop);
-                const hasWarn = prereqs.length > 0 && goal > 0;
+                const prereqs = getPrereqs(res, cur, goal, troop);
+                const hasWarn = prereqs.length > 0;
 
                 // Goal dropdown options
                 const goalOpts = [];
@@ -5722,6 +5755,26 @@ function CharacterProfilePage({ hgHeroes, inv }) {
 
   const fmt = n => Math.round(n).toLocaleString();
 
+  // Buffered number input — holds local string state, commits to parent only on blur
+  const BufferedInput = ({ value, onCommit, suffix, width=110 }) => {
+    const [local, setLocal] = React.useState(String(value ?? ""));
+    // Sync if parent value changes externally (e.g. from another tab)
+    React.useEffect(() => { setLocal(String(value ?? "")); }, [value]);
+    return (
+      <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+        <input type="number" min={0}
+          value={local}
+          onChange={e => setLocal(e.target.value)}
+          onBlur={e => { const v = Number(e.target.value); setLocal(String(v)); onCommit(v); }}
+          style={{ width, textAlign:"right", background:C.card,
+            border:`1px solid ${C.border}`, borderRadius:5,
+            color:C.textPri, padding:"4px 8px", fontSize:12, outline:"none",
+            fontFamily:"'Space Mono',monospace" }} />
+        {suffix && <span style={{ fontSize:11, color:C.textDim }}>{suffix}</span>}
+      </div>
+    );
+  };
+
   const Row = ({ label, value, source, isEntry, onEntry, entryVal, accent, dim, suffix="" }) => (
     <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
       padding:"9px 0", borderBottom:`1px solid ${C.border}40` }}>
@@ -5731,15 +5784,7 @@ function CharacterProfilePage({ hgHeroes, inv }) {
           marginTop:1 }}>{source}</div>}
       </div>
       {isEntry ? (
-        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-          <input type="number" min={0} value={entryVal}
-            onChange={e => onEntry(Number(e.target.value))}
-            style={{ width:110, textAlign:"right", background:C.card,
-              border:`1px solid ${C.border}`, borderRadius:5,
-              color:C.textPri, padding:"4px 8px", fontSize:12, outline:"none",
-              fontFamily:"'Space Mono',monospace" }} />
-          {suffix && <span style={{ fontSize:11, color:C.textDim }}>{suffix}</span>}
-        </div>
+        <BufferedInput value={entryVal} onCommit={onEntry} suffix={suffix} />
       ) : (
         <div style={{ fontSize:13, fontFamily:"'Space Mono',monospace", fontWeight:600,
           color: accent ? C.accent : dim ? C.textDim : C.textPri }}>
