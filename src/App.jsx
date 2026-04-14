@@ -122,9 +122,9 @@ const THEMES = {
     card:      "#161b22",
     border:    "#21262d",
     borderHi:  "#30363d",
-    accent:    "#e36b1a",
-    accentDim: "#7d3a0d",
-    accentBg:  "#1a1008",
+    accent:    "#4A9EBF",
+    accentDim: "#1E5A7A",
+    accentBg:  "#071620",
     blue:      "#388bfd",
     blueDim:   "#1f4b8c",
     blueBg:    "#0c1929",
@@ -148,9 +148,9 @@ const THEMES = {
     card:      "#ffffff",
     border:    "#d0d7de",
     borderHi:  "#afb8c1",
-    accent:    "#c85a0f",
-    accentDim: "#e36b1a",
-    accentBg:  "#fdf0e8",
+    accent:    "#1E7FA8",
+    accentDim: "#4A9EBF",
+    accentBg:  "#E6F4FA",
     blue:      "#0969da",
     blueDim:   "#54aeff",
     blueBg:    "#ddf4ff",
@@ -2834,7 +2834,7 @@ const GLOBAL_STYLE = `
   /* Buttons */
   .btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 700; cursor: pointer; transition: all 0.15s; border: 1px solid; font-family: 'Syne', sans-serif; }
   .btn-accent { background: var(--c-accent); color: var(--c-btnText); border-color: var(--c-accent); }
-  .btn-accent:hover { background: #f07d2e; border-color: #f07d2e; }
+  .btn-accent:hover { background: #3A8EAF; border-color: #3A8EAF; }
   .btn-ghost { background: transparent; color: var(--c-textSec); border-color: var(--c-border); }
   .btn-ghost:hover { color: var(--c-textPri); border-color: var(--c-borderHi); background: var(--c-surface); }
 
@@ -4686,7 +4686,7 @@ export class ErrorBoundary extends Component {
         <div style={{fontSize:14,marginBottom:8,color:"var(--c-textPri, #e6edf3)"}}>Something went wrong loading the app.</div>
         <div style={{fontSize:12,color:"var(--c-textSec, #8b949e)",marginBottom:16}}>Error: {this.state.error?.message}</div>
         <button onClick={()=>window.location.reload()}
-          style={{padding:"8px 16px",background:"#e36b1a",color:"#0a0c10",border:"none",borderRadius:6,cursor:"pointer",fontWeight:700}}>
+          style={{padding:"8px 16px",background:"#4A9EBF",color:"#071620",border:"none",borderRadius:6,cursor:"pointer",fontWeight:700}}>
           Reload
         </button>
       </div>
