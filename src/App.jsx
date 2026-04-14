@@ -714,9 +714,12 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
   // Fetch current hero stats from Supabase first, fall back to hardcoded HERO_BASE_STATS
   const [dbRef, setDbRef] = useState(null);
   const [dbRefLoading, setDbRefLoading] = useState(false);
+  const [dbRefreshKey, setDbRefreshKey] = useState(0);
   const heroLevel  = (stats && stats.level)  ?? 0;
   const heroStars  = (stats && stats.stars)  ?? 0;
   const heroWidget = (stats && stats.widget) ?? 0;
+  // Re-query whenever submitDone fires (user just submitted — admin may approve soon)
+  // or when refreshKey changes
   useEffect(() => {
     if (!hero) return;
     setDbRef(null);
@@ -734,7 +737,7 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
       setDbRef(data || null);
       setDbRefLoading(false);
     });
-  }, [hero?.name, heroLevel, heroStars, heroWidget]);
+  }, [hero?.name, heroLevel, heroStars, heroWidget, dbRefreshKey]);
 
   const local   = { ...defaultHeroStats(), ...stats };
   const set     = (field, val) => onUpdate(hero.name, field, val);
@@ -801,13 +804,21 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
           Stats for this hero at their current level/stars/widget haven't been compiled yet.
           Help the community by submitting your in-game stats!
         </div>
-        <button onClick={() => setShowSubmit(true)}
-          style={{marginTop:8,padding:"5px 12px",borderRadius:6,fontSize:11,fontWeight:700,
-            cursor:"pointer",fontFamily:"Syne,sans-serif",border:`1px solid ${C.amber}`,
-            background:"transparent",color:C.amber,
-            display: subBlocked ? "none" : "inline-block"}}>
-          📤 Submit My Stats
-        </button>
+        <div style={{display:"flex",gap:8,marginTop:8,flexWrap:"wrap"}}>
+          <button onClick={() => setShowSubmit(true)}
+            style={{padding:"5px 12px",borderRadius:6,fontSize:11,fontWeight:700,
+              cursor:"pointer",fontFamily:"Syne,sans-serif",border:`1px solid ${C.amber}`,
+              background:"transparent",color:C.amber,
+              display: subBlocked ? "none" : "inline-block"}}>
+            📤 Submit My Stats
+          </button>
+          <button onClick={() => setDbRefreshKey(k => k + 1)}
+            style={{padding:"5px 12px",borderRadius:6,fontSize:11,fontWeight:700,
+              cursor:"pointer",fontFamily:"Syne,sans-serif",border:`1px solid ${C.border}`,
+              background:"transparent",color:C.textSec}}>
+            🔄 Refresh Stats
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -833,7 +844,7 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
       stats:          statsPayload,
     });
     setSubmitting(false);
-    if (ok) { setSubmitDone(true); setShowSubmit(false); setBaseStatsConfirmed(false); }
+    if (ok) { setSubmitDone(true); setShowSubmit(false); setBaseStatsConfirmed(false); setDbRefreshKey(k => k + 1); }
   };
 
   const NumField = ({ label, field, isPct }) => {
@@ -5643,18 +5654,21 @@ function CharacterProfilePage({ hgHeroes, inv }) {
     return Math.round(total);
   }, [hgHeroes]);
 
-  // Hero Power — levelPower + starPower + skillPower + gearStrength from submitted stats
-  const heroPower = React.useMemo(() => {
-    try {
-      const raw = localStorage.getItem("hg-hero-stats");
-      if (!raw) return 0;
-      const heroStats = JSON.parse(raw);
-      let total = 0;
-      Object.values(heroStats).forEach(s => {
-        total += (s.levelPower || 0) + (s.starPower || 0) + (s.skillPower || 0) + (s.gearStrength || 0);
+  // Hero Power — levelPower + starPower + skillPower + gearStrength from Supabase accepted stats
+  const [heroPower, setHeroPower] = React.useState(0);
+  React.useEffect(() => {
+    supabase.from("hero_stats_data")
+      .select("stats")
+      .eq("is_current", true)
+      .then(({ data }) => {
+        if (!data) return;
+        let total = 0;
+        data.forEach(row => {
+          const s = row.stats || {};
+          total += (s.levelPower || 0) + (s.starPower || 0) + (s.skillPower || 0) + (s.gearStrength || 0);
+        });
+        setHeroPower(Math.round(total));
       });
-      return Math.round(total);
-    } catch { return 0; }
   }, []);
 
   // Chief Gear power — sum of current level power across all 6 pieces
