@@ -3933,54 +3933,114 @@ function WarAcademyPage({ inv }) {
 
 
 // ─── Chief Gear Data ─────────────────────────────────────────────────────────
-// [step, label, plans, polish, alloy, amber, power, atkDef, deploy]
-// power/atkDef = null means TBD
+// [step, label, plans, polish, alloy, amber, power, atkStat, defStat, deploy]
 const CHIEF_GEAR_LEVELS = [
-  [1,  "UC1★",   0,   40,  3800,  0,       null,   null,  0],
-  [2,  "R",       0,   70,  7000,  0,       null,   null,  0],
-  [3,  "R1★",    0,   95,  9700,  0,       null,   null,  0],
-  [4,  "R2★",   45,    0,     0,  0,       null,   null,  0],
-  [5,  "R3★",   50,    0,     0,  0,       null,   null,  0],
-  [6,  "E",      60,    0,     0,  0,     816000,  0.34,   0],
-  [7,  "E1★",   70,    0,     0,  0,       null,   null,  0],
-  [8,  "E2★",   40,   65,  6500,  0,       null,   null,  0],
-  [9,  "E3★",   50,   80,  8000,  0,       null,   null,  0],
-  [10, "ET1",    60,   95, 10000,  0,    1093440, 0.4556,  0],
-  [11, "ET1 1★",70,  110, 11000,  0,    1162800, 0.4845,  0],
-  [12, "ET1 2★",85,  130, 13000,  0,    1232160, 0.5134,  0],
-  [13, "ET1 3★",100, 160, 15000,  0,    1301520, 0.5423,  0],
-  [14, "M",      40,  220, 22000,  0,       null,   null,  0],
-  [15, "M1★",   40,  230, 23000,  0,       null,   null,  0],
-  [16, "M2★",   45,  250, 25000,  0,       null,   null,  0],
-  [17, "M3★",   45,  260, 26000,  0,    1546320, 0.6443,  0],
-  [18, "MT1",    45,  280, 28000,  0,    1607520, 0.6698,  0],
-  [19, "MT1 1★",55,  300, 30000,  0,    1668720, 0.6953,  0],
-  [20, "MT1 2★",55,  320, 32000,  0,    1729920, 0.7208,  0],
-  [21, "MT1 3★",55,  340, 35000,  0,    1791120, 0.7463,  0],
-  [22, "MT2",    55,  390, 38000,  0,    1852320, 0.7718,  0],
-  [23, "MT2 1★",75,  430, 43000,  0,    1913520, 0.7973,  0],
-  [24, "MT2 2★",80,  460, 45000,  0,    1974720, 0.8228,  0],
-  [25, "MT2 3★",85,  500, 48000,  0,    2035920, 0.8483,  0],
-  [26, "L",      85,  530, 50000, 10,    2142000, 0.8925, 40],
-  [27, "L+1",    90,  560, 52000, 10,    2244000, 0.935,  80],
-  [28, "L+2",    95,  590, 54000, 10,    2346000, 0.9775,120],
-  [29, "L+3",   100,  620, 56000, 10,    2448000, 1.02,  160],
-  [30, "LT1",   110,  670, 59000, 15,    2550000, 1.0625,290],
-  [31, "LT1+1", 115,  700, 61000, 15,    2652000, 1.105, 330],
-  [32, "LT1+2", 120,  730, 63000, 15,    2754000, 1.1475,370],
-  [33, "LT1+3", 125,  760, 65000, 15,    2856000, 1.19,  410],
-  [34, "LT2",   135,  810, 68000, 20,    2958000, 1.2325,540],
-  [35, "LT2+1", 140,  840, 70000, 20,    3060000, 1.275, 580],
-  [36, "LT2+2", 145,  870, 72000, 20,    3162000, 1.3175,620],
-  [37, "LT2+3", 150,  900, 74000, 20,    3264000, 1.36,  660],
-  [38, "LT3",   160,  950, 77000, 25,    3366000, 1.4025,790],
-  [39, "LT3+1", 165,  990, 80000, 25,    3468000, 1.445, 830],
-  [40, "LT3+2", 170, 1030, 83000, 25,    3570000, 1.4875,870],
-  [41, "LT3+3", 180, 1070, 86000, 25,    3672000, 1.53,  910],
-  [42, "LT4",   180, 1070, 86000, 25,    3876000, 1.615,1050],
-  [43, "LT4+1", 180, 1070, 86000, 25,    4080000, 1.70, 1100],
-  [44, "LT4+2", 180, 1070, 86000, 25,    4284000, 1.785,1150],
-  [45, "LT4+3", 180, 1070, 86000, 25,    4488000, 1.87, 1200],
+  [1,"UC",0,15,1500,0,224400,0.0935,0.0935,0],
+  [2,"UC1★",0,40,3800,0,306000,0.1275,0.1275,0],
+  [3,"R",0,70,7000,0,408000,0.17,0.17,0],
+  [4,"R1★",0,95,9700,0,510000,0.2125,0.2125,0],
+  [5,"R2★",45,0,0,0,612000,0.255,0.255,0],
+  [6,"R3★",50,0,0,0,714000,0.2975,0.2975,0],
+  [7,"E",60,0,0,0,816000,0.34,0.34,0],
+  [8,"E1★",70,0,0,0,885360,0.3689,0.3689,0],
+  [9,"E2★",40,65,6500,0,954720,0.3978,0.3978,0],
+  [10,"E3★",50,80,8000,0,1024080,0.4267,0.4267,0],
+  [11,"ET1",60,95,10000,0,1093440,0.4556,0.4556,0],
+  [12,"ET1 1★",70,110,11000,0,1162800,0.4845,0.4845,0],
+  [13,"ET1 2★",85,130,13000,0,1232160,0.5134,0.5134,0],
+  [14,"ET1 3★",100,160,15000,0,1301520,0.5423,0.5423,0],
+  [15,"M",40,220,22000,0,1362720,0.5678,0.5678,0],
+  [16,"M1★",40,230,23000,0,1423920,0.5933,0.5933,0],
+  [17,"M2★",45,250,25000,0,1485120,0.6188,0.6188,0],
+  [18,"M3★",45,260,26000,0,1546320,0.6443,0.6443,0],
+  [19,"MT1",45,280,28000,0,1607520,0.6698,0.6698,0],
+  [20,"MT1 1★",55,280,28000,0,1668720,0.6953,0.6953,0],
+  [21,"MT1 2★",55,320,32000,0,1729920,0.7208,0.7208,0],
+  [22,"MT1 3★",55,340,35000,0,1791120,0.7463,0.7463,0],
+  [23,"MT2",55,360,38000,0,1852320,0.7718,0.7718,0],
+  [24,"MT2 1★",75,430,43000,0,1913520,0.7973,0.7973,0],
+  [25,"MT2 2★",80,460,45000,0,1974720,0.8228,0.8228,0],
+  [26,"MT2 3★",85,500,48000,0,2040000,0.85,0.85,0],
+  [27,"L",21,132,12500,2,2142000,0.8925,0.8925,40],
+  [28,"L+1",21,132,12500,2,2166000,0.9031,0.9031,50],
+  [29,"L+2",21,132,12500,2,2190000,0.9137,0.9137,60],
+  [30,"L+3",22,134,12500,4,2214000,0.9243,0.9243,70],
+  [31,"L1★",22,140,13000,2,2244000,0.935,0.935,80],
+  [32,"L1★+1",22,140,13000,2,2268000,0.9456,0.9456,90],
+  [33,"L1★+2",22,140,13000,2,2292000,0.9562,0.9562,100],
+  [34,"L1★+3",24,140,13000,4,2316000,0.9668,0.9668,110],
+  [35,"L2★",23,147,13500,2,2346000,0.9775,0.9775,120],
+  [36,"L2★+1",23,147,13500,2,2370000,0.9881,0.9881,130],
+  [37,"L2★+2",23,147,13500,2,2394000,0.9987,0.9987,140],
+  [38,"L2★+3",26,149,13500,4,2418000,1.0093,1.0093,150],
+  [39,"L3★",25,155,14000,2,2448000,1.02,1.02,160],
+  [40,"L3★+1",25,155,14000,2,2472000,1.0306,1.0306,170],
+  [41,"L3★+2",25,155,14000,2,2496000,1.0412,1.0412,180],
+  [42,"L3★+3",25,155,14000,4,2520000,1.0518,1.0518,190],
+  [43,"LT1",27,167,14750,3,2550000,1.0625,1.0625,290],
+  [44,"LT1+1",27,167,14750,3,2574000,1.0731,1.0731,300],
+  [45,"LT1+2",27,167,14750,3,2598000,1.0837,1.0837,310],
+  [46,"LT1+3",29,169,14750,6,2622000,1.0943,1.0943,320],
+  [47,"LT1 1★",28,175,15250,3,2652000,1.105,1.105,330],
+  [48,"LT1 1★+1",28,175,15250,3,2676000,1.1156,1.1156,340],
+  [49,"LT1 1★+2",28,175,15250,3,2700000,1.1262,1.1262,350],
+  [50,"LT1 1★+3",31,175,15250,6,2724000,1.1368,1.1368,360],
+  [51,"LT1 2★",30,182,15750,3,2754000,1.1475,1.1475,370],
+  [52,"LT1 2★+1",30,182,15750,3,2778000,1.1581,1.1581,380],
+  [53,"LT1 2★+2",30,182,15750,3,2802000,1.1687,1.1687,390],
+  [54,"LT1 2★+3",30,184,15750,6,2826000,1.1793,1.1793,400],
+  [55,"LT1 3★",31,190,16250,3,2856000,1.19,1.19,410],
+  [56,"LT1 3★+1",31,190,16250,3,2880000,1.2006,1.2006,420],
+  [57,"LT1 3★+2",31,190,16250,3,2904000,1.2112,1.2112,430],
+  [58,"LT1 3★+3",32,190,16250,6,2928000,1.2218,1.2218,440],
+  [59,"LT2",33,202,17000,5,2958000,1.2325,1.2325,540],
+  [60,"LT2+1",33,202,17000,5,2983000,1.2431,1.2431,550],
+  [61,"LT2+2",33,202,17000,5,3008000,1.2537,1.2537,560],
+  [62,"LT2+3",36,204,17000,5,3033000,1.2643,1.2643,570],
+  [63,"LT2 1★",35,210,17500,5,3060000,1.275,1.275,580],
+  [64,"LT2 1★+1",35,210,17500,5,3085000,1.2856,1.2856,590],
+  [65,"LT2 1★+2",35,210,17500,5,3110000,1.2962,1.2962,600],
+  [66,"LT2 1★+3",35,210,17500,5,3135000,1.3068,1.3068,610],
+  [67,"LT2 2★",36,217,18000,5,3162000,1.3175,1.3175,620],
+  [68,"LT2 2★+1",36,217,18000,5,3187000,1.3281,1.3281,630],
+  [69,"LT2 2★+2",36,217,18000,5,3212000,1.3387,1.3387,640],
+  [70,"LT2 2★+3",37,219,18000,5,3237000,1.3493,1.3493,650],
+  [71,"LT2 3★",37,225,18500,5,3264000,1.36,1.36,660],
+  [72,"LT2 3★+1",37,225,18500,5,3289000,1.3706,1.3706,670],
+  [73,"LT2 3★+2",37,225,18500,5,3314000,1.3812,1.3812,680],
+  [74,"LT2 3★+3",39,225,18500,5,3339000,1.3918,1.3918,690],
+  [75,"LT3",40,237,19250,6,3366000,1.4025,1.4025,790],
+  [76,"LT3+1",40,237,19250,6,3391000,1.4131,1.4131,800],
+  [77,"LT3+2",40,237,19250,6,3416000,1.4237,1.4237,810],
+  [78,"LT3+3",40,239,19250,7,3441000,1.4343,1.4343,820],
+  [79,"LT3 1★",41,247,20000,6,3468000,1.445,1.445,830],
+  [80,"LT3 1★+1",41,247,20000,6,3493000,1.4556,1.4556,840],
+  [81,"LT3 1★+2",41,247,20000,6,3518000,1.4662,1.4662,850],
+  [82,"LT3 1★+3",42,249,20000,7,3543000,1.4768,1.4768,860],
+  [83,"LT3 2★",42,257,20750,6,3570000,1.4875,1.4875,870],
+  [84,"LT3 2★+1",42,257,20750,6,3595000,1.4981,1.4981,880],
+  [85,"LT3 2★+2",42,257,20750,6,3620000,1.5087,1.5087,890],
+  [86,"LT3 2★+3",44,259,20750,7,3645000,1.5193,1.5193,900],
+  [87,"LT3 3★",50,300,24000,8,3672000,1.53,1.53,910],
+  [88,"LT3 3★+1",50,300,24000,8,3697000,1.5406,1.5406,920],
+  [89,"LT3 3★+2",50,300,24000,8,3722000,1.5512,1.5512,930],
+  [90,"LT3 3★+3",50,300,24000,8,3747000,1.5618,1.5618,940],
+  [91,"LT4",50,300,24000,8,3876000,1.615,1.615,1050],
+  [92,"LT4+1",55,330,28000,8,3916000,1.632,1.632,1060],
+  [93,"LT4+2",55,330,28000,8,3956000,1.649,1.649,1070],
+  [94,"LT4+3",55,330,28000,8,3996000,1.666,1.666,1080],
+  [95,"LT4+4",55,330,28000,8,4036000,1.683,1.683,1090],
+  [96,"LT4 1★",55,330,28000,8,4080000,1.7,1.7,1100],
+  [97,"LT4 1★+1",60,360,32000,8,4120000,1.717,1.717,1110],
+  [98,"LT4 1★+2",60,360,32000,8,4160000,1.734,1.734,1120],
+  [99,"LT4 1★+3",60,360,32000,8,4200000,1.751,1.751,1130],
+  [100,"LT4 1★+4",60,360,32000,8,4240000,1.768,1.768,1140],
+  [101,"LT4 2★",60,360,32000,8,4284000,1.785,1.785,1150],
+  [102,"LT4 2★+1",65,390,36000,8,4324000,1.802,1.802,1160],
+  [103,"LT4 2★+2",65,390,36000,8,4364000,1.819,1.819,1170],
+  [104,"LT4 2★+3",65,390,36000,8,4404000,1.836,1.836,1180],
+  [105,"LT4 2★+4",65,390,36000,8,4444000,1.853,1.853,1190],
+  [106,"LT4 3★",65,390,36000,8,4488000,1.87,1.87,1200],
 ];
 
 // Helper: is a level label "Legendary" tier?
@@ -4115,8 +4175,6 @@ function ChiefGearPage({ inv }) {
               const prevPiece = idx > 0 ? CHIEF_GEAR_PIECES[idx-1] : null;
               const showTroop = !prevPiece || prevPiece.troop !== piece.troop;
 
-              const fmtStat = (val, suffix="") => val == null ? "TBD" : `${val}${suffix}`;
-
               // Deployment buff: only show if either current or goal is Legendary
               const showDeploy = isLegendaryGearLevel(curRow[1]) || isLegendaryGearLevel(goalRow[1]);
 
@@ -4146,7 +4204,7 @@ function ChiefGearPage({ inv }) {
                     <td style={tdMono}>{changed ? cost.amber.toLocaleString() : "—"}</td>
                     <td style={tdMono}>{curRow[6] != null ? curRow[6].toLocaleString() : "TBD"}</td>
                     <td style={tdMono}>{goalRow[6] != null ? goalRow[6].toLocaleString() : "TBD"}</td>
-                    <td style={tdMono}>{showDeploy ? (goalRow[8] > 0 ? `+${goalRow[8].toLocaleString()}` : "—") : "—"}</td>
+                    <td style={tdMono}>{showDeploy ? (goalRow[9] > 0 ? `+${goalRow[9].toLocaleString()}` : "—") : "—"}</td>
                   </tr>
 
                   {/* Stat sub-row */}
@@ -4155,8 +4213,8 @@ function ChiefGearPage({ inv }) {
                     const getVals = row => [
                       row[6],
                       row[7],
-                      row[7], // same as atk
-                      showDeploy ? row[8] : null,
+                      row[8],
+                      showDeploy ? row[9] : null,
                     ];
                     const curVals  = getVals(curRow);
                     const goalVals = getVals(goalRow);
@@ -4261,74 +4319,66 @@ function ChiefGearPage({ inv }) {
 // ─── Chief Charms Data ────────────────────────────────────────────────────────
 // [label, guides, designs, secrets, cumulativePower, stat%]
 // Cumulative power = sum of all gains up to and including this level
-const CHIEF_CHARM_LEVELS = (() => {
-  const raw = [
-    ["Lv. 1",    5,   5,  0,  205700, 9.00],
-    ["Lv. 2",   40,  15,  0,   82300,12.00],
-    ["Lv. 3",   60,  40,  0,   82000,16.00],
-    ["Lv. 4",   80, 100,  0,   82000,19.00],
-    ["Lv. 4.1", 25,  50,  0,   31000,20.50],
-    ["Lv. 4.2", 25,  50,  0,   31000,22.00],
-    ["Lv. 4.3", 25,  50,  0,   31000,23.50],
-    ["Lv. 5",   25,  50,  0,   31000,25.00],
-    ["Lv. 5.1", 30,  75,  0,   31000,26.25],
-    ["Lv. 5.2", 30,  75,  0,   31000,27.50],
-    ["Lv. 5.3", 30,  75,  0,   31000,28.75],
-    ["Lv. 6",   30,  75,  0,   31000,30.00],
-    ["Lv. 6.1", 35, 100,  0,   31000,31.25],
-    ["Lv. 6.2", 35, 100,  0,   31000,32.50],
-    ["Lv. 6.3", 35, 100,  0,   31000,33.75],
-    ["Lv. 7",   35, 100,  0,   31000,35.00],
-    ["Lv. 7.1", 50, 100,  0,   31000,36.25],
-    ["Lv. 7.2", 50, 100,  0,   31000,37.50],
-    ["Lv. 7.3", 50, 100,  0,   31000,38.75],
-    ["Lv. 8",   50, 100,  0,   31000,40.00],
-    ["Lv. 8.1", 75, 100,  0,   31000,41.25],
-    ["Lv. 8.2", 75, 100,  0,   31000,42.50],
-    ["Lv. 8.3", 75, 100,  0,   31000,43.75],
-    ["Lv. 9",   75, 100,  0,   31000,45.00],
-    ["Lv. 9.1",105, 105,  0,   31000,46.25],
-    ["Lv. 9.2",105, 105,  0,   31000,47.50],
-    ["Lv. 9.3",105, 105,  0,   31000,48.75],
-    ["Lv. 10", 105, 105,  0,   31000,50.00],
-    ["Lv. 10.1",112, 84,  0,   24800,51.00],
-    ["Lv. 10.2",112, 84,  0,   24800,52.00],
-    ["Lv. 10.3",112, 84,  0,   24800,53.00],
-    ["Lv. 10.4",112, 84,  0,   24800,54.00],
-    ["Lv. 11", 112,  84,  0,   24800,55.00],
-    ["Lv. 11.1",116, 90,  3,   24800,56.80],
-    ["Lv. 11.2",116, 90,  3,   24800,58.60],
-    ["Lv. 11.3",116, 90,  3,   24800,60.40],
-    ["Lv. 11.4",116, 90,  3,   24800,62.20],
-    ["Lv. 12", 116,  90,  3,   24800,64.00],
-    ["Lv. 12.1",116, 90,  6,   24800,65.80],
-    ["Lv. 12.2",116, 90,  6,   24800,67.60],
-    ["Lv. 12.3",116, 90,  6,   24800,69.40],
-    ["Lv. 12.4",116, 90,  6,   24800,71.20],
-    ["Lv. 13", 116,  90,  6,   24800,73.00],
-    ["Lv. 13.1",120,100,  9,   24800,74.80],
-    ["Lv. 13.2",120,100,  9,   24800,76.60],
-    ["Lv. 13.3",120,100,  9,   24800,78.40],
-    ["Lv. 13.4",120,100,  9,   24800,80.20],
-    ["Lv. 14", 120, 100,  9,   24800,82.00],
-    ["Lv. 14.1",120,100, 14,   24800,83.80],
-    ["Lv. 14.2",120,100, 14,   24800,85.60],
-    ["Lv. 14.3",120,100, 14,   24800,87.40],
-    ["Lv. 14.4",120,100, 14,   24800,89.20],
-    ["Lv. 15", 120, 100, 14,   24800,91.00],
-    ["Lv. 15.1",130,110, 20,   24800,92.80],
-    ["Lv. 15.2",130,110, 20,   24800,94.60],
-    ["Lv. 15.3",130,110, 20,   24800,96.40],
-    ["Lv. 15.4",130,110, 20,   24800,98.20],
-    ["Lv. 16", 130, 110, 20,   24800,100.00],
-  ];
-  // Build cumulative power
-  let cum = 0;
-  return raw.map(([lbl, g, d, s, gain, stat]) => {
-    cum += gain;
-    return { label:lbl, guides:g, designs:d, secrets:s, power:cum, stat };
-  });
-})();
+const CHIEF_CHARM_LEVELS = [
+  {label:"Lv. 1",guides:5,designs:5,secrets:0,power:205700,health:0.09,leth:0.09},
+  {label:"Lv. 2",guides:40,designs:15,secrets:0,power:288000,health:0.12,leth:0.12},
+  {label:"Lv. 3",guides:60,designs:40,secrets:0,power:370000,health:0.16,leth:0.16},
+  {label:"Lv. 4",guides:80,designs:100,secrets:0,power:452000,health:0.19,leth:0.19},
+  {label:"Lv. 4.1",guides:25,designs:50,secrets:0,power:483000,health:0.205,leth:0.205},
+  {label:"Lv. 4.2",guides:25,designs:50,secrets:0,power:514000,health:0.22,leth:0.22},
+  {label:"Lv. 4.3",guides:25,designs:50,secrets:0,power:545000,health:0.235,leth:0.235},
+  {label:"Lv. 5",guides:25,designs:50,secrets:0,power:576000,health:0.25,leth:0.25},
+  {label:"Lv. 5.1",guides:30,designs:75,secrets:0,power:607000,health:0.2625,leth:0.2625},
+  {label:"Lv. 5.2",guides:30,designs:75,secrets:0,power:638000,health:0.275,leth:0.275},
+  {label:"Lv. 5.3",guides:30,designs:75,secrets:0,power:669000,health:0.2875,leth:0.2875},
+  {label:"Lv. 6",guides:30,designs:75,secrets:0,power:700000,health:0.3,leth:0.3},
+  {label:"Lv. 6.1",guides:35,designs:100,secrets:0,power:731000,health:0.3125,leth:0.3125},
+  {label:"Lv. 6.2",guides:35,designs:100,secrets:0,power:762000,health:0.325,leth:0.325},
+  {label:"Lv. 6.3",guides:35,designs:100,secrets:0,power:793000,health:0.3375,leth:0.3375},
+  {label:"Lv. 7",guides:35,designs:100,secrets:0,power:824000,health:0.35,leth:0.35},
+  {label:"Lv. 7.1",guides:50,designs:100,secrets:0,power:855000,health:0.3625,leth:0.3625},
+  {label:"Lv. 7.2",guides:50,designs:100,secrets:0,power:886000,health:0.375,leth:0.375},
+  {label:"Lv. 7.3",guides:50,designs:100,secrets:0,power:917000,health:0.3875,leth:0.3875},
+  {label:"Lv. 8",guides:50,designs:100,secrets:0,power:948000,health:0.4,leth:0.4},
+  {label:"Lv. 8.1",guides:75,designs:100,secrets:0,power:979000,health:0.4125,leth:0.4125},
+  {label:"Lv. 8.2",guides:75,designs:100,secrets:0,power:1010000,health:0.425,leth:0.425},
+  {label:"Lv. 8.3",guides:75,designs:100,secrets:0,power:1041000,health:0.4375,leth:0.4375},
+  {label:"Lv. 9",guides:75,designs:100,secrets:0,power:1072000,health:0.45,leth:0.45},
+  {label:"Lv. 9.1",guides:105,designs:105,secrets:0,power:1103000,health:0.4625,leth:0.4625},
+  {label:"Lv. 9.2",guides:105,designs:105,secrets:0,power:1134000,health:0.475,leth:0.475},
+  {label:"Lv. 9.3",guides:105,designs:105,secrets:0,power:1165000,health:0.4875,leth:0.4875},
+  {label:"Lv. 10",guides:105,designs:105,secrets:0,power:1196000,health:0.5,leth:0.5},
+  {label:"Lv. 10.1",guides:112,designs:84,secrets:0,power:1220800,health:0.51,leth:0.51},
+  {label:"Lv. 10.2",guides:112,designs:84,secrets:0,power:1245600,health:0.52,leth:0.52},
+  {label:"Lv. 10.3",guides:112,designs:84,secrets:0,power:1270400,health:0.53,leth:0.53},
+  {label:"Lv. 10.4",guides:112,designs:84,secrets:0,power:1295200,health:0.54,leth:0.54},
+  {label:"Lv. 11",guides:112,designs:84,secrets:0,power:1320000,health:0.55,leth:0.55},
+  {label:"Lv. 11.1",guides:116,designs:90,secrets:3,power:1344800,health:0.568,leth:0.568},
+  {label:"Lv. 11.2",guides:116,designs:90,secrets:3,power:1369600,health:0.586,leth:0.586},
+  {label:"Lv. 11.3",guides:116,designs:90,secrets:3,power:1394400,health:0.604,leth:0.604},
+  {label:"Lv. 11.4",guides:116,designs:90,secrets:3,power:1419200,health:0.622,leth:0.622},
+  {label:"Lv. 12",guides:116,designs:90,secrets:3,power:1444000,health:0.64,leth:0.64},
+  {label:"Lv. 12.1",guides:116,designs:90,secrets:6,power:1468800,health:0.658,leth:0.658},
+  {label:"Lv. 12.2",guides:116,designs:90,secrets:6,power:1493600,health:0.676,leth:0.676},
+  {label:"Lv. 12.3",guides:116,designs:90,secrets:6,power:1518400,health:0.694,leth:0.694},
+  {label:"Lv. 12.4",guides:116,designs:90,secrets:6,power:1543200,health:0.712,leth:0.712},
+  {label:"Lv. 13",guides:116,designs:90,secrets:6,power:1568000,health:0.73,leth:0.73},
+  {label:"Lv. 13.1",guides:120,designs:100,secrets:9,power:1592800,health:0.748,leth:0.748},
+  {label:"Lv. 13.2",guides:120,designs:100,secrets:9,power:1617600,health:0.766,leth:0.766},
+  {label:"Lv. 13.3",guides:120,designs:100,secrets:9,power:1642400,health:0.784,leth:0.784},
+  {label:"Lv. 13.4",guides:120,designs:100,secrets:9,power:1667200,health:0.802,leth:0.802},
+  {label:"Lv. 14",guides:120,designs:100,secrets:9,power:1692000,health:0.82,leth:0.82},
+  {label:"Lv. 14.1",guides:120,designs:100,secrets:14,power:1716800,health:0.838,leth:0.838},
+  {label:"Lv. 14.2",guides:120,designs:100,secrets:14,power:1741600,health:0.856,leth:0.856},
+  {label:"Lv. 14.3",guides:120,designs:100,secrets:14,power:1766400,health:0.874,leth:0.874},
+  {label:"Lv. 14.4",guides:120,designs:100,secrets:14,power:1791200,health:0.892,leth:0.892},
+  {label:"Lv. 15",guides:120,designs:100,secrets:14,power:1816000,health:0.91,leth:0.91},
+  {label:"Lv. 15.1",guides:130,designs:110,secrets:20,power:1840800,health:0.928,leth:0.928},
+  {label:"Lv. 15.2",guides:130,designs:110,secrets:20,power:1865600,health:0.946,leth:0.946},
+  {label:"Lv. 15.3",guides:130,designs:110,secrets:20,power:1890400,health:0.964,leth:0.964},
+  {label:"Lv. 15.4",guides:130,designs:110,secrets:20,power:1915200,health:0.982,leth:0.982},
+  {label:"Lv. 16",guides:130,designs:110,secrets:20,power:1940000,health:1.0,leth:1.0},
+];
 
 // Chief Charm pieces: 6 gear pieces × 3 charms each = 18 total
 const CHIEF_CHARM_PIECES = [
@@ -4472,10 +4522,12 @@ function ChiefCharmsPage({ inv }) {
               const showGear  = idx === 0 || slots[idx-1].gear  !== s.gear;
               const charmNum  = (idx % 3) + 1;
 
-              const curPow  = s.current > 0 ? CHIEF_CHARM_LEVELS[s.current-1].power : 0;
-              const goalPow = s.goal    > 0 ? CHIEF_CHARM_LEVELS[s.goal-1].power    : 0;
-              const curStat  = s.current > 0 ? CHIEF_CHARM_LEVELS[s.current-1].stat : 0;
-              const goalStat = s.goal    > 0 ? CHIEF_CHARM_LEVELS[s.goal-1].stat    : 0;
+              const curPow   = s.current > 0 ? CHIEF_CHARM_LEVELS[s.current-1].power  : 0;
+              const goalPow  = s.goal    > 0 ? CHIEF_CHARM_LEVELS[s.goal-1].power     : 0;
+              const curLeth  = s.current > 0 ? CHIEF_CHARM_LEVELS[s.current-1].leth   : 0;
+              const goalLeth = s.goal    > 0 ? CHIEF_CHARM_LEVELS[s.goal-1].leth      : 0;
+              const curHp    = s.current > 0 ? CHIEF_CHARM_LEVELS[s.current-1].health : 0;
+              const goalHp   = s.goal    > 0 ? CHIEF_CHARM_LEVELS[s.goal-1].health    : 0;
 
               const tdSt = { padding:"4px 8px", fontSize:10,
                 fontFamily:"'Space Mono',monospace",
@@ -4514,19 +4566,19 @@ function ChiefCharmsPage({ inv }) {
                     <td style={tdMono}>{changed ? cost.guides.toLocaleString()  : "—"}</td>
                     <td style={tdMono}>{changed ? cost.designs.toLocaleString() : "—"}</td>
                     <td style={tdMono}>{changed ? cost.secrets.toLocaleString() : "—"}</td>
-                    <td style={tdMono}>{curPow  > 0 ? curPow.toLocaleString()  : "—"}</td>
-                    <td style={tdMono}>{goalPow > 0 ? goalPow.toLocaleString() : "—"}</td>
-                    <td style={tdMono}>{goalStat > 0 ? `${goalStat.toFixed(2)}%` : "—"}</td>
-                    <td style={tdMono}>{goalStat > 0 ? `${goalStat.toFixed(2)}%` : "—"}</td>
+                    <td style={tdMono}>{curPow   > 0 ? curPow.toLocaleString()       : "—"}</td>
+                    <td style={tdMono}>{goalPow  > 0 ? goalPow.toLocaleString()      : "—"}</td>
+                    <td style={tdMono}>{goalLeth > 0 ? `${goalLeth.toFixed(4)}%`    : "—"}</td>
+                    <td style={tdMono}>{goalHp   > 0 ? `${goalHp.toFixed(4)}%`      : "—"}</td>
                   </tr>
 
                   {/* Stat sub-row */}
                   {changed && (() => {
                     const LABELS = ["Power","Lethality","Health"];
-                    const curVals  = [curPow,  curStat,  curStat];
-                    const goalVals = [goalPow, goalStat, goalStat];
+                    const curVals  = [curPow,  curLeth,  curHp];
+                    const goalVals = [goalPow, goalLeth, goalHp];
                     const chgVals  = curVals.map((v,i) => goalVals[i] - v);
-                    const fmtV = (v, i) => i===0 ? v.toLocaleString() : `${v.toFixed(2)}%`;
+                    const fmtV = (v, i) => i===0 ? v.toLocaleString() : `${v.toFixed(4)}%`;
                     const chgColor = v => v>0 ? C.green : v<0 ? C.red : C.textDim;
                     const rows = [
                       { label:"Current", color:C.textSec, bg:"transparent",          vals:curVals  },
