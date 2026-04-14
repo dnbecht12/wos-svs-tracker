@@ -4018,6 +4018,8 @@ function ChiefGearPage({ inv }) {
   const sel = { background:C.surface, border:`1px solid ${C.border}`, borderRadius:6,
     color:C.textPri, padding:"4px 6px", fontSize:11, outline:"none" };
   const [slots, setSlots] = useLocalStorage("cg-slots", defaultChiefGearSlots());
+  const [bulkCurrent, setBulkCurrent] = useState(0);
+  const [bulkGoal,    setBulkGoal]    = useState(0);
 
   const setSlotField = (idx, field, val) => {
     setSlots(prev => prev.map((s,i) => {
@@ -4028,6 +4030,14 @@ function ChiefGearPage({ inv }) {
       return updated;
     }));
   };
+
+  const applyBulkCurrent = () => setSlots(prev => prev.map(s => ({
+    ...s, current: bulkCurrent, goal: Math.max(s.goal, bulkCurrent),
+  })));
+
+  const applyBulkGoal = () => setSlots(prev => prev.map(s => ({
+    ...s, goal: Math.max(bulkGoal, s.current),
+  })));
 
   // Totals
   const totals = slots.reduce((acc, s) => {
@@ -4049,6 +4059,33 @@ function ChiefGearPage({ inv }) {
 
   return (
     <div style={{ padding:"0 0 40px" }}>
+
+      {/* Bulk controls */}
+      <div style={{ display:"flex", flexWrap:"wrap", gap:12, marginBottom:16,
+        padding:"12px 14px", background:C.surface, borderRadius:8,
+        border:`1px solid ${C.border}` }}>
+        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          <span style={{ fontSize:11, color:C.textSec, whiteSpace:"nowrap" }}>Set all Current to:</span>
+          <select value={bulkCurrent} onChange={e => setBulkCurrent(Number(e.target.value))} style={sel}>
+            {CHIEF_GEAR_LEVELS.map((r,i) => <option key={i} value={i}>{r[1]}</option>)}
+          </select>
+          <button onClick={applyBulkCurrent}
+            style={{ padding:"5px 12px", borderRadius:6, fontSize:11, fontWeight:700,
+              cursor:"pointer", fontFamily:"Syne,sans-serif", border:`1px solid ${C.blue}`,
+              background:C.blueBg, color:C.blue }}>Apply</button>
+        </div>
+        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          <span style={{ fontSize:11, color:C.textSec, whiteSpace:"nowrap" }}>Set all Goal to:</span>
+          <select value={bulkGoal} onChange={e => setBulkGoal(Number(e.target.value))} style={sel}>
+            {CHIEF_GEAR_LEVELS.map((r,i) => <option key={i} value={i}>{r[1]}</option>)}
+          </select>
+          <button onClick={applyBulkGoal}
+            style={{ padding:"5px 12px", borderRadius:6, fontSize:11, fontWeight:700,
+              cursor:"pointer", fontFamily:"Syne,sans-serif", border:`1px solid ${C.green}`,
+              background:C.greenBg, color:C.green }}>Apply</button>
+        </div>
+      </div>
+
       <div style={{ overflowX:"auto" }}>
         <table style={{ width:"100%", borderCollapse:"collapse", minWidth:700 }}>
           <thead>
@@ -4097,9 +4134,10 @@ function ChiefGearPage({ inv }) {
                     </td>
                     <td style={{ ...tdS, width:120 }}>
                       <select value={s.goal} onChange={e => setSlotField(idx,"goal",Number(e.target.value))} style={sel}>
-                        {CHIEF_GEAR_LEVELS.map((r,i) => (
-                          <option key={i} value={i} disabled={i < s.current}>{r[1]}</option>
-                        ))}
+                        {CHIEF_GEAR_LEVELS.filter((_,i) => i >= s.current).map((r,_,arr) => {
+                          const i = CHIEF_GEAR_LEVELS.indexOf(r);
+                          return <option key={i} value={i}>{r[1]}</option>;
+                        })}
                       </select>
                     </td>
                     <td style={tdMono}>{changed ? cost.plans.toLocaleString() : "—"}</td>
@@ -4326,6 +4364,8 @@ function ChiefCharmsPage({ inv }) {
   const sel = { background:C.surface, border:`1px solid ${C.border}`, borderRadius:6,
     color:C.textPri, padding:"4px 6px", fontSize:11, outline:"none" };
   const [slots, setSlots] = useLocalStorage("cc-slots", defaultCharmSlots());
+  const [bulkCurrent, setBulkCurrent] = useState(0);
+  const [bulkGoal,    setBulkGoal]    = useState(0);
 
   const setSlotField = (idx, field, val) => {
     setSlots(prev => prev.map((s,i) => {
@@ -4336,6 +4376,14 @@ function ChiefCharmsPage({ inv }) {
       return updated;
     }));
   };
+
+  const applyBulkCurrent = () => setSlots(prev => prev.map(s => ({
+    ...s, current: bulkCurrent, goal: Math.max(s.goal, bulkCurrent),
+  })));
+
+  const applyBulkGoal = () => setSlots(prev => prev.map(s => ({
+    ...s, goal: Math.max(bulkGoal, s.current),
+  })));
 
   // Totals across all 18 charms
   const totals = slots.reduce((acc, s) => {
@@ -4365,6 +4413,35 @@ function ChiefCharmsPage({ inv }) {
 
   return (
     <div style={{ padding:"0 0 40px" }}>
+
+      {/* Bulk controls */}
+      <div style={{ display:"flex", flexWrap:"wrap", gap:12, marginBottom:16,
+        padding:"12px 14px", background:C.surface, borderRadius:8,
+        border:`1px solid ${C.border}` }}>
+        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          <span style={{ fontSize:11, color:C.textSec, whiteSpace:"nowrap" }}>Set all Current Charms to:</span>
+          <select value={bulkCurrent} onChange={e => setBulkCurrent(Number(e.target.value))} style={sel}>
+            <option value={0}>— None —</option>
+            {CHIEF_CHARM_LEVELS.map((r,i) => <option key={i} value={i+1}>{r.label}</option>)}
+          </select>
+          <button onClick={applyBulkCurrent}
+            style={{ padding:"5px 12px", borderRadius:6, fontSize:11, fontWeight:700,
+              cursor:"pointer", fontFamily:"Syne,sans-serif", border:`1px solid ${C.blue}`,
+              background:C.blueBg, color:C.blue }}>Apply</button>
+        </div>
+        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          <span style={{ fontSize:11, color:C.textSec, whiteSpace:"nowrap" }}>Set all Goal Charms to:</span>
+          <select value={bulkGoal} onChange={e => setBulkGoal(Number(e.target.value))} style={sel}>
+            <option value={0}>— None —</option>
+            {CHIEF_CHARM_LEVELS.map((r,i) => <option key={i} value={i+1}>{r.label}</option>)}
+          </select>
+          <button onClick={applyBulkGoal}
+            style={{ padding:"5px 12px", borderRadius:6, fontSize:11, fontWeight:700,
+              cursor:"pointer", fontFamily:"Syne,sans-serif", border:`1px solid ${C.green}`,
+              background:C.greenBg, color:C.green }}>Apply</button>
+        </div>
+      </div>
+
       <div style={{ overflowX:"auto" }}>
         <table style={{ width:"100%", borderCollapse:"collapse", minWidth:780 }}>
           <thead>
@@ -4429,9 +4506,8 @@ function ChiefCharmsPage({ inv }) {
                         onChange={e => setSlotField(idx,"goal",Number(e.target.value))}
                         style={sel}>
                         <option value={0}>— None —</option>
-                        {levelOpts.map(o => (
-                          <option key={o.idx} value={o.idx+1}
-                            disabled={o.idx+1 < s.current}>{o.label}</option>
+                        {levelOpts.filter(o => o.idx+1 >= s.current).map(o => (
+                          <option key={o.idx} value={o.idx+1}>{o.label}</option>
                         ))}
                       </select>
                     </td>
