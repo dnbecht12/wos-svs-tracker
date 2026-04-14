@@ -3987,7 +3987,7 @@ const WA_RESEARCH = [
     id: "helios", type: "T11 Troop Unlock", maxLv: 1,
     names: { Infantry:"Helios Infantry", Lancer:"Helios Lancers", Marksman:"Helios Marksmen" },
     prereqBldg: { 1:"War Academy FC5" },
-    prereqRes:  { 1:"Attack Lv.12 + Health Lv.12 + Rally Capacity Lv.12" },
+    prereqRes:  { 1:"Attack Lv.12 + Defense Lv.12 + Rally Capacity Lv.12" },
     levels: [
       [0,    0,       0,       0,        0],
       [2236, 1000000, 0, 8000000, 131535],
