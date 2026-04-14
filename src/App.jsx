@@ -1940,6 +1940,24 @@ function AdminPage() {
                   Admin note: {sub.admin_note}
                 </div>
               )}
+              {showActions && sub.status === "accepted" && sub.stats?.type !== "rfc_variance" && (
+                <div style={{marginTop:10}}>
+                  <button onClick={async () => {
+                    setBusy(p=>({...p,[sub.id]:true}));
+                    const result = await acceptSubmission(sub, true);
+                    console.log("[Re-process] result:", result);
+                    setBusy(p=>({...p,[sub.id]:false}));
+                    await load();
+                  }} disabled={busy[sub.id]}
+                    style={{padding:"5px 12px",borderRadius:6,fontSize:11,fontWeight:700,
+                      cursor:busy[sub.id]?"not-allowed":"pointer",
+                      fontFamily:"Syne,sans-serif",border:"1px solid " + C.accent,
+                      background:C.accentBg,color:C.accent,
+                      opacity:busy[sub.id]?0.6:1}}>
+                    {busy[sub.id] ? "…" : "🔄 Re-process → hero_stats_data"}
+                  </button>
+                </div>
+              )}
             </div>
           );
         };
