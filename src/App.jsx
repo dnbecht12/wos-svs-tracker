@@ -725,17 +725,40 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
     setDbRef(null);
     setDbRefLoading(true);
     const widget = isSSRHero(hero.name) ? heroWidget : null;
-    const q = supabase.from("hero_stats_data")
-      .select("*")
-      .eq("hero_name", hero.name)
-      .eq("level", heroLevel)
-      .eq("stars", heroStars)
-      .eq("is_current", true);
-    if (widget === null) q.is("widget", null);
-    else q.eq("widget", widget);
-    q.maybeSingle().then(({ data, error }) => {
-      setDbRef(data || null);
-      setDbRefLoading(false);
+
+    // Primary query: exact level + stars + widget match
+    const runQuery = (useExact) => {
+      const q = supabase.from("hero_stats_data")
+        .select("*")
+        .eq("hero_name", hero.name)
+        .eq("is_current", true);
+      if (useExact) {
+        q.eq("level", heroLevel).eq("stars", heroStars);
+        if (widget === null) q.is("widget", null);
+        else q.eq("widget", widget);
+        console.log(`[HeroStats] Exact query: hero=${hero.name} level=${heroLevel} stars=${heroStars} widget=${widget}`);
+        return q.maybeSingle();
+      } else {
+        console.log(`[HeroStats] Fallback query: hero=${hero.name} (any level/stars)`);
+        return q.order("accepted_at", { ascending: false }).limit(1).maybeSingle();
+      }
+    };
+
+    runQuery(true).then(({ data, error }) => {
+      console.log("[HeroStats] Exact result:", data, "error:", error);
+      if (data) {
+        setDbRef(data);
+        setDbRefLoading(false);
+      } else if (heroLevel === 0 && heroStars === 0) {
+        runQuery(false).then(({ data: fallback, error: err2 }) => {
+          console.log("[HeroStats] Fallback result:", fallback, "error:", err2);
+          setDbRef(fallback || null);
+          setDbRefLoading(false);
+        });
+      } else {
+        setDbRef(null);
+        setDbRefLoading(false);
+      }
     });
   }, [hero?.name, heroLevel, heroStars, heroWidget, dbRefreshKey]);
 
