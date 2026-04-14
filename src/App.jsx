@@ -2735,10 +2735,18 @@ const GLOBAL_STYLE = `
 
   /* Sidebar */
   .sidebar { width: 220px; min-width: 220px; background: var(--c-surface); border-right: 1px solid var(--c-border); display: flex; flex-direction: column; padding: 0; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
-  .sidebar-logo { padding: 28px 20px 16px; border-bottom: 1px solid var(--c-border); }
-  .sidebar-logo .wos { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--c-accent); letter-spacing: 3px; text-transform: uppercase; margin-bottom: 2px; }
-  .sidebar-logo h1 { font-size: 15px; font-weight: 800; color: var(--c-textPri); line-height: 1.2; }
-  .sidebar-logo h1 span { color: var(--c-accent); }
+  .sidebar-logo { padding: 0; border-bottom: 1px solid var(--c-border); overflow: hidden; position: relative; background: #0D1B2A; }
+  .sidebar-logo .tc-top-bar { height: 3px; background: #4A9EBF; width: 100%; }
+  .sidebar-logo .tc-body { padding: 14px 16px 14px; position: relative; }
+  .sidebar-logo .tc-corner { position: absolute; width: 8px; height: 8px; border-color: #4A9EBF; border-style: solid; opacity: 0.7; }
+  .sidebar-logo .tc-corner.tl { top: 6px; left: 8px; border-width: 1px 0 0 1px; }
+  .sidebar-logo .tc-corner.tr { top: 6px; right: 8px; border-width: 1px 1px 0 0; }
+  .sidebar-logo .tc-corner.bl { bottom: 6px; left: 8px; border-width: 0 0 1px 1px; }
+  .sidebar-logo .tc-corner.br { bottom: 6px; right: 8px; border-width: 0 1px 1px 0; }
+  .sidebar-logo .tc-badge { display: flex; justify-content: center; margin-bottom: 8px; }
+  .sidebar-logo .tc-rule { height: 0.5px; background: #1E3A52; margin: 0 4px 10px; }
+  .sidebar-logo .tc-tundra { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 800; color: #E8F4F8; letter-spacing: 2px; text-align: center; line-height: 1; margin-bottom: 4px; }
+  .sidebar-logo .tc-command { font-family: 'Syne', sans-serif; font-size: 10px; font-weight: 600; color: #4A9EBF; letter-spacing: 5px; text-align: center; }
   .sidebar-nav { padding: 12px 8px; flex: 1; }
   .nav-section { font-size: 10px; font-weight: 700; color: var(--c-textSec); letter-spacing: 2px; text-transform: uppercase; padding: 12px 12px 6px; }
   .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--c-textPri); transition: all 0.15s; border: 1px solid transparent; margin-bottom: 1px; }
@@ -4958,8 +4966,29 @@ export default function App() {
 
         <aside className={`sidebar${sidebarOpen ? " open" : ""}`}>
           <div className="sidebar-logo">
-            <div className="wos">WoS · SvS</div>
-            <h1>Planning<br /><span>Tracker</span></h1>
+            <div className="tc-top-bar" />
+            <div className="tc-body">
+              {/* Corner brackets */}
+              <div className="tc-corner tl" />
+              <div className="tc-corner tr" />
+              <div className="tc-corner bl" />
+              <div className="tc-corner br" />
+              {/* Hex badge */}
+              <div className="tc-badge">
+                <svg width="36" height="36" viewBox="0 0 36 36">
+                  <polygon points="18,2 30,9 30,23 18,30 6,23 6,9"
+                    fill="#132030" stroke="#4A9EBF" strokeWidth="1.5"/>
+                  <line x1="11" y1="16" x2="25" y2="16" stroke="#4A9EBF" strokeWidth="1" opacity="0.6"/>
+                  <line x1="18" y1="7" x2="18" y2="22" stroke="#4A9EBF" strokeWidth="0.8" opacity="0.4"/>
+                  <circle cx="18" cy="17" r="3" fill="#4A9EBF" opacity="0.9"/>
+                </svg>
+              </div>
+              {/* Rule */}
+              <div className="tc-rule" />
+              {/* Name */}
+              <div className="tc-tundra">TUNDRA</div>
+              <div className="tc-command">COMMAND</div>
+            </div>
           </div>
 
           {/* Character switcher — only for logged-in users with characters */}
@@ -5133,7 +5162,7 @@ export default function App() {
             {/* Copyright */}
             <div style={{textAlign:"center",marginBottom:6,fontSize:10,color:COLORS.textDim,
               fontFamily:"Space Mono,monospace",letterSpacing:"0.3px"}}>
-              © {new Date().getFullYear()} WoSReviews.com — All rights reserved.
+              © {new Date().getFullYear()} The Tundra Command — All rights reserved.
             </div>
 
             {/* Disclaimer */}
