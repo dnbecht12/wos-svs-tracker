@@ -733,12 +733,13 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
         .eq("hero_name", hero.name)
         .eq("is_current", true);
       if (useExact) {
-        q.eq("level", heroLevel).eq("stars", heroStars);
+        q.eq("level", Number(heroLevel)).eq("stars", Number(heroStars));
         if (widget === null) q.is("widget", null);
-        else q.eq("widget", widget);
+        else q.eq("widget", Number(widget));
         console.log(`[HeroStats] Exact query: hero=${hero.name} level=${heroLevel} stars=${heroStars} widget=${widget}`);
         return q.maybeSingle();
       } else {
+        // Fallback: most recent current row for this hero, any level/stars
         console.log(`[HeroStats] Fallback query: hero=${hero.name} (any level/stars)`);
         return q.order("accepted_at", { ascending: false }).limit(1).maybeSingle();
       }
@@ -749,15 +750,13 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
       if (data) {
         setDbRef(data);
         setDbRefLoading(false);
-      } else if (heroLevel === 0 && heroStars === 0) {
+      } else {
+        // Always fall back to any current row if exact match fails
         runQuery(false).then(({ data: fallback, error: err2 }) => {
           console.log("[HeroStats] Fallback result:", fallback, "error:", err2);
           setDbRef(fallback || null);
           setDbRefLoading(false);
         });
-      } else {
-        setDbRef(null);
-        setDbRefLoading(false);
       }
     });
   }, [hero?.name, heroLevel, heroStars, heroWidget, dbRefreshKey]);
