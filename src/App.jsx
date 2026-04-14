@@ -89,17 +89,22 @@ async function acceptSubmission(submission, forceAccept = false) {
     accepted_by: ADMIN_UID,
     is_current:  true,
   };
+  console.log("[Accept] Inserting to hero_stats_data:", JSON.stringify(newRowData).slice(0, 300));
 
   if (existing) {
-    const { data: newRow } = await supabase.from("hero_stats_data")
+    const { data: newRow, error: insertErr } = await supabase.from("hero_stats_data")
       .insert(newRowData).select().single();
+    console.log("[Accept] Insert (replace) result:", newRow, "error:", insertErr);
     if (newRow) {
-      await supabase.from("hero_stats_data")
+      const { error: updateErr } = await supabase.from("hero_stats_data")
         .update({ is_current: false, superseded_at: now, superseded_by: newRow.id })
         .eq("id", existing.id);
+      console.log("[Accept] Supersede update error:", updateErr);
     }
   } else {
-    await supabase.from("hero_stats_data").insert(newRowData);
+    const { data: insertedRow, error: insertErr } = await supabase.from("hero_stats_data")
+      .insert(newRowData).select().single();
+    console.log("[Accept] Insert (new) result:", insertedRow, "error:", insertErr);
   }
 
   await updateSubmission(submission.id, { status: "accepted" });
