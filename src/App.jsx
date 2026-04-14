@@ -5102,6 +5102,48 @@ export default function App() {
               );
             })}
           </div>
+
+          {/* ── Sidebar Footer ─────────────────────────────── */}
+          <div className="sidebar-footer">
+
+            {/* Buy Me a Coffee */}
+            <div style={{marginBottom:12,display:"flex",justifyContent:"center"}}>
+              <a href="https://www.buymeacoffee.com/davidwos" target="_blank" rel="noreferrer"
+                style={{display:"inline-flex",alignItems:"center",gap:8,padding:"7px 14px",
+                  borderRadius:8,background:"#FFDD00",color:"#000",fontWeight:700,
+                  fontSize:12,textDecoration:"none",fontFamily:"Inter,Syne,sans-serif",
+                  border:"1px solid #000",whiteSpace:"nowrap",transition:"opacity 0.15s"}}
+                onMouseEnter={e=>e.currentTarget.style.opacity="0.85"}
+                onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
+                <span style={{fontSize:16}}>☕</span> Buy me a coffee
+              </a>
+            </div>
+
+            {/* Support prompt */}
+            <div style={{textAlign:"center",marginBottom:10,fontSize:10,lineHeight:1.5,color:COLORS.textSec}}>
+              If you'd like to support this project,<br/>
+              my Player ID is{" "}
+              <span style={{fontFamily:"Space Mono,monospace",color:COLORS.textPri,fontWeight:700,
+                letterSpacing:"0.5px"}}>423094419</span>.
+            </div>
+
+            {/* Divider */}
+            <div style={{borderTop:`1px solid ${COLORS.border}`,margin:"10px 0"}}/>
+
+            {/* Copyright */}
+            <div style={{textAlign:"center",marginBottom:6,fontSize:10,color:COLORS.textDim,
+              fontFamily:"Space Mono,monospace",letterSpacing:"0.3px"}}>
+              © {new Date().getFullYear()} WoSReviews.com — All rights reserved.
+            </div>
+
+            {/* Disclaimer */}
+            <div style={{textAlign:"center",fontSize:9,color:COLORS.textDim,lineHeight:1.5}}>
+              Fan-made resource. Not affiliated with, endorsed by, or linked to Century Games
+              or the developers of Whiteout Survival. All game-related assets, imagery, and
+              trademarks are the sole copyright of their respective owners.
+            </div>
+
+          </div>
         </aside>
 
         <main className="main">
