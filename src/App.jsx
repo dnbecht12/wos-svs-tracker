@@ -814,8 +814,15 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
 
   const handleSubmit = async () => {
     setSubmitting(true);
+    const pctFields = new Set(["infAtk","infDef","infLeth","infHp","wgtTroopLeth","wgtTroopHp"]);
     const statsPayload = {};
-    Object.entries(submitForm).forEach(([k,v]) => { if (v !== "") statsPayload[k] = parseFloat(v) || 0; });
+    Object.entries(submitForm).forEach(([k,v]) => {
+      if (v !== "") {
+        const num = parseFloat(v) || 0;
+        // % fields: user enters e.g. 26.70, store as 0.2670
+        statsPayload[k] = pctFields.has(k) ? num / 100 : num;
+      }
+    });
     const ok = await submitHeroStats({
       hero_name:      hero.name,
       submitted_by:   currentUser?.id || null,
@@ -829,13 +836,15 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
     if (ok) { setSubmitDone(true); setShowSubmit(false); setBaseStatsConfirmed(false); }
   };
 
-  const NumField = ({ label, field }) => {
+  const NumField = ({ label, field, isPct }) => {
     const [local, setLocal] = React.useState(submitForm[field] ?? "");
     const inputRef = React.useRef(null);
     React.useEffect(() => { setLocal(submitForm[field] ?? ""); }, [field]);
     return (
-      <div onMouseDown={e => { e.stopPropagation(); inputRef.current?.focus(); }}>
-        <div style={{fontSize:11,color:C.textSec,marginBottom:3}}>{label}</div>
+      <div>
+        <div style={{fontSize:11,color:C.textSec,marginBottom:3}}>
+          {label}{isPct && <span style={{fontSize:10,color:C.accent,marginLeft:4}}>enter as % (e.g. 26.70)</span>}
+        </div>
         <input ref={inputRef} type="number" min={0} step="any"
           value={local}
           onChange={e => setLocal(e.target.value)}
@@ -1528,18 +1537,6 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
                 {isSSR && <NumField label="Gear Strength" field="gearStrength" />}
               </div>
               <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",
-                color:C.textDim,marginBottom:8,fontFamily:"'Space Mono',monospace"}}>Widget Stats</div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
-                <NumField label="Hero Attack"    field="wgtHeroAtk" />
-                <NumField label="Hero Defense"   field="wgtHeroDef" />
-                <NumField label="Hero Health"    field="wgtHeroHp" />
-                <NumField label="Escort Attack"  field="wgtEscortAtk" />
-                <NumField label="Escort Defense" field="wgtEscortDef" />
-                <NumField label="Escort Health"  field="wgtEscortHp" />
-                <NumField label="Troop Lethality" field="wgtTroopLeth" />
-                <NumField label="Troop Health"   field="wgtTroopHp" />
-              </div>
-              <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",
                 color:C.textDim,marginBottom:8,fontFamily:"'Space Mono',monospace"}}>Exploration</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
                 <NumField label="Hero Attack"    field="heroAtk" />
@@ -1551,11 +1548,23 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
               </div>
               <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",
                 color:C.textDim,marginBottom:8,fontFamily:"'Space Mono',monospace"}}>Expedition (%) — {hero.type}</div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:16}}>
-                <NumField label={`${hero.type} Attack`}    field="infAtk" />
-                <NumField label={`${hero.type} Defense`}   field="infDef" />
-                <NumField label={`${hero.type} Lethality`} field="infLeth" />
-                <NumField label={`${hero.type} Health`}    field="infHp" />
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
+                <NumField label={`${hero.type} Attack`}    field="infAtk"  isPct />
+                <NumField label={`${hero.type} Defense`}   field="infDef"  isPct />
+                <NumField label={`${hero.type} Lethality`} field="infLeth" isPct />
+                <NumField label={`${hero.type} Health`}    field="infHp"   isPct />
+              </div>
+              <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",
+                color:C.textDim,marginBottom:8,fontFamily:"'Space Mono',monospace"}}>Widget Stats</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
+                <NumField label="Hero Attack"    field="wgtHeroAtk" />
+                <NumField label="Hero Defense"   field="wgtHeroDef" />
+                <NumField label="Hero Health"    field="wgtHeroHp" />
+                <NumField label="Escort Attack"  field="wgtEscortAtk" />
+                <NumField label="Escort Defense" field="wgtEscortDef" />
+                <NumField label="Escort Health"  field="wgtEscortHp" />
+                <NumField label="Troop Lethality" field="wgtTroopLeth" isPct />
+                <NumField label="Troop Health"   field="wgtTroopHp"   isPct />
               </div>
               {/* Base stats confirmation checkbox */}
               <div style={{display:"flex",alignItems:"flex-start",gap:10,padding:"10px 12px",
@@ -4858,7 +4867,7 @@ const CHIEF_GEAR_PIECES = [
   { name:"Watch",  troop:"Lancer"   },
   { name:"Coat",   troop:"Infantry" },
   { name:"Pants",  troop:"Infantry" },
-  { name:"Belt",   troop:"Marksman" },
+  { name:"Ring",   troop:"Marksman" },
   { name:"Weapon", troop:"Marksman" },
 ];
 
@@ -5237,7 +5246,7 @@ const CHIEF_CHARM_PIECES = [
   { gear:"Watch",  troop:"Lancer",   charms:["Watch Charm 1","Watch Charm 2","Watch Charm 3"] },
   { gear:"Coat",   troop:"Infantry", charms:["Coat Charm 1","Coat Charm 2","Coat Charm 3"] },
   { gear:"Pants",  troop:"Infantry", charms:["Pants Charm 1","Pants Charm 2","Pants Charm 3"] },
-  { gear:"Belt",   troop:"Marksman", charms:["Belt Charm 1","Belt Charm 2","Belt Charm 3"] },
+  { gear:"Ring",   troop:"Marksman", charms:["Ring Charm 1","Ring Charm 2","Ring Charm 3"] },
   { gear:"Weapon", troop:"Marksman", charms:["Weapon Charm 1","Weapon Charm 2","Weapon Charm 3"] },
 ];
 
