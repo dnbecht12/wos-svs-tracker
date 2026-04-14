@@ -4965,29 +4965,31 @@ export default function App() {
         {sidebarOpen && <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />}
 
         <aside className={`sidebar${sidebarOpen ? " open" : ""}`}>
-          <div className="sidebar-logo">
-            <div className="tc-top-bar" />
-            <div className="tc-body">
-              {/* Corner brackets */}
-              <div className="tc-corner tl" />
-              <div className="tc-corner tr" />
-              <div className="tc-corner bl" />
-              <div className="tc-corner br" />
+          <div style={{background:"#0D1B2A",borderBottom:"1px solid #1E3A52",position:"relative",flexShrink:0}}>
+            {/* Top ice bar */}
+            <div style={{height:3,background:"#4A9EBF",width:"100%"}} />
+            {/* Corner brackets */}
+            <div style={{position:"absolute",top:9,left:9,width:8,height:8,borderTop:"1px solid #4A9EBF",borderLeft:"1px solid #4A9EBF",opacity:0.7}} />
+            <div style={{position:"absolute",top:9,right:9,width:8,height:8,borderTop:"1px solid #4A9EBF",borderRight:"1px solid #4A9EBF",opacity:0.7}} />
+            <div style={{position:"absolute",bottom:9,left:9,width:8,height:8,borderBottom:"1px solid #4A9EBF",borderLeft:"1px solid #4A9EBF",opacity:0.7}} />
+            <div style={{position:"absolute",bottom:9,right:9,width:8,height:8,borderBottom:"1px solid #4A9EBF",borderRight:"1px solid #4A9EBF",opacity:0.7}} />
+            {/* Body */}
+            <div style={{padding:"14px 16px 16px",textAlign:"center"}}>
               {/* Hex badge */}
-              <div className="tc-badge">
-                <svg width="36" height="36" viewBox="0 0 36 36">
-                  <polygon points="18,2 30,9 30,23 18,30 6,23 6,9"
-                    fill="#132030" stroke="#4A9EBF" strokeWidth="1.5"/>
+              <div style={{display:"flex",justifyContent:"center",marginBottom:8}}>
+                <svg width="36" height="36" viewBox="0 0 36 36" style={{display:"block"}}>
+                  <polygon points="18,2 30,9 30,23 18,30 6,23 6,9" fill="#132030" stroke="#4A9EBF" strokeWidth="1.5"/>
                   <line x1="11" y1="16" x2="25" y2="16" stroke="#4A9EBF" strokeWidth="1" opacity="0.6"/>
                   <line x1="18" y1="7" x2="18" y2="22" stroke="#4A9EBF" strokeWidth="0.8" opacity="0.4"/>
                   <circle cx="18" cy="17" r="3" fill="#4A9EBF" opacity="0.9"/>
                 </svg>
               </div>
               {/* Rule */}
-              <div className="tc-rule" />
-              {/* Name */}
-              <div className="tc-tundra">TUNDRA</div>
-              <div className="tc-command">COMMAND</div>
+              <div style={{height:1,background:"#1E3A52",margin:"0 4px 10px"}} />
+              {/* TUNDRA */}
+              <div style={{fontFamily:"Syne,sans-serif",fontSize:18,fontWeight:800,color:"#E8F4F8",letterSpacing:2,lineHeight:1,marginBottom:4}}>TUNDRA</div>
+              {/* COMMAND */}
+              <div style={{fontFamily:"Syne,sans-serif",fontSize:10,fontWeight:600,color:"#4A9EBF",letterSpacing:5}}>COMMAND</div>
             </div>
           </div>
 
