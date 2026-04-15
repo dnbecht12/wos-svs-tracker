@@ -2664,12 +2664,16 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
           if (field === "widgetGoal" && isWidget) {
             updated.widgetGoal = Math.max(value, s.widgetCurrent ?? 0);
           }
-          // If switching from Mythic to Legendary, enforce floor immediately
-          if (field === "status" && value === "Legendary") {
-            if ((updated.gearGoal ?? 0) < (updated.gearCurrent ?? 0))
-              updated.gearGoal = updated.gearCurrent ?? 0;
-            if ((updated.masteryGoal ?? 0) < (updated.masteryCurrent ?? 0))
-              updated.masteryGoal = updated.masteryCurrent ?? 0;
+          // If switching status, also update goalStatus to match
+          if (field === "status") {
+            updated.goalStatus = value;
+            // When switching to Legendary, sync goals to current as floor
+            if (value === "Legendary") {
+              if ((updated.gearGoal ?? 0) < (updated.gearCurrent ?? 0))
+                updated.gearGoal = updated.gearCurrent ?? 0;
+              if ((updated.masteryGoal ?? 0) < (updated.masteryCurrent ?? 0))
+                updated.masteryGoal = updated.masteryCurrent ?? 0;
+            }
           }
           return updated;
         }),
@@ -4457,7 +4461,7 @@ function waPower(res, lv) {
 }
 
 // ─── War Academy Page ─────────────────────────────────────────────────────────
-function WarAcademyPage({ inv }) {
+function WarAcademyPage({ inv, setInv }) {
   const C = COLORS;
 
   // ── State ──────────────────────────────────────────────────────────────────
@@ -4508,10 +4512,9 @@ function WarAcademyPage({ inv }) {
     return daysUntilTue === 0 ? 7 : daysUntilTue; // if today is Tuesday, next Tuesday
   }, []);
 
-  // ── Inventory (editable local override) ───────────────────────────────────
-  const [invOverride, setInvOverride] = useLocalStorage("wa-inv", { shards: null, steel: null });
-  const curShards = invOverride.shards ?? inv.shards ?? 0;
-  const curSteel  = (invOverride.steel  ?? inv.steel  ?? 0) * (inv.steelUnit === "B" ? 1000 : 1);
+  // ── Inventory (reads directly from inv, writes back via setInv for full sync) ─
+  const curShards = inv.shards ?? 0;
+  const curSteel  = (inv.steel ?? 0) * (inv.steelUnit === "B" ? 1000 : 1);
   const steelRate = inv.steelHourlyRate ?? 0; // per hour
 
   // Estimated SvS inventory
@@ -4974,8 +4977,8 @@ function WarAcademyPage({ inv }) {
             <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
               <span style={{ fontSize:11, color:C_.textSec }}>Current Inventory</span>
               <input type="number" min={0}
-                value={invOverride.shards ?? inv.shards ?? 0}
-                onChange={e => setInvOverride(p=>({...p,shards:Number(e.target.value)}))}
+                value={inv.shards ?? 0}
+                onChange={e => setInv(p => ({...p, shards: Number(e.target.value)}))}
                 style={{ width:90, textAlign:"right", background:C_.card,
                   border:`1px solid ${C_.border}`, borderRadius:5,
                   color:C_.textPri, padding:"3px 6px", fontSize:11, outline:"none",
@@ -5011,13 +5014,15 @@ function WarAcademyPage({ inv }) {
             </div>
             <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
               <span style={{ fontSize:11, color:C_.textSec }}>Current Inventory</span>
-              <input type="number" min={0}
-                value={curSteel}
-                onChange={e => setInvOverride(p=>({...p,steel:Number(e.target.value)}))}
+              <input type="number" min={0} step="0.01"
+                value={inv.steel ?? 0}
+                onChange={e => setInv(p => ({...p, steel: Number(e.target.value)}))}
                 style={{ width:110, textAlign:"right", background:C_.card,
                   border:`1px solid ${C_.border}`, borderRadius:5,
                   color:C_.textPri, padding:"3px 6px", fontSize:11, outline:"none",
                   fontFamily:"'Space Mono',monospace" }} />
+              <span style={{ fontSize:11, color:C_.textDim,
+                fontFamily:"'Space Mono',monospace" }}>{inv.steelUnit || "M"}</span>
             </div>
             <div style={{ fontSize:10, color:C_.textDim, marginBottom:12, lineHeight:1.5 }}>
               Rate: {steelRate.toLocaleString()}/hr · 18hr/day effective · {daysToSvSTuesday}d to SvS Tue
@@ -6477,6 +6482,39 @@ function CharacterProfilePage({ hgHeroes, inv }) {
 }
 
 // ─── Troops Page ──────────────────────────────────────────────────────────────
+
+// Standalone formatted count input — must be outside TroopsPage to avoid remount on every render
+function TroopCountInput({ value, onChange, color, selStyle }) {
+  const [focused, setFocused] = React.useState(false);
+  const [local, setLocal] = React.useState(value > 0 ? Number(value).toLocaleString() : "");
+
+  React.useEffect(() => {
+    if (!focused) {
+      setLocal(value > 0 ? Number(value).toLocaleString() : "");
+    }
+  }, [value, focused]);
+
+  return (
+    <input
+      type={focused ? "number" : "text"}
+      inputMode="numeric"
+      min={0} step={1}
+      value={focused ? (value || "") : local}
+      placeholder="0"
+      onFocus={() => { setFocused(true); }}
+      onBlur={e => {
+        setFocused(false);
+        const v = Math.max(0, parseInt(e.target.value.replace(/,/g, "")) || 0);
+        onChange(v);
+      }}
+      onChange={e => {
+        if (focused) onChange(Number(e.target.value) || 0);
+      }}
+      style={{ ...selStyle, textAlign:"right", fontWeight:700,
+        fontFamily:"'Space Mono',monospace", color }}
+    />
+  );
+}
 const TROOP_TIERS = ["T1","T2","T3","T4","T5","T6","T7","T8","T9","T10","T11"];
 
 const TROOP_TYPES = [
@@ -6805,42 +6843,13 @@ function TroopsPage() {
                               <option key={tier} value={tier}>{tier}</option>
                             ))}
                           </select>
-                          {/* Formatted count input with commas */}
-                          {(() => {
-                            const TroopCountInput = () => {
-                              const [local, setLocal] = React.useState(
-                                row.count > 0 ? Number(row.count).toLocaleString() : ""
-                              );
-                              const [focused, setFocused] = React.useState(false);
-                              React.useEffect(() => {
-                                if (!focused) {
-                                  setLocal(row.count > 0 ? Number(row.count).toLocaleString() : "");
-                                }
-                              }, [row.count, focused]);
-                              return (
-                                <input
-                                  type={focused ? "number" : "text"}
-                                  inputMode="numeric"
-                                  min={0} step={1}
-                                  value={focused ? (row.count || "") : local}
-                                  placeholder="0"
-                                  onFocus={() => { setFocused(true); setLocal(String(row.count || "")); }}
-                                  onBlur={e => {
-                                    setFocused(false);
-                                    const v = Math.max(0, parseInt(e.target.value.replace(/,/g,"")) || 0);
-                                    updateRow(t.id, idx, "count", v);
-                                    setLocal(v > 0 ? v.toLocaleString() : "");
-                                  }}
-                                  onChange={e => {
-                                    if (focused) updateRow(t.id, idx, "count", Number(e.target.value) || 0);
-                                  }}
-                                  style={{ ...sel, textAlign:"right", fontWeight:700,
-                                    fontFamily:"'Space Mono',monospace", color:tc }}
-                                />
-                              );
-                            };
-                            return <TroopCountInput key={`${t.id}-${idx}`} />;
-                          })()}
+                          <TroopCountInput
+                            key={`${t.id}-${idx}`}
+                            value={row.count}
+                            onChange={v => updateRow(t.id, idx, "count", v)}
+                            color={tc}
+                            selStyle={sel}
+                          />
                           <button onClick={() => removeTierRow(t.id, idx)}
                             style={{ background:"none", border:"none",
                               cursor:"pointer", color:C.textDim,
@@ -7642,7 +7651,7 @@ export default function App() {
             {page === "chief-gear"   && <ChiefGearPage   inv={inv} />}
             {page === "chief-charms" && <ChiefCharmsPage inv={inv} />}
             {page === "experts"      && <ExpertsPage      inv={inv} />}
-            {page === "war-academy"  && <WarAcademyPage   inv={inv} />}
+            {page === "war-academy"  && <WarAcademyPage   inv={inv} setInv={setInv} />}
             {page === "svs-calendar" && <SvSCalendar />}
             {page === "char-profile" && <CharacterProfilePage hgHeroes={hgHeroes} inv={inv} />}
           </div>
