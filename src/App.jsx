@@ -2350,11 +2350,14 @@ function HeroesPage({ genFilter, setGenFilter, heroStats, setHeroStats, currentU
   });
 
   // Reusable hero table rows
-  const HeroRow = ({ hero, isFav }) => {
+  const HeroRow = ({ hero, isFav, idx }) => {
     const stats = heroStats[hero.name] || defaultHeroStats();
     const isFavorited = favorites.includes(hero.name);
+    const rowBg = isFav
+      ? `rgba(227,107,26,0.06)`
+      : idx % 2 === 0 ? "transparent" : "var(--c-surface)";
     return (
-      <tr key={hero.name} style={{background: isFav ? `rgba(227,107,26,0.04)` : "transparent"}}>
+      <tr key={hero.name} style={{background: rowBg}}>
         {/* Favorite star */}
         <td style={{...tdS,width:28,textAlign:"center",padding:"6px 4px"}}>
           <span
@@ -2562,7 +2565,7 @@ function HeroesPage({ genFilter, setGenFilter, heroStats, setHeroStats, currentU
             <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
               <TableHeader />
               <tbody>
-                {favHeroes.map(hero => <HeroRow key={hero.name} hero={hero} isFav={true} />)}
+                {favHeroes.map((hero, idx) => <HeroRow key={hero.name} hero={hero} isFav={true} idx={idx} />)}
               </tbody>
             </table>
           </div>
@@ -2581,7 +2584,7 @@ function HeroesPage({ genFilter, setGenFilter, heroStats, setHeroStats, currentU
           <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
             <TableHeader />
             <tbody>
-              {sorted.map(hero => <HeroRow key={hero.name} hero={hero} isFav={false} />)}
+              {sorted.map((hero, idx) => <HeroRow key={hero.name} hero={hero} isFav={false} idx={idx} />)}
             </tbody>
           </table>
         </div>
@@ -2632,13 +2635,20 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
 
           let updated = { ...s, [field]: value };
 
-          // If setting gearCurrent, auto-bump gearGoal up if needed (locked slots)
-          if (field === "gearCurrent" && locked) {
-            if ((updated.gearGoal ?? 0) < value) updated.gearGoal = value;
+          // When setting gearCurrent, sync gearGoal to match if goal was <= old current
+          // (goal was "tracking" current — keep it in sync). Works for both Mythic and Legendary.
+          if (field === "gearCurrent") {
+            const oldCur = s.gearCurrent ?? 0;
+            const oldGoal = s.gearGoal ?? 0;
+            if (oldGoal <= oldCur) updated.gearGoal = value; // goal was at or below current — follow it
+            else if (isLegendary && (updated.gearGoal ?? 0) < value) updated.gearGoal = value; // Legendary floor
           }
-          // If setting masteryCurrent (non-widget, legendary), auto-bump masteryGoal
-          if (field === "masteryCurrent" && isLegendary && !isWidget) {
-            if ((updated.masteryGoal ?? 0) < value) updated.masteryGoal = value;
+          // When setting masteryCurrent, sync masteryGoal similarly
+          if (field === "masteryCurrent" && !isWidget) {
+            const oldCurM = s.masteryCurrent ?? 0;
+            const oldGoalM = s.masteryGoal ?? 0;
+            if (oldGoalM <= oldCurM) updated.masteryGoal = value;
+            else if (isLegendary && (updated.masteryGoal ?? 0) < value) updated.masteryGoal = value;
           }
           // If widgetCurrent is set above widgetGoal, clamp goal up to match
           if (field === "widgetCurrent" && isWidget) {
@@ -2921,22 +2931,32 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                     {(() => {
                       const gearChanged    = !isWidget && (s.gearCurrent ?? 0) !== (s.gearGoal ?? 0);
                       const masteryChanged = !isWidget && (s.masteryCurrent ?? 0) !== (s.masteryGoal ?? 0);
+                      const statusChanged  = !isWidget && (s.goalStatus ?? s.status ?? "Mythic") !== (s.status ?? "Mythic");
                       const widgetChanged  = isWidget && (heroStatsForSlot.widget ?? 0) !== (s.widgetGoal ?? 0);
-                      if (!gearChanged && !masteryChanged && !widgetChanged) return null;
+                      if (!gearChanged && !masteryChanged && !statusChanged && !widgetChanged) return null;
 
                       // Calculate current and goal stats using GearData lookup
-                      const gearName = !isWidget ? SLOT_TO_GEAR(slot.type, gearSlot) : null;
-                      const tier = s.status || "Legendary";
-                      const curLv  = s.gearCurrent  ?? 0;
-                      const goalLv = s.gearGoal      ?? 0;
-                      const curM   = s.masteryCurrent ?? 0;
-                      const goalM  = s.masteryGoal    ?? 0;
+                      const gearName  = !isWidget ? SLOT_TO_GEAR(slot.type, gearSlot) : null;
+                      const curTier   = s.status    || "Mythic";
+                      const goalTier  = s.goalStatus || curTier;   // use goalStatus for goal lookup
+                      const curLv     = s.gearCurrent  ?? 0;
+                      const goalLv    = s.gearGoal      ?? 0;
+                      const curM      = s.masteryCurrent ?? 0;
+                      const goalM     = s.masteryGoal    ?? 0;
 
                       const STAT_LABELS = ["Gear Pwr", GEAR_TYPE[gearName]==="ATK" ? "Hero Atk" : "Hero Def", "Hero HP", GEAR_TYPE[gearName]==="ATK" ? "Esc Atk" : "Esc Def", "Esc HP", GEAR_TYPE[gearName]==="ATK" ? "Trp Leth" : "Trp HP", "Trp Mast"];
                       const tdStat = {padding:"4px 8px",fontSize:10,fontFamily:"'Space Mono',monospace",borderRight:`1px solid ${C.border}`,textAlign:"center"};
 
-                      const curStats  = gearName ? getGearStats(gearName, tier, curLv,  curM)  : null;
-                      const goalStats = gearName ? getGearStats(gearName, tier, goalLv, goalM) : null;
+                      const curStats  = gearName ? getGearStats(gearName, curTier,  curLv,  curM)  : null;
+                      const goalStats = gearName ? getGearStats(gearName, goalTier, goalLv, goalM) : null;
+
+                      // Don't show subrow if stats are identical (e.g. both at 0/0 Mythic)
+                      if (curStats && goalStats) {
+                        const same = curStats.power === goalStats.power &&
+                          curStats.heroMain === goalStats.heroMain &&
+                          curStats.heroHp === goalStats.heroHp;
+                        if (same) return null;
+                      }
 
                       // Format a stat value for display
                       const fmtVal = (val, isPct) => {
@@ -4992,7 +5012,7 @@ function WarAcademyPage({ inv }) {
             <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
               <span style={{ fontSize:11, color:C_.textSec }}>Current Inventory</span>
               <input type="number" min={0}
-                value={Math.round(curSteel)}
+                value={curSteel}
                 onChange={e => setInvOverride(p=>({...p,steel:Number(e.target.value)}))}
                 style={{ width:110, textAlign:"right", background:C_.card,
                   border:`1px solid ${C_.border}`, borderRadius:5,
@@ -6617,7 +6637,7 @@ function TroopsPage() {
       const next = JSON.parse(JSON.stringify(prev));
       TROOP_TYPES.forEach(t => {
         const f = promoteForm[t.id];
-        const qty = Number(f.count);
+        const qty = Number(String(f.count).replace(/,/g,""));
         if (!f.fromTier || !f.toTier || !qty) return;
         const fromIdx = (next[t.id]||[]).findIndex(r => r.tier === f.fromTier);
         if (fromIdx >= 0) {
@@ -6785,12 +6805,42 @@ function TroopsPage() {
                               <option key={tier} value={tier}>{tier}</option>
                             ))}
                           </select>
-                          <input type="number" min={0} step={1}
-                            value={row.count || ""}
-                            placeholder="0"
-                            onChange={e => updateRow(t.id, idx, "count", Number(e.target.value))}
-                            style={{ ...sel, textAlign:"right", fontWeight:700,
-                              fontFamily:"'Space Mono',monospace", color:tc }} />
+                          {/* Formatted count input with commas */}
+                          {(() => {
+                            const TroopCountInput = () => {
+                              const [local, setLocal] = React.useState(
+                                row.count > 0 ? Number(row.count).toLocaleString() : ""
+                              );
+                              const [focused, setFocused] = React.useState(false);
+                              React.useEffect(() => {
+                                if (!focused) {
+                                  setLocal(row.count > 0 ? Number(row.count).toLocaleString() : "");
+                                }
+                              }, [row.count, focused]);
+                              return (
+                                <input
+                                  type={focused ? "number" : "text"}
+                                  inputMode="numeric"
+                                  min={0} step={1}
+                                  value={focused ? (row.count || "") : local}
+                                  placeholder="0"
+                                  onFocus={() => { setFocused(true); setLocal(String(row.count || "")); }}
+                                  onBlur={e => {
+                                    setFocused(false);
+                                    const v = Math.max(0, parseInt(e.target.value.replace(/,/g,"")) || 0);
+                                    updateRow(t.id, idx, "count", v);
+                                    setLocal(v > 0 ? v.toLocaleString() : "");
+                                  }}
+                                  onChange={e => {
+                                    if (focused) updateRow(t.id, idx, "count", Number(e.target.value) || 0);
+                                  }}
+                                  style={{ ...sel, textAlign:"right", fontWeight:700,
+                                    fontFamily:"'Space Mono',monospace", color:tc }}
+                                />
+                              );
+                            };
+                            return <TroopCountInput key={`${t.id}-${idx}`} />;
+                          })()}
                           <button onClick={() => removeTierRow(t.id, idx)}
                             style={{ background:"none", border:"none",
                               cursor:"pointer", color:C.textDim,
@@ -6943,9 +6993,24 @@ function TroopsPage() {
                           <div>
                             <div style={{ fontSize:10, color:C.textSec, marginBottom:4,
                               fontFamily:"'Space Mono',monospace" }}>COUNT</div>
-                            <input type="number" min={0} value={f.count} placeholder="0"
+                            <input
+                              type="text" inputMode="numeric"
+                              value={f.count === "" ? "" : (document.activeElement?.dataset?.promoteCount === t.id
+                                ? f.count
+                                : (Number(f.count) > 0 ? Number(f.count).toLocaleString() : f.count))}
+                              placeholder="0"
+                              data-promote-count={t.id}
+                              onFocus={e => {
+                                // strip commas on focus
+                                const raw = String(f.count).replace(/,/g,"");
+                                setPromoteForm(p => ({ ...p, [t.id]: {...p[t.id], count:raw} }));
+                              }}
+                              onBlur={e => {
+                                const v = parseInt(String(f.count).replace(/,/g,"")) || 0;
+                                setPromoteForm(p => ({ ...p, [t.id]: {...p[t.id], count: v > 0 ? v.toLocaleString() : ""} }));
+                              }}
                               onChange={e => setPromoteForm(p => ({
-                                ...p, [t.id]: {...p[t.id], count:e.target.value}
+                                ...p, [t.id]: {...p[t.id], count: e.target.value}
                               }))}
                               style={{ ...sel, width:"100%", textAlign:"right",
                                 fontFamily:"'Space Mono',monospace", color:tc,

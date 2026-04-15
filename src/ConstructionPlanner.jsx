@@ -341,7 +341,8 @@ const C = new Proxy({}, { get(_, key) { return `var(--c-${key})`; } });
 const fmt = n => {
   if (n === null || n === undefined || isNaN(n)) return "—";
   const abs = Math.abs(n);
-  if (abs >= 1000000) return (n/1000000).toFixed(2)+"M";
+  if (abs >= 1e9) return (n/1e9).toFixed(2)+"B";
+  if (abs >= 1e6) return (n/1e6).toFixed(2)+"M";
   if (abs >= 1000) return (n/1000).toFixed(1)+"K";
   return Math.round(n).toLocaleString();
 };
