@@ -848,7 +848,7 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
       if (v !== "") {
         const num = parseFloat(v) || 0;
         // % fields: user enters e.g. 26.70, store as 0.2670
-        statsPayload[k] = pctFields.has(k) ? num / 100 : num;
+        statsPayload[k] = pctFields.has(k) ? Math.round(num / 100 * 1e6) / 1e6 : num;
       }
     });
     const ok = await submitHeroStats({
@@ -878,6 +878,7 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
           onChange={e => setLocal(e.target.value)}
           onBlur={e => setSubmitForm(p => ({...p,[field]:e.target.value}))}
           onFocus={e => e.target.select()}
+          onClick={e => e.stopPropagation()}
           style={{...sel,width:"100%",padding:"5px 8px",textAlign:"right"}} />
       </div>
     );
@@ -1744,7 +1745,9 @@ function AdminPage({ onStatsUpdated }) {
 
   const statKeys = ["levelPower","starPower","skillPower","gearStrength","escorts","troopCap",
     "heroAtk","heroDef","heroHp","escortHp","escortDef","escortAtk",
-    "infAtk","infDef","infLeth","infHp"];
+    "infAtk","infDef","infLeth","infHp",
+    "wgtHeroAtk","wgtHeroDef","wgtHeroHp","wgtEscortAtk","wgtEscortDef","wgtEscortHp",
+    "wgtTroopLeth","wgtTroopHp"];
 
   const statLabel = k => ({
     levelPower:"Level Power", starPower:"Star Power", skillPower:"Skill Power",
@@ -1752,6 +1755,9 @@ function AdminPage({ onStatsUpdated }) {
     heroAtk:"Hero Atk", heroDef:"Hero Def", heroHp:"Hero HP",
     escortHp:"Escort HP", escortDef:"Escort Def", escortAtk:"Escort Atk",
     infAtk:"Troop Atk%", infDef:"Troop Def%", infLeth:"Troop Leth%", infHp:"Troop HP%",
+    wgtHeroAtk:"Wgt Hero Atk", wgtHeroDef:"Wgt Hero Def", wgtHeroHp:"Wgt Hero HP",
+    wgtEscortAtk:"Wgt Escort Atk", wgtEscortDef:"Wgt Escort Def", wgtEscortHp:"Wgt Escort HP",
+    wgtTroopLeth:"Wgt Troop Leth%", wgtTroopHp:"Wgt Troop HP%",
   }[k] || k);
 
   const statusColor = s => s==="accepted" ? C.green : s==="rejected" ? C.red : C.amber;
