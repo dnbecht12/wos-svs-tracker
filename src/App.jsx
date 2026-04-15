@@ -678,7 +678,7 @@ function getHeroGearData(heroName) {
 
 // ─── Hero Profile Modal ───────────────────────────────────────────────────────
 
-function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeCharacter, hgHeroes }) {
+function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeCharacter, hgHeroes, externalRefreshKey }) {
   const C = COLORS;
   // Derive gear data live from lifted hgHeroes state so profile updates instantly
   // when gear levels change in the Hero Gear Calculator
@@ -754,7 +754,7 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
         });
       }
     });
-  }, [hero?.name, heroLevel, heroStars, heroWidget, dbRefreshKey]);
+  }, [hero?.name, heroLevel, heroStars, heroWidget, dbRefreshKey, externalRefreshKey]);
 
   const local   = { ...defaultHeroStats(), ...stats };
   const set     = (field, val) => onUpdate(hero.name, field, val);
@@ -1672,7 +1672,7 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
 
 // ─── Admin Page ──────────────────────────────────────────────────────────────
 
-function AdminPage() {
+function AdminPage({ onStatsUpdated }) {
   const C = COLORS;
   const [submissions,   setSubmissions]   = useState([]);
   const [loading,       setLoading]       = useState(true);
@@ -1787,17 +1787,23 @@ function AdminPage() {
       if (v === "" || v == null) return;
       newStats[k] = parseFloat(v);
     });
-    console.log("[EditStats] Updating row id:", editRow.id);
-    console.log("[EditStats] New stats:", JSON.stringify(newStats).slice(0, 300));
-    const { data, error, status, statusText } = await supabase.from("hero_stats_data")
+    const { data, error } = await supabase.from("hero_stats_data")
       .update({ stats: newStats })
       .eq("id", editRow.id)
       .select();
-    console.log("[EditStats] Result data:", data, "error:", error, "status:", status, statusText);
     setEditBusy(false);
-    if (error) { setEditMsg("Error: " + error.message + " (code: " + error.code + ")"); }
-    else if (!data || data.length === 0) { setEditMsg("⚠ No rows updated — row ID may not match or RLS blocking."); }
-    else { setEditMsg("✓ Saved successfully."); setEditingSub(null); setEditRow(null); }
+    if (error) {
+      setEditMsg("Error: " + error.message + " (code: " + error.code + ")");
+    } else if (!data || data.length === 0) {
+      setEditMsg("⚠ No rows updated — check row ID or RLS policy.");
+    } else {
+      // Success — close modal, reload submissions, signal hero profile to re-query
+      setEditingSub(null);
+      setEditRow(null);
+      setEditMsg("");
+      onStatsUpdated?.();
+      await load();
+    }
   };
 
   return (
@@ -2354,6 +2360,7 @@ function HeroesPage({ genFilter, setGenFilter, heroStats, setHeroStats, currentU
           currentUser={currentUser}
           activeCharacter={activeCharacter}
           hgHeroes={hgHeroes}
+          externalRefreshKey={heroStatsVersion}
         />
       )}
 
@@ -6195,6 +6202,7 @@ export default function App() {
   const [genFilter,   setGenFilter]  = useLocalStorage("hg-gen-filter", "Gen 9");
   const [heroStats,   setHeroStats]  = useLocalStorage("hg-hero-stats", defaultAllHeroStats());
   const [hgHeroes,    setHgHeroes]   = useLocalStorage("hg-heroes", HERO_SLOTS.map(s => defaultHeroState(s.type)));
+  const [heroStatsVersion, setHeroStatsVersion] = useState(0);
   const [savedAt,       setSavedAt]      = useState(null);
   const [loadedPlanKey, setLoadedPlanKey]= useState(null);
   const [syncing,       setSyncing]      = useState(false);
@@ -6705,7 +6713,7 @@ export default function App() {
                 openSavePopup={user ? openSavePopup : null}
                 currentUser={user} />}
             {page === "heroes"      && <HeroesPage    genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} currentUser={user} activeCharacter={activeCharacter} hgHeroes={hgHeroes} />}
-            {page === "admin"       && user?.id === ADMIN_UID && <AdminPage />}
+            {page === "admin"       && user?.id === ADMIN_UID && <AdminPage onStatsUpdated={() => setHeroStatsVersion(v => v + 1)} />}
             {page === "hero-gear"    && <HeroGearPage    inv={inv} genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} hgHeroes={hgHeroes} setHgHeroes={setHgHeroes} />}
             {page === "chief-gear"   && <ChiefGearPage   inv={inv} />}
             {page === "chief-charms" && <ChiefCharmsPage inv={inv} />}
