@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo, Component } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "./supabase.js";
+import ResearchCenterPage from "./ResearchCenter.jsx";
 
 const ADMIN_UID = "c5c3392e-2399-4cc9-b2ab-f22a61e7b91c";
 
@@ -7222,6 +7223,7 @@ const PAGES = [
   { id:"chief-charms",  label:"Chief Charms",  icon:"[K]", section:"Chief"      },
   { id:"experts",       label:"Experts",       icon:"[E]", section:"Chief"      },
   { id:"war-academy",  label:"War Academy",   icon:"[W]", section:"Resources"   },
+  { id:"research-center", label:"Research Center", icon:"[RC]", section:"Resources" },
   { id:"heroes",        label:"Heroes",        icon:"[H]", section:"Combat"      },
   { id:"hero-gear",     label:"Hero Gear",     icon:"[G]", section:"Combat"      },
   { id:"troops",        label:"Troops",        icon:"[T]", section:"Combat"      },
@@ -7239,6 +7241,7 @@ const PAGE_TITLES = {
   "chief-charms": { title: "Chief Charms",  sub: "Charm upgrade planner — 18 independent charms across 6 gear pieces, material costs and stat gains" },
   experts:      { title: "Expert Planner", sub: "Skill levels, sigil costs, and per-day SVS contributions" },
   "war-academy":{ title: "War Academy", sub: "Research upgrade planner — track shards, steel, time costs and stat gains across all three troop types" },
+  "research-center": { title: "Research Center", sub: "Growth, Economy & Battle research trees — track per-level costs, buffs and time across all tiers" },
   "troops":     { title: "Troops", sub: "Troop inventory — track your Infantry, Lancer and Marksman counts by tier" },
   "svs-calendar":{ title: "SvS Calendar", sub: "Rolling 28-week schedule — SvS every 4th week, King of Icefield every 2nd week" },
   "char-profile": { title: "Chief Profile", sub: "Total power summary — tech, gear, heroes, charms, military and growth stats" },
@@ -7786,6 +7789,7 @@ export default function App() {
             {page === "chief-charms" && <ChiefCharmsPage inv={inv} />}
             {page === "experts"      && <ExpertsPage      inv={inv} />}
             {page === "war-academy"  && <WarAcademyPage   inv={inv} setInv={setInv} />}
+            {page === "research-center" && <ResearchCenterPage inv={inv} />}
             {page === "svs-calendar" && <SvSCalendar />}
             {page === "char-profile" && <CharacterProfilePage hgHeroes={hgHeroes} inv={inv} />}
           </div>
