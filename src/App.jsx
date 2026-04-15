@@ -3867,6 +3867,55 @@ function ResBigInput({ label, icon, field, value, unit, onChangeVal, onChangeUni
   );
 }
 
+// Standalone single-value speedup input (Hours or Minutes mode)
+// Must be top-level — never defined inside a render — to prevent remount on every keystroke
+function SpeedupSingleInput({ totalMins, unit, onCommit, color, numStyle, tabIndex }) {
+  const toDisplay = () => unit === "hrs"
+    ? (totalMins > 0 ? +(totalMins / 60).toFixed(2) : 0)
+    : (totalMins > 0 ? totalMins : 0);
+
+  const [focused, setFocused] = React.useState(false);
+  const [local, setLocal] = React.useState(toDisplay());
+
+  // Sync from parent when totalMins changes externally (e.g. mode switch)
+  const prevMins = React.useRef(totalMins);
+  React.useEffect(() => {
+    if (!focused && prevMins.current !== totalMins) {
+      prevMins.current = totalMins;
+      setLocal(toDisplay());
+    }
+  }, [totalMins, focused]);
+
+  const displayVal = focused
+    ? local
+    : (Number(local) > 0 ? Number(local).toLocaleString() : "");
+
+  return (
+    <input
+      type={focused ? "number" : "text"}
+      inputMode="numeric"
+      min={0}
+      step={unit === "hrs" ? "0.5" : "1"}
+      tabIndex={tabIndex}
+      placeholder="0"
+      value={displayVal}
+      style={{...numStyle, width:120}}
+      onFocus={() => {
+        setFocused(true);
+        setLocal(toDisplay());
+      }}
+      onBlur={e => {
+        setFocused(false);
+        const raw = parseFloat(String(e.target.value).replace(/,/g, "")) || 0;
+        setLocal(raw);
+        prevMins.current = unit === "hrs" ? Math.round(raw * 60) : Math.round(raw);
+        onCommit(raw);
+      }}
+      onChange={e => setLocal(e.target.value)}
+    />
+  );
+}
+
 // Speed-up input: Days / Hours / Minutes with total display
 // mode: "dhm" = 3 fields, "hrs" = single hours field, "mins" = single minutes field
 function SpeedupInput({ label, icon, dField, hField, mField, dVal, hVal, mVal, onChange, color, tabIndexBase, mode="dhm" }) {
@@ -3939,22 +3988,26 @@ function SpeedupInput({ label, icon, dField, hField, mField, dVal, hVal, mVal, o
       </>)}
 
       {mode === "hrs" && (<>
-        <input type="number" min={0} step="0.5" style={{...numStyle,width:100}} tabIndex={tabIndexBase}
-          defaultValue={totalMins > 0 ? +(totalMins/60).toFixed(2) : ""}
-          placeholder="0"
-          onBlur={e=>commitMins((parseFloat(e.target.value)||0)*60)}
-          onFocus={e=>{e.target.value=totalMins>0?+(totalMins/60).toFixed(2):"";e.target.select();}}
-          key={`hrs-${totalMins}`} />
+        <SpeedupSingleInput
+          totalMins={totalMins}
+          unit="hrs"
+          onCommit={raw => commitMins(raw * 60)}
+          color={color}
+          numStyle={numStyle}
+          tabIndex={tabIndexBase}
+        />
         <span style={sepStyle}>hrs</span>
       </>)}
 
       {mode === "mins" && (<>
-        <input type="number" min={0} style={{...numStyle,width:110}} tabIndex={tabIndexBase}
-          defaultValue={totalMins > 0 ? totalMins : ""}
-          placeholder="0"
-          onBlur={e=>commitMins(parseInt(e.target.value)||0)}
-          onFocus={e=>{e.target.value=totalMins>0?totalMins:"";e.target.select();}}
-          key={`mins-${totalMins}`} />
+        <SpeedupSingleInput
+          totalMins={totalMins}
+          unit="mins"
+          onCommit={raw => commitMins(raw)}
+          color={color}
+          numStyle={numStyle}
+          tabIndex={tabIndexBase}
+        />
         <span style={sepStyle}>mins</span>
       </>)}
 
