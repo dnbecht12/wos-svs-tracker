@@ -6177,6 +6177,157 @@ function CharacterProfilePage({ hgHeroes, inv }) {
   );
 }
 
+// ─── Troops Page ──────────────────────────────────────────────────────────────
+const TROOP_TIERS = ["T1","T2","T3","T4","T5","T6","T7","T8","T9","T10","T11"];
+
+const TROOP_TYPES = [
+  { id:"infantry",  label:"Infantry",  color:"green"  },
+  { id:"lancer",    label:"Lancer",    color:"blue"   },
+  { id:"marksman",  label:"Marksman",  color:"amber"  },
+];
+
+function TroopsPage() {
+  const C = COLORS;
+
+  const defaultTroops = () => {
+    const out = {};
+    TROOP_TYPES.forEach(t => {
+      out[t.id] = { tier: "T10", count: 0 };
+    });
+    return out;
+  };
+
+  const [troops, setTroops] = useLocalStorage("troops-inventory", defaultTroops());
+
+  const setField = (typeId, field, value) => {
+    setTroops(prev => ({
+      ...prev,
+      [typeId]: { ...prev[typeId], [field]: value },
+    }));
+  };
+
+  const typeColor = id => {
+    const t = TROOP_TYPES.find(t => t.id === id);
+    return C[t?.color] || C.textPri;
+  };
+  const typeBg = id => {
+    const t = TROOP_TYPES.find(t => t.id === id);
+    return C[t?.color + "Bg"] || C.surface;
+  };
+
+  const sel = {
+    background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6,
+    color: C.textPri, padding: "6px 10px", fontSize: 13, outline: "none", width: "100%",
+  };
+
+  const totalTroops = TROOP_TYPES.reduce((sum, t) => sum + (Number(troops[t.id]?.count) || 0), 0);
+
+  return (
+    <div className="fade-in" style={{ padding: "0 0 40px" }}>
+
+      {/* Total banner */}
+      <div style={{ display:"flex", alignItems:"center", gap:16, marginBottom:24,
+        padding:"14px 20px", background:C.accentBg, borderRadius:10,
+        border:`1px solid ${C.accentDim}` }}>
+        <div>
+          <div style={{ fontSize:11, fontWeight:700, letterSpacing:"1.5px",
+            textTransform:"uppercase", color:C.accent,
+            fontFamily:"'Space Mono',monospace", marginBottom:2 }}>Total Troops</div>
+          <div style={{ fontSize:28, fontWeight:800, color:C.textPri,
+            fontFamily:"Syne,sans-serif" }}>
+            {totalTroops.toLocaleString()}
+          </div>
+        </div>
+        <div style={{ marginLeft:"auto", display:"flex", gap:20 }}>
+          {TROOP_TYPES.map(t => (
+            <div key={t.id} style={{ textAlign:"center" }}>
+              <div style={{ fontSize:10, color:typeColor(t.id), fontWeight:700,
+                fontFamily:"'Space Mono',monospace", letterSpacing:"0.5px" }}>
+                {t.label.toUpperCase()}
+              </div>
+              <div style={{ fontSize:16, fontWeight:700, color:C.textPri,
+                fontFamily:"'Space Mono',monospace" }}>
+                {(Number(troops[t.id]?.count) || 0).toLocaleString()}
+              </div>
+              <div style={{ fontSize:10, color:C.textDim,
+                fontFamily:"'Space Mono',monospace" }}>
+                {troops[t.id]?.tier || "—"}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Three troop type cards */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(240px,1fr))", gap:16 }}>
+        {TROOP_TYPES.map(t => {
+          const tc = typeColor(t.id);
+          const tbg = typeBg(t.id);
+          const data = troops[t.id] || { tier:"T10", count:0 };
+
+          return (
+            <div key={t.id} style={{ background:C.card, border:`1px solid ${C.border}`,
+              borderRadius:12, overflow:"hidden" }}>
+
+              {/* Card header */}
+              <div style={{ padding:"16px 18px 14px",
+                borderBottom:`1px solid ${C.border}`,
+                background: tbg }}>
+                <div style={{ fontSize:16, fontWeight:800, color:tc,
+                  fontFamily:"Syne,sans-serif" }}>{t.label}</div>
+                <div style={{ fontSize:11, color:C.textDim, marginTop:2 }}>
+                  Troop inventory
+                </div>
+              </div>
+
+              {/* Card body */}
+              <div style={{ padding:"18px" }}>
+
+                {/* Tier dropdown */}
+                <div style={{ marginBottom:16 }}>
+                  <div style={{ fontSize:11, color:C.textSec, marginBottom:6,
+                    fontWeight:600 }}>Troop Tier</div>
+                  <select value={data.tier} onChange={e => setField(t.id, "tier", e.target.value)}
+                    style={sel}>
+                    {TROOP_TIERS.map(tier => (
+                      <option key={tier} value={tier}>{tier}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Count input */}
+                <div>
+                  <div style={{ fontSize:11, color:C.textSec, marginBottom:6,
+                    fontWeight:600 }}>Count</div>
+                  <input
+                    type="number" min={0} step={1}
+                    value={data.count || ""}
+                    placeholder="0"
+                    onChange={e => setField(t.id, "count", Number(e.target.value))}
+                    style={{ ...sel, textAlign:"right",
+                      fontSize:18, fontWeight:700, fontFamily:"'Space Mono',monospace",
+                      color:tc, padding:"10px 12px" }}
+                  />
+                </div>
+
+                {/* Formatted display */}
+                {data.count > 0 && (
+                  <div style={{ marginTop:12, padding:"8px 10px",
+                    background:C.surface, borderRadius:6,
+                    fontSize:12, color:C.textDim, textAlign:"center",
+                    fontFamily:"'Space Mono',monospace" }}>
+                    {Number(data.count).toLocaleString()} {data.tier} {t.label}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── Error Boundary ───────────────────────────────────────────────────────────
 export class ErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { error: null }; }
@@ -6207,6 +6358,7 @@ const PAGES = [
   { id:"war-academy",  label:"War Academy",   icon:"[W]", section:"Resources"   },
   { id:"heroes",        label:"Heroes",        icon:"[H]", section:"Combat"      },
   { id:"hero-gear",     label:"Hero Gear",     icon:"[G]", section:"Combat"      },
+  { id:"troops",        label:"Troops",        icon:"[T]", section:"Combat"      },
   { id:"rfc-planner",  label:"RFC Planner",   icon:"[R]", section:"Planning"    },
   { id:"svs-calendar",  label:"SvS Calendar",  icon:"[C]", section:"Planning"    },
 ];
@@ -6221,6 +6373,7 @@ const PAGE_TITLES = {
   "chief-charms": { title: "Chief Charms",  sub: "Charm upgrade planner — 18 independent charms across 6 gear pieces, material costs and stat gains" },
   experts:      { title: "Expert Planner", sub: "Skill levels, sigil costs, and per-day SVS contributions" },
   "war-academy":{ title: "War Academy", sub: "Research upgrade planner — track shards, steel, time costs and stat gains across all three troop types" },
+  "troops":     { title: "Troops", sub: "Troop inventory — track your Infantry, Lancer and Marksman counts by tier" },
   "svs-calendar":{ title: "SvS Calendar", sub: "Rolling 28-week schedule — SvS every 4th week, King of Icefield every 2nd week" },
   "char-profile": { title: "Chief Profile", sub: "Total power summary — tech, gear, heroes, charms, military and growth stats" },
   alliance:     { title: "Alliance Scores", sub: "SvS prep scores and historical results" },
@@ -6759,6 +6912,7 @@ export default function App() {
             {page === "heroes"      && <HeroesPage    genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} currentUser={user} activeCharacter={activeCharacter} hgHeroes={hgHeroes} heroStatsVersion={heroStatsVersion} />}
             {page === "admin"       && user?.id === ADMIN_UID && <AdminPage onStatsUpdated={() => setHeroStatsVersion(v => v + 1)} />}
             {page === "hero-gear"    && <HeroGearPage    inv={inv} genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} hgHeroes={hgHeroes} setHgHeroes={setHgHeroes} />}
+            {page === "troops"       && <TroopsPage />}
             {page === "chief-gear"   && <ChiefGearPage   inv={inv} />}
             {page === "chief-charms" && <ChiefCharmsPage inv={inv} />}
             {page === "experts"      && <ExpertsPage      inv={inv} />}
