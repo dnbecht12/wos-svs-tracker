@@ -5993,15 +5993,10 @@ function CharacterProfilePage({ hgHeroes, inv }) {
   // VIP level
   const [vipLevel, setVipLevel] = useLocalStorage("cp-vip-level", 0);
 
-  // Embassy & Command Center stats — read from cp-buildings
-  const { reinforceCap, rallyCapacity, commandDeploy } = React.useMemo(() => {
+  // Embassy Reinforcement Cap — read from cp-buildings
+  const reinforceCap = React.useMemo(() => {
     const embLvl = getBuildingLevel("Embassy");
-    const cmdLvl = getBuildingLevel("Command");
-    return {
-      reinforceCap:  EMBASSY_REINFORCE[embLvl]           ?? null,
-      rallyCapacity: COMMAND_CENTER_STATS[cmdLvl]?.rally  ?? null,
-      commandDeploy: COMMAND_CENTER_STATS[cmdLvl]?.deploy ?? null,
-    };
+    return EMBASSY_REINFORCE[embLvl] ?? null;
   }, []);
 
   // ── Read all power sources from localStorage ────────────────────────────────
@@ -6090,39 +6085,49 @@ function CharacterProfilePage({ hgHeroes, inv }) {
   }, []);
 
   // Deployment Capacity — sum from War Academy (Flame Squad) + Chief Gear deploy buff
-  const deployCapacity = React.useMemo(() => {
-    let total = 0;
-    // War Academy: Flame Squad deploy buff is per-troop but affects global deploy
-    // Use Infantry as representative (all 3 troops have same values)
+  // Deployment Capacity = Command Center base + WA Flame Squad (×3) + WA Helios Training (×3) + Chief Gear
+  // Rally Capacity = Command Center base + WA Flame Legion (×3 troops)
+  const { deployCapacity, rallyCapacityTotal } = React.useMemo(() => {
+    let deployWA = 0;
+    let rallyWA  = 0;
     try {
       const raw = localStorage.getItem("wa-levels");
       if (raw) {
         const levels = JSON.parse(raw);
+        const fsRes  = WA_RESEARCH.find(r => r.id === "flameSquad");
+        const htRes  = WA_RESEARCH.find(r => r.id === "heliosTraining");
+        const flRes  = WA_RESEARCH.find(r => r.id === "flameLegion");
         ["Infantry","Lancer","Marksman"].forEach(troop => {
+          // Flame Squad → deploy buff col [2]
           const fsCur = levels[troop]?.flameSquad?.cur ?? 0;
-          const row = WA_RESEARCH[0].levels[fsCur];
-          total += row?.[2] ?? 0; // deploy buf col
-        });
-        // Helios Training deploy buff (Infantry only as shared)
-        ["Infantry","Lancer","Marksman"].forEach(troop => {
+          deployWA += fsRes?.levels[fsCur]?.[2] ?? 0;
+          // Helios Training → deploy buff col [2]
           const htCur = levels[troop]?.heliosTraining?.cur ?? 0;
-          const row = WA_RESEARCH.find(r => r.id === "heliosTraining")?.levels[htCur];
-          total += row?.[2] ?? 0;
+          deployWA += htRes?.levels[htCur]?.[2] ?? 0;
+          // Flame Legion → rally buff col [2]
+          const flCur = levels[troop]?.flameLegion?.cur ?? 0;
+          rallyWA += flRes?.levels[flCur]?.[2] ?? 0;
         });
       }
     } catch {}
-    // Chief Gear deploy buff (only appears at Legendary tier)
+
+    // Chief Gear deploy buff
+    let deployGear = 0;
     try {
       const raw = localStorage.getItem("cg-slots");
       if (raw) {
         const slots = JSON.parse(raw);
-        slots.forEach(s => {
-          const row = CHIEF_GEAR_LEVELS[s.current ?? 0];
-          total += row?.[9] ?? 0;
-        });
+        slots.forEach(s => { deployGear += CHIEF_GEAR_LEVELS[s.current ?? 0]?.[9] ?? 0; });
       }
     } catch {}
-    return Math.round(total);
+
+    const cmdLvl   = getBuildingLevel("Command");
+    const cmdBase  = COMMAND_CENTER_STATS[cmdLvl] ?? null;
+
+    return {
+      deployCapacity:    Math.round(deployWA + deployGear + (cmdBase?.deploy ?? 0)),
+      rallyCapacityTotal: Math.round(rallyWA + (cmdBase?.rally ?? 0)),
+    };
   }, []);
 
   // Construction Speed — read from cp-speedbuff
@@ -6405,18 +6410,13 @@ function CharacterProfilePage({ hgHeroes, inv }) {
           source="Research Center (coming soon)" dim />
 
         <Row label="Deployment Capacity"
-          value={deployCapacity > 0 ? `+${fmt(deployCapacity)}` : "—"}
-          source="War Academy (Flame Squad + Helios Training) · Chief Gear deploy buff" />
+          value={deployCapacity > 0 ? fmt(deployCapacity) : "—"}
+          source="Command Center base + War Academy (Flame Squad + Helios Training) × 3 troops + Chief Gear" />
 
         <Row label="Rally Capacity"
-          value={rallyCapacity != null ? fmt(rallyCapacity) : "—"}
-          source="Command Center · set building level in Construction tab"
-          dim={rallyCapacity == null} />
-
-        <Row label="Deployment Cap (Command)"
-          value={commandDeploy != null ? fmt(commandDeploy) : "—"}
-          source="Command Center · set building level in Construction tab"
-          dim={commandDeploy == null} />
+          value={rallyCapacityTotal > 0 ? fmt(rallyCapacityTotal) : "—"}
+          source="Command Center base + War Academy Flame Legion × 3 troops"
+          dim={rallyCapacityTotal === 0} />
 
         <Row label="Reinforcement Cap"
           value={reinforceCap != null ? fmt(reinforceCap) : "—"}
