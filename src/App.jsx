@@ -5996,7 +5996,7 @@ function CharacterProfilePage({ hgHeroes, inv }) {
   // Embassy & Command Center stats — read from cp-buildings
   const { reinforceCap, rallyCapacity, commandDeploy } = React.useMemo(() => {
     const embLvl = getBuildingLevel("Embassy");
-    const cmdLvl = getBuildingLevel("Command Center");
+    const cmdLvl = getBuildingLevel("Command");
     return {
       reinforceCap:  EMBASSY_REINFORCE[embLvl]           ?? null,
       rallyCapacity: COMMAND_CENTER_STATS[cmdLvl]?.rally  ?? null,
