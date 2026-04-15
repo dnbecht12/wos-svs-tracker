@@ -3868,8 +3868,8 @@ function ResBigInput({ label, icon, field, value, unit, onChangeVal, onChangeUni
 }
 
 // Speed-up input: Days / Hours / Minutes with total display
-// Uses local state to buffer keystrokes — only commits to parent on blur
-function SpeedupInput({ label, icon, dField, hField, mField, dVal, hVal, mVal, onChange, color, tabIndexBase }) {
+// mode: "dhm" = 3 fields, "hrs" = single hours field, "mins" = single minutes field
+function SpeedupInput({ label, icon, dField, hField, mField, dVal, hVal, mVal, onChange, color, tabIndexBase, mode="dhm" }) {
   const [localD, setLocalD] = useState(dVal||0);
   const [localH, setLocalH] = useState(hVal||0);
   const [localM, setLocalM] = useState(mVal||0);
@@ -3887,10 +3887,20 @@ function SpeedupInput({ label, icon, dField, hField, mField, dVal, hVal, mVal, o
   const fmtTotal = totalMins===0 ? "—"
     : [dispD>0?`${dispD}d`:"", dispH>0?`${dispH}h`:"", dispM>0?`${dispM}m`:""].filter(Boolean).join(" ");
 
+  // Commit a total-minutes value back to D/H/M fields
+  const commitMins = (mins) => {
+    const m = Math.max(0, Math.round(mins));
+    const d = Math.floor(m / 1440);
+    const h = Math.floor((m % 1440) / 60);
+    const mn = m % 60;
+    setLocalD(d); setLocalH(h); setLocalM(mn);
+    onChange(dField, d); onChange(hField, h); onChange(mField, mn);
+  };
+
   const numStyle = {
     background:"var(--c-card)",border:"1px solid var(--c-border)",borderRadius:5,
     padding:"5px 8px",fontSize:13,color:color||"var(--c-textPri)",outline:"none",
-    fontFamily:"Space Mono,monospace",width:64,textAlign:"right",fontWeight:700,
+    fontFamily:"Space Mono,monospace",textAlign:"right",fontWeight:700,
     transition:"border-color .15s",
   };
   const sepStyle = { fontSize:11, color:"var(--c-textDim)", fontFamily:"Space Mono,monospace", flexShrink:0 };
@@ -3906,25 +3916,49 @@ function SpeedupInput({ label, icon, dField, hField, mField, dVal, hVal, mVal, o
     >
       <span style={{fontSize:13,color:"var(--c-textSec)",fontFamily:"Space Mono,monospace",flexShrink:0,width:24,textAlign:"center"}}>{icon}</span>
       <span style={{fontSize:12,fontWeight:600,color:"var(--c-textPri)",flexShrink:0,minWidth:100}}>{label}</span>
-      <input type="number" min={0} style={numStyle} tabIndex={tabIndexBase}
-        value={localD}
-        onChange={e=>setLocalD(Math.max(0,parseInt(e.target.value)||0))}
-        onBlur={()=>onChange(dField,localD)}
-        onFocus={e=>e.target.select()} />
-      <span style={sepStyle}>d</span>
-      <input type="number" min={0} max={23} style={numStyle} tabIndex={tabIndexBase+1}
-        value={localH}
-        onChange={e=>setLocalH(Math.max(0,parseInt(e.target.value)||0))}
-        onBlur={()=>onChange(hField,localH)}
-        onFocus={e=>e.target.select()} />
-      <span style={sepStyle}>h</span>
-      <input type="number" min={0} max={59} style={numStyle} tabIndex={tabIndexBase+2}
-        value={localM}
-        onChange={e=>setLocalM(Math.max(0,parseInt(e.target.value)||0))}
-        onBlur={()=>onChange(mField,localM)}
-        onFocus={e=>e.target.select()} />
-      <span style={sepStyle}>m</span>
-      <span style={{fontSize:12,fontFamily:"Space Mono,monospace",marginLeft:8,minWidth:70,flexShrink:0,
+
+      {mode === "dhm" && (<>
+        <input type="number" min={0} style={{...numStyle,width:64}} tabIndex={tabIndexBase}
+          value={localD}
+          onChange={e=>{const v=Math.max(0,parseInt(e.target.value)||0);setLocalD(v);}}
+          onBlur={()=>onChange(dField,localD)}
+          onFocus={e=>e.target.select()} />
+        <span style={sepStyle}>d</span>
+        <input type="number" min={0} max={23} style={{...numStyle,width:64}} tabIndex={tabIndexBase+1}
+          value={localH}
+          onChange={e=>{const v=Math.max(0,parseInt(e.target.value)||0);setLocalH(v);}}
+          onBlur={()=>onChange(hField,localH)}
+          onFocus={e=>e.target.select()} />
+        <span style={sepStyle}>h</span>
+        <input type="number" min={0} max={59} style={{...numStyle,width:64}} tabIndex={tabIndexBase+2}
+          value={localM}
+          onChange={e=>{const v=Math.max(0,parseInt(e.target.value)||0);setLocalM(v);}}
+          onBlur={()=>onChange(mField,localM)}
+          onFocus={e=>e.target.select()} />
+        <span style={sepStyle}>m</span>
+      </>)}
+
+      {mode === "hrs" && (<>
+        <input type="number" min={0} step="0.5" style={{...numStyle,width:100}} tabIndex={tabIndexBase}
+          defaultValue={totalMins > 0 ? +(totalMins/60).toFixed(2) : ""}
+          placeholder="0"
+          onBlur={e=>commitMins((parseFloat(e.target.value)||0)*60)}
+          onFocus={e=>{e.target.value=totalMins>0?+(totalMins/60).toFixed(2):"";e.target.select();}}
+          key={`hrs-${totalMins}`} />
+        <span style={sepStyle}>hrs</span>
+      </>)}
+
+      {mode === "mins" && (<>
+        <input type="number" min={0} style={{...numStyle,width:110}} tabIndex={tabIndexBase}
+          defaultValue={totalMins > 0 ? totalMins : ""}
+          placeholder="0"
+          onBlur={e=>commitMins(parseInt(e.target.value)||0)}
+          onFocus={e=>{e.target.value=totalMins>0?totalMins:"";e.target.select();}}
+          key={`mins-${totalMins}`} />
+        <span style={sepStyle}>mins</span>
+      </>)}
+
+      <span style={{fontSize:12,fontFamily:"Space Mono,monospace",marginLeft:"auto",flexShrink:0,
         color:totalMins>0?(color||"var(--c-blue)"):"var(--c-textDim)"}}>
         {fmtTotal}
       </span>
@@ -3952,6 +3986,7 @@ function SectionLabel({ children }) {
 
 function InventoryPage({ inv, setInv }) {
   const update = (field, val) => setInv(p => ({ ...p, [field]: val }));
+  const [speedMode, setSpeedMode] = useState("dhm"); // "dhm" | "hrs" | "mins"
 
   const Section = ({ title, sub, children }) => (
     <div className="card" style={{marginBottom:16}}>
@@ -4025,13 +4060,29 @@ function InventoryPage({ inv, setInv }) {
       <Section title="Other / Misc. Items" sub="Stamina & Speed-ups">
         <ResInput label="Stamina (cans)" icon="🥤" field="stamina" value={inv.stamina??0} onChange={update} color={COLORS.green} tabIndex={32} />
         <div style={{gridColumn:"1/-1",display:"flex",flexDirection:"column",gap:8,marginTop:4}}>
-          <div style={{fontSize:9,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase",color:"var(--c-textSec)",fontFamily:"Space Mono,monospace",marginBottom:2}}>Speed-ups (Days · Hours · Minutes)</div>
-          <SpeedupInput label="General"        icon="GN" dField="speedGenD"      hField="speedGenH"      mField="speedGenM"      dVal={inv.speedGenD}      hVal={inv.speedGenH}      mVal={inv.speedGenM}      onChange={update} color={COLORS.blue}   tabIndexBase={33} />
-          <SpeedupInput label="Troop Training" icon="TR" dField="speedTroopD"    hField="speedTroopH"    mField="speedTroopM"    dVal={inv.speedTroopD}    hVal={inv.speedTroopH}    mVal={inv.speedTroopM}    onChange={update} color={COLORS.green}  tabIndexBase={36} />
-          <SpeedupInput label="Construction"   icon="CN" dField="speedConstD"    hField="speedConstH"    mField="speedConstM"    dVal={inv.speedConstD}    hVal={inv.speedConstH}    mVal={inv.speedConstM}    onChange={update} color={COLORS.accent} tabIndexBase={39} />
-          <SpeedupInput label="Research"       icon="RS" dField="speedResearchD" hField="speedResearchH" mField="speedResearchM" dVal={inv.speedResearchD} hVal={inv.speedResearchH} mVal={inv.speedResearchM} onChange={update} color={COLORS.amber}  tabIndexBase={42} />
-          <SpeedupInput label="Learning"       icon="LN" dField="speedLearningD" hField="speedLearningH" mField="speedLearningM" dVal={inv.speedLearningD} hVal={inv.speedLearningH} mVal={inv.speedLearningM} onChange={update} color={COLORS.blue}   tabIndexBase={45} />
-          <SpeedupInput label="Healing"        icon="HL" dField="speedHealingD"  hField="speedHealingH"  mField="speedHealingM"  dVal={inv.speedHealingD}  hVal={inv.speedHealingH}  mVal={inv.speedHealingM}  onChange={update} color={COLORS.green}  tabIndexBase={48} />
+        <div style={{gridColumn:"1/-1",display:"flex",flexDirection:"column",gap:8,marginTop:4}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:2}}>
+            <div style={{fontSize:9,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase",color:"var(--c-textSec)",fontFamily:"Space Mono,monospace"}}>Speed-ups</div>
+            <div style={{display:"flex",gap:4}}>
+              {[["dhm","D/H/M"],["hrs","Hours"],["mins","Minutes"]].map(([m,lbl]) => (
+                <button key={m} onClick={()=>setSpeedMode(m)}
+                  style={{padding:"2px 8px",borderRadius:4,fontSize:10,fontWeight:700,
+                    cursor:"pointer",fontFamily:"Space Mono,monospace",
+                    background: speedMode===m ? "var(--c-accentBg)" : "transparent",
+                    color: speedMode===m ? "var(--c-accent)" : "var(--c-textDim)",
+                    border: `1px solid ${speedMode===m ? "var(--c-accentDim)" : "var(--c-border)"}` }}>
+                  {lbl}
+                </button>
+              ))}
+            </div>
+          </div>
+          <SpeedupInput label="General"        icon="GN" dField="speedGenD"      hField="speedGenH"      mField="speedGenM"      dVal={inv.speedGenD}      hVal={inv.speedGenH}      mVal={inv.speedGenM}      onChange={update} color={COLORS.blue}   tabIndexBase={33} mode={speedMode} />
+          <SpeedupInput label="Troop Training" icon="TR" dField="speedTroopD"    hField="speedTroopH"    mField="speedTroopM"    dVal={inv.speedTroopD}    hVal={inv.speedTroopH}    mVal={inv.speedTroopM}    onChange={update} color={COLORS.green}  tabIndexBase={36} mode={speedMode} />
+          <SpeedupInput label="Construction"   icon="CN" dField="speedConstD"    hField="speedConstH"    mField="speedConstM"    dVal={inv.speedConstD}    hVal={inv.speedConstH}    mVal={inv.speedConstM}    onChange={update} color={COLORS.accent} tabIndexBase={39} mode={speedMode} />
+          <SpeedupInput label="Research"       icon="RS" dField="speedResearchD" hField="speedResearchH" mField="speedResearchM" dVal={inv.speedResearchD} hVal={inv.speedResearchH} mVal={inv.speedResearchM} onChange={update} color={COLORS.amber}  tabIndexBase={42} mode={speedMode} />
+          <SpeedupInput label="Learning"       icon="LN" dField="speedLearningD" hField="speedLearningH" mField="speedLearningM" dVal={inv.speedLearningD} hVal={inv.speedLearningH} mVal={inv.speedLearningM} onChange={update} color={COLORS.blue}   tabIndexBase={45} mode={speedMode} />
+          <SpeedupInput label="Healing"        icon="HL" dField="speedHealingD"  hField="speedHealingH"  mField="speedHealingM"  dVal={inv.speedHealingD}  hVal={inv.speedHealingH}  mVal={inv.speedHealingM}  onChange={update} color={COLORS.green}  tabIndexBase={48} mode={speedMode} />
+        </div>
         </div>
       </Section>
 
