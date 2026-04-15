@@ -3987,6 +3987,11 @@ function SectionLabel({ children }) {
 function InventoryPage({ inv, setInv }) {
   const update = (field, val) => setInv(p => ({ ...p, [field]: val }));
   const [speedMode, setSpeedMode] = useState("dhm"); // "dhm" | "hrs" | "mins"
+  const toggleSpeedMode = (m) => {
+    const y = window.scrollY;
+    setSpeedMode(m);
+    requestAnimationFrame(() => window.scrollTo({ top: y, behavior: "instant" }));
+  };
 
   const Section = ({ title, sub, children }) => (
     <div className="card" style={{marginBottom:16}}>
@@ -4065,7 +4070,7 @@ function InventoryPage({ inv, setInv }) {
             <div style={{fontSize:9,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase",color:"var(--c-textSec)",fontFamily:"Space Mono,monospace"}}>Speed-ups</div>
             <div style={{display:"flex",gap:4}}>
               {[["dhm","D/H/M"],["hrs","Hours"],["mins","Minutes"]].map(([m,lbl]) => (
-                <button key={m} onClick={()=>setSpeedMode(m)}
+                <button key={m} type="button" onClick={e=>{e.preventDefault();e.stopPropagation();toggleSpeedMode(m);}}
                   style={{padding:"2px 8px",borderRadius:4,fontSize:10,fontWeight:700,
                     cursor:"pointer",fontFamily:"Space Mono,monospace",
                     background: speedMode===m ? "var(--c-accentBg)" : "transparent",
