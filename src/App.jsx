@@ -5936,8 +5936,73 @@ function ChiefCharmsPage({ inv }) {
 }
 
 // ─── Character Profile Page ───────────────────────────────────────────────────
+
+// Embassy Reinforcement Cap by level (F30 = index 0, FC1-FC10 = index 1-10)
+const EMBASSY_REINFORCE = {
+  "F30":840000, "FC1":865000, "FC2":890000, "FC3":915000, "FC4":940000,
+  "FC5":965000, "FC6":990000, "FC7":1015000, "FC8":1040000, "FC9":1065000, "FC10":1090000,
+};
+
+// Command Center Rally + Deployment Cap by level
+const COMMAND_CENTER_STATS = {
+  "F30": { rally:840000, deploy:67000  },
+  "FC1": { rally:865000, deploy:70500  },
+  "FC2": { rally:890000, deploy:74000  },
+  "FC3": { rally:915000, deploy:77500  },
+  "FC4": { rally:940000, deploy:81000  },
+  "FC5": { rally:965000, deploy:84500  },
+  "FC6": { rally:990000, deploy:88000  },
+  "FC7": { rally:1015000, deploy:91500 },
+  "FC8": { rally:1040000, deploy:95000 },
+  "FC9": { rally:1065000, deploy:98500 },
+  "FC10":{ rally:1090000, deploy:102000},
+};
+
+// Fixed power from non-FC buildings (all at max level, never changes)
+const NON_FC_BUILDING_POWER = 817958;
+
+// VIP badge colors per level group
+const VIP_BADGE_COLOR = (lv) => {
+  if (lv === 0)            return { bg:"#4a4a4a", text:"#aaa",    border:"#666" };
+  if (lv <= 3)             return { bg:"#1a3a1a", text:"#4caf50", border:"#388e3c" };
+  if (lv <= 6)             return { bg:"#1a2a4a", text:"#64b5f6", border:"#1976d2" };
+  if (lv <= 9)             return { bg:"#3a1a3a", text:"#ce93d8", border:"#9c27b0" };
+  return                          { bg:"#3a2a0a", text:"#ffb74d", border:"#f57c00" };
+};
+
+// Read building current level string from cp-buildings, normalized to lookup key
+function getBuildingLevel(buildingName) {
+  try {
+    const raw = localStorage.getItem("cp-buildings");
+    if (!raw) return null;
+    const buildings = JSON.parse(raw);
+    const b = buildings.find(b => b.name === buildingName);
+    if (!b?.current) return null;
+    // Normalize: "FC8" stays "FC8", "FC8.1" → "FC8", "30.1" / "30.x" → "F30"
+    const cur = b.current;
+    if (/^\d+\.\d+$/.test(cur)) return "F30"; // e.g. "30.1"
+    const fcMatch = cur.match(/^FC(\d+)(?:\.\d+)?$/);
+    if (fcMatch) return `FC${fcMatch[1]}`;
+    return null;
+  } catch { return null; }
+}
+
 function CharacterProfilePage({ hgHeroes, inv }) {
   const C = COLORS;
+
+  // VIP level
+  const [vipLevel, setVipLevel] = useLocalStorage("cp-vip-level", 0);
+
+  // Embassy & Command Center stats — read from cp-buildings
+  const { reinforceCap, rallyCapacity, commandDeploy } = React.useMemo(() => {
+    const embLvl = getBuildingLevel("Embassy");
+    const cmdLvl = getBuildingLevel("Command Center");
+    return {
+      reinforceCap:  EMBASSY_REINFORCE[embLvl]           ?? null,
+      rallyCapacity: COMMAND_CENTER_STATS[cmdLvl]?.rally  ?? null,
+      commandDeploy: COMMAND_CENTER_STATS[cmdLvl]?.deploy ?? null,
+    };
+  }, []);
 
   // ── Read all power sources from localStorage ────────────────────────────────
 
@@ -6159,8 +6224,8 @@ function CharacterProfilePage({ hgHeroes, inv }) {
     } catch { return 0; }
   }, []);
 
-  // Grand total power
-  const totalPower = techPower + chiefGearPower + chiefCharmsPower + heroPower + heroGearPower + troopsPower;
+  // Grand total power — includes fixed non-FC building power
+  const totalPower = techPower + chiefGearPower + chiefCharmsPower + heroPower + heroGearPower + troopsPower + NON_FC_BUILDING_POWER;
 
   // ── Styles ─────────────────────────────────────────────────────────────────
   const sectionHead = (label, sub) => (
@@ -6225,36 +6290,73 @@ function CharacterProfilePage({ hgHeroes, inv }) {
   );
 
   // Total power header card
-  const TotalCard = () => (
+  const TotalCard = () => {
+    const badge = VIP_BADGE_COLOR(vipLevel);
+    return (
     <div style={{ background:C.accentBg, border:`1px solid ${C.accentDim}`,
-      borderRadius:10, padding:"20px 24px", marginBottom:20,
-      display:"flex", alignItems:"center", justifyContent:"space-between", flexWrap:"wrap", gap:12 }}>
-      <div>
-        <div style={{ fontSize:11, fontWeight:700, letterSpacing:"2px", textTransform:"uppercase",
-          color:C.accent, fontFamily:"'Space Mono',monospace", marginBottom:4 }}>Total Power</div>
-        <div style={{ fontSize:32, fontWeight:800, color:C.textPri, fontFamily:"Syne,sans-serif",
-          letterSpacing:"-0.5px" }}>{fmt(totalPower)}</div>
-        <div style={{ fontSize:11, color:C.textDim, marginTop:4 }}>
-          Sum of all tracked power sources
+      borderRadius:10, padding:"20px 24px", marginBottom:20 }}>
+      <div style={{ display:"flex", alignItems:"flex-start",
+        justifyContent:"space-between", flexWrap:"wrap", gap:12 }}>
+        <div>
+          <div style={{ fontSize:11, fontWeight:700, letterSpacing:"2px", textTransform:"uppercase",
+            color:C.accent, fontFamily:"'Space Mono',monospace", marginBottom:4 }}>Total Power</div>
+          <div style={{ fontSize:32, fontWeight:800, color:C.textPri, fontFamily:"Syne,sans-serif",
+            letterSpacing:"-0.5px" }}>{fmt(totalPower)}</div>
+          <div style={{ fontSize:11, color:C.textDim, marginTop:4 }}>
+            Sum of all tracked power sources
+          </div>
+        </div>
+
+        {/* VIP Badge */}
+        <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:6 }}>
+          <div style={{
+            width:72, height:72, borderRadius:10,
+            background:badge.bg, border:`2px solid ${badge.border}`,
+            display:"flex", flexDirection:"column",
+            alignItems:"center", justifyContent:"center",
+            boxShadow:`0 0 12px ${badge.border}40`,
+            cursor:"default", userSelect:"none",
+          }}>
+            <div style={{ fontSize:9, fontWeight:700, color:badge.text,
+              fontFamily:"'Space Mono',monospace", letterSpacing:"2px",
+              textTransform:"uppercase", marginBottom:2 }}>VIP</div>
+            <div style={{ fontSize:28, fontWeight:900, color:badge.text,
+              fontFamily:"Syne,sans-serif", lineHeight:1 }}>
+              {vipLevel}
+            </div>
+          </div>
+          <select value={vipLevel}
+            onChange={e => setVipLevel(Number(e.target.value))}
+            style={{ background:C.surface, border:`1px solid ${C.border}`,
+              borderRadius:5, color:C.textSec, fontSize:11, padding:"3px 6px",
+              outline:"none", cursor:"pointer", fontFamily:"'Space Mono',monospace",
+              width:72 }}>
+            {Array.from({length:13},(_,i)=>i).map(lv => (
+              <option key={lv} value={lv}>VIP {lv}</option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"4px 24px", fontSize:11,
+          fontFamily:"'Space Mono',monospace" }}>
+          {[
+            ["Tech",         techPower],
+            ["Chief Gear",   chiefGearPower],
+            ["Chief Charms", chiefCharmsPower],
+            ["Hero",         heroPower + heroGearPower],
+            ["Troops",       troopsPower],
+            ["Buildings",    NON_FC_BUILDING_POWER],
+          ].map(([lbl, val]) => (
+            <div key={lbl} style={{ display:"flex", justifyContent:"space-between", gap:16 }}>
+              <span style={{ color:C.textDim }}>{lbl}</span>
+              <span style={{ color:C.textSec }}>{fmt(val)}</span>
+            </div>
+          ))}
         </div>
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"4px 24px", fontSize:11,
-        fontFamily:"'Space Mono',monospace" }}>
-        {[
-          ["Tech",         techPower],
-          ["Chief Gear",   chiefGearPower],
-          ["Chief Charms", chiefCharmsPower],
-          ["Hero",         heroPower + heroGearPower],
-          ["Troops",       troopsPower],
-        ].map(([lbl, val]) => (
-          <div key={lbl} style={{ display:"flex", justifyContent:"space-between", gap:16 }}>
-            <span style={{ color:C.textDim }}>{lbl}</span>
-            <span style={{ color:C.textSec }}>{fmt(val)}</span>
-          </div>
-        ))}
-      </div>
     </div>
-  );
+    );
+  };
 
   return (
     <div className="fade-in" style={{ maxWidth:680, padding:"0 0 40px" }}>
@@ -6289,6 +6391,10 @@ function CharacterProfilePage({ hgHeroes, inv }) {
         <Row label="Troops Power"
           value={fmt(troopsPower)}
           source="Calculated from Troops tab · count × power per troop at Training Camp FC level" />
+
+        <Row label="Buildings Power"
+          value={fmt(NON_FC_BUILDING_POWER)}
+          source="Fixed power from max-level non-FC buildings (Hunter's Hut, Sawmill, Coal Mine, Iron Mine, Cookhouse, Clinic, Shelter ×8, Research Center, Storehouse)" />
       </SectionCard>
 
       {/* ── Military ────────────────────────────────────────────────────── */}
@@ -6300,7 +6406,22 @@ function CharacterProfilePage({ hgHeroes, inv }) {
 
         <Row label="Deployment Capacity"
           value={deployCapacity > 0 ? `+${fmt(deployCapacity)}` : "—"}
-          source="War Academy (Flame Squad + Helios Training) · Chief Gear deploy buff · more coming soon" />
+          source="War Academy (Flame Squad + Helios Training) · Chief Gear deploy buff" />
+
+        <Row label="Rally Capacity"
+          value={rallyCapacity != null ? fmt(rallyCapacity) : "—"}
+          source="Command Center · set building level in Construction tab"
+          dim={rallyCapacity == null} />
+
+        <Row label="Deployment Cap (Command)"
+          value={commandDeploy != null ? fmt(commandDeploy) : "—"}
+          source="Command Center · set building level in Construction tab"
+          dim={commandDeploy == null} />
+
+        <Row label="Reinforcement Cap"
+          value={reinforceCap != null ? fmt(reinforceCap) : "—"}
+          source="Embassy · set building level in Construction tab"
+          dim={reinforceCap == null} />
 
         <Row label="Training Speed" value="—"
           source="Research Center (coming soon)" dim />

@@ -1388,21 +1388,50 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
             </div>
           </div>
 
-          {/* RFC tier info */}
+          {/* Non-FC Buildings — fixed max-level power */}
           <div>
-            <div className="sec-head">Refine tier status</div>
+            <div className="sec-head">Non-FC buildings — fixed power</div>
             <div className="accum-card">
-              <div style={{marginTop:0}}>
-                <div style={{fontSize:10,color:C.textDim,marginBottom:8,fontFamily:"Space Mono,monospace",letterSpacing:1}}>REFINE TIER TABLE</div>
-                {RFC_TIERS.map(t => (
-                  <div key={t.tier} style={{display:"flex",alignItems:"center",gap:10,padding:"5px 0",borderBottom:`1px solid ${C.border}`,fontSize:12}}>
-                    <span style={{width:24,fontFamily:"Space Mono,monospace",fontWeight:700,color:C.textDim}}>{t.tier}</span>
-                    <span style={{color:C.textDim,fontSize:10,fontFamily:"Space Mono,monospace",width:60}}>#{t.min}–{t.max}</span>
-                    <span style={{color:C.accent,fontFamily:"Space Mono,monospace"}}>{t.fcPer} FC</span>
-                    <span style={{color:C.textDim,fontSize:10}}>→</span>
-                    <span style={{color:C.amber,fontFamily:"Space Mono,monospace"}}>{t.rfcPer} RFC</span>
+              <div style={{fontSize:10,color:C.textDim,marginBottom:10,
+                fontFamily:"Space Mono,monospace",letterSpacing:1}}>
+                BUILDINGS CAPPED AT FC 30 — ALWAYS AT MAX LEVEL
+              </div>
+              {[
+                { name:"Hunter's Hut",      level:30, count:1, power:30470  },
+                { name:"Sawmill",           level:30, count:1, power:30470  },
+                { name:"Coal Mine",         level:30, count:1, power:30470  },
+                { name:"Iron Mine",         level:30, count:1, power:30470  },
+                { name:"Cookhouse",         level:10, count:1, power:3785   },
+                { name:"Clinic",            level:10, count:1, power:3785   },
+                { name:"Shelter",           level:10, count:8, power:18168  },
+                { name:"Research Center",   level:30, count:1, power:335170 },
+                { name:"Storehouse",        level:30, count:1, power:335170 },
+              ].map(b => (
+                <div key={b.name} style={{display:"flex",alignItems:"center",
+                  justifyContent:"space-between",padding:"6px 0",
+                  borderBottom:`1px solid ${C.border}`,fontSize:12}}>
+                  <div>
+                    <span style={{color:C.textPri,fontWeight:600}}>{b.name}</span>
+                    <span style={{color:C.textDim,fontSize:10,marginLeft:8,
+                      fontFamily:"Space Mono,monospace"}}>
+                      Lv.{b.level}{b.count > 1 ? ` ×${b.count}` : ""}
+                    </span>
                   </div>
-                ))}
+                  <span style={{color:C.accent,fontFamily:"Space Mono,monospace",
+                    fontWeight:700}}>{b.power.toLocaleString()}</span>
+                </div>
+              ))}
+              <div style={{display:"flex",justifyContent:"space-between",
+                alignItems:"center",marginTop:10,paddingTop:8,
+                borderTop:`1px solid ${C.borderHi}`}}>
+                <span style={{fontSize:11,fontWeight:700,color:C.textPri,
+                  fontFamily:"Space Mono,monospace",letterSpacing:1}}>
+                  TOTAL
+                </span>
+                <span style={{fontSize:14,fontWeight:800,color:C.accent,
+                  fontFamily:"Space Mono,monospace"}}>
+                  817,958
+                </span>
               </div>
             </div>
           </div>
