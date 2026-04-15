@@ -1765,16 +1765,14 @@ function AdminPage() {
 
   const openEdit = async (sub) => {
     setEditMsg("");
-    // Fetch current hero_stats_data row
     const row = await getHeroStatsFromDB(sub.hero_name, sub.level, sub.stars, sub.widget);
     if (!row) { setEditMsg("No hero_stats_data row found — try Re-process first."); return; }
     setEditRow(row);
-    // Pre-fill with stored values; convert decimals to % display for pct fields
-    const pctFields = new Set(["infAtk","infDef","infLeth","infHp","wgtTroopLeth","wgtTroopHp"]);
+    // Show raw stored values exactly as they are in the DB — no conversion
     const vals = {};
     statKeys.forEach(k => {
-      const v = row.stats?.[k] ?? "";
-      vals[k] = v === "" ? "" : pctFields.has(k) ? String(Math.round(Number(v) * 100 * 10000) / 10000) : String(v);
+      const v = row.stats?.[k];
+      vals[k] = v != null ? String(v) : "";
     });
     setEditVals(vals);
     setEditingSub(sub);
@@ -1783,13 +1781,11 @@ function AdminPage() {
   const saveEdit = async () => {
     if (!editRow) return;
     setEditBusy(true);
-    const pctFields = new Set(["infAtk","infDef","infLeth","infHp","wgtTroopLeth","wgtTroopHp"]);
     const newStats = { ...(editRow.stats || {}) };
     statKeys.forEach(k => {
       const v = editVals[k];
       if (v === "" || v == null) return;
-      const num = parseFloat(v);
-      newStats[k] = pctFields.has(k) ? num / 100 : num;
+      newStats[k] = parseFloat(v);
     });
     const { error } = await supabase.from("hero_stats_data")
       .update({ stats: newStats })
@@ -1900,8 +1896,7 @@ function AdminPage() {
             <div style={{padding:"18px 24px"}}>
               <div style={{fontSize:11,color:C.amber,marginBottom:14,lineHeight:1.5,
                 padding:"8px 12px",background:C.amberBg,borderRadius:6,border:`1px solid ${C.amber}40`}}>
-                ⚠ % fields (Troop Atk/Def/Leth/HP): enter as percentage e.g. <strong>26.70</strong> — will be stored as 0.2670.
-                All other fields: enter raw values.
+                ⚠ Values are stored as-is. % fields (Troop Atk/Def/Leth/HP) must be entered as <strong>decimals</strong> — e.g. enter <strong>0.2670</strong> for 26.70%. Power and stat fields are raw numbers.
               </div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
                 {statKeys.map(k => {
