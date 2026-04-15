@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { buildCycles, getCurrentCycleNum, getCycleStartDate, fmtDate as fmtDateCal, cycleLabelFull, addDaysToDate, toIso, FIRST_SVS_MONDAY } from "./svsCalendar.js";
+import { supabase } from "./supabase.js";
 
 // ─── Exact building data from Misc. Data Tables AO3:BE399 ────────────────────
 // Columns: AO=Building, AP=Level, AT=FC, AU=RFC, AV=Meat, AW=Wood, AX=Coal, AY=Iron, BD=TtlMins
@@ -622,13 +623,67 @@ const DEFAULT_BUILDINGS = [
   { name:"War Academy", current:"FC1", currentSub:0, goal:"FC1", goalSub:0 },
 ];
 
-// Load from localStorage or use defaults
+// ─── Sync helpers ─────────────────────────────────────────────────────────────
+const CP_KEYS = ["cp-buildings","cp-buffs","cp-speedbuff","cp-cycle","cp-dailyfc","cp-agnes"];
+const _cpTimers = {};
+
+async function cpSyncToCloud(userId, key, val) {
+  try {
+    await supabase.from("user_data").upsert(
+      { user_id: userId, key, value: JSON.stringify(val),
+        updated_at: new Date().toISOString() },
+      { onConflict: "user_id,key" }
+    );
+  } catch {}
+}
+
+// Get the logged-in user ID from the Supabase auth token in localStorage
+function getCPUserId() {
+  try {
+    const tokenKey = Object.keys(localStorage).find(
+      k => k.startsWith("sb-") && k.endsWith("-auth-token")
+    );
+    if (!tokenKey) return null;
+    return JSON.parse(localStorage.getItem(tokenKey))?.user?.id || null;
+  } catch { return null; }
+}
+
+function saveState(key, val) {
+  try {
+    localStorage.setItem(key, JSON.stringify(val));
+    localStorage.setItem(`${key}__ts`, new Date().toISOString());
+  } catch {}
+  // Debounced cloud write
+  const userId = getCPUserId();
+  if (!userId) return;
+  clearTimeout(_cpTimers[key]);
+  _cpTimers[key] = setTimeout(() => cpSyncToCloud(userId, key, val), 800);
+}
+
 function loadState(key, fallback) {
   try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : fallback; }
   catch { return fallback; }
 }
-function saveState(key, val) {
-  try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
+
+async function syncCPFromCloud(userId, setters) {
+  try {
+    const { data } = await supabase.from("user_data")
+      .select("key, value, updated_at")
+      .eq("user_id", userId)
+      .in("key", CP_KEYS);
+    if (!data?.length) return;
+    data.forEach(row => {
+      try {
+        const remote = JSON.parse(row.value);
+        const localTs = localStorage.getItem(`${row.key}__ts`) || "0";
+        if (row.updated_at > localTs) {
+          localStorage.setItem(row.key, JSON.stringify(remote));
+          localStorage.setItem(`${row.key}__ts`, row.updated_at);
+          setters[row.key]?.(remote);
+        }
+      } catch {}
+    });
+  } catch {}
 }
 
 export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSnapshot, onUpdatePlan }) {
@@ -742,6 +797,28 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
     const next = { ...buffs, [k]: !buffs[k] };
     setBuffs(next); saveState("cp-buffs", next);
   }
+
+  // ── On mount: pull latest cp-* keys from Supabase ───────────────────────────
+  useEffect(() => {
+    const setters = {
+      "cp-buildings":  setBuildings,
+      "cp-buffs":      setBuffs,
+      "cp-speedbuff":  setSpeedBuff,
+      "cp-cycle":      setSelectedCycle,
+      "cp-dailyfc":    setDailyFCIncome,
+      "cp-agnes":      setAgnesLevel,
+    };
+    const userId = getCPUserId();
+    if (userId) {
+      syncCPFromCloud(userId, setters);
+    } else {
+      // Wait for App.jsx to fire wos-user-ready after auth resolves
+      const handler = (e) => syncCPFromCloud(e.detail.id, setters);
+      window.addEventListener("wos-user-ready", handler, { once: true });
+      return () => window.removeEventListener("wos-user-ready", handler);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // buffTotal = speedBuff% + remaining toggles
   const buffTotal = useMemo(() => {

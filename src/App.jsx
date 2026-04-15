@@ -205,6 +205,35 @@ let _isGuest = (() => {
 })();
 function setGuestFlag(isGuest) { _isGuest = isGuest; }
 
+// Module-level user ID — set when auth resolves, used by useSyncedStorage
+let _syncUserId = null;
+function setSyncUserId(id) {
+  _syncUserId = id;
+  // Broadcast to all mounted useLocalStorage hooks so they re-fetch from Supabase
+  if (id) window.dispatchEvent(new CustomEvent("wos-user-ready", { detail: { id } }));
+}
+
+// Keys that should NOT sync to cloud (UI preferences, guest-only state)
+const NO_SYNC_KEYS = new Set([
+  "wos-page", "wos-theme", "heroes-sort", "hg-gen-filter",
+]);
+
+// Pending write queue — batches rapid updates into a single Supabase write
+const _writeTimers = {};
+function scheduleSync(key, value) {
+  if (!_syncUserId || _isGuest || NO_SYNC_KEYS.has(key)) return;
+  clearTimeout(_writeTimers[key]);
+  _writeTimers[key] = setTimeout(async () => {
+    try {
+      await supabase.from("user_data").upsert(
+        { user_id: _syncUserId, key, value: JSON.stringify(value),
+          updated_at: new Date().toISOString() },
+        { onConflict: "user_id,key" }
+      );
+    } catch {}
+  }, 800);
+}
+
 function useLocalStorage(key, initial) {
   const [val, setVal] = useState(() => {
     try {
@@ -213,16 +242,59 @@ function useLocalStorage(key, initial) {
       return s ? JSON.parse(s) : initial;
     } catch { return initial; }
   });
+
+  // Fetch latest value from Supabase for this key
+  const fetchFromCloud = useCallback((userId) => {
+    if (!userId || _isGuest || NO_SYNC_KEYS.has(key)) return;
+    supabase.from("user_data")
+      .select("value, updated_at")
+      .eq("user_id", userId)
+      .eq("key", key)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!data?.value) return;
+        try {
+          const remote = JSON.parse(data.value);
+          const localTs = localStorage.getItem(`${key}__ts`) || "0";
+          if (data.updated_at > localTs) {
+            setVal(remote);
+            try {
+              localStorage.setItem(key, JSON.stringify(remote));
+              localStorage.setItem(`${key}__ts`, data.updated_at);
+            } catch {}
+          }
+        } catch {}
+      });
+  }, [key]);
+
+  // On mount: try immediately (if auth already resolved), or wait for wos-user-ready
+  useEffect(() => {
+    if (NO_SYNC_KEYS.has(key)) return;
+    if (_syncUserId) {
+      fetchFromCloud(_syncUserId);
+    } else {
+      const handler = (e) => fetchFromCloud(e.detail.id);
+      window.addEventListener("wos-user-ready", handler, { once: true });
+      return () => window.removeEventListener("wos-user-ready", handler);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
   const set = useCallback(v => {
     setVal(prev => {
       const next = typeof v === "function" ? v(prev) : v;
       try {
         const store = _isGuest ? sessionStorage : localStorage;
         store.setItem(key, JSON.stringify(next));
+        if (!_isGuest) {
+          localStorage.setItem(`${key}__ts`, new Date().toISOString());
+        }
       } catch {}
+      scheduleSync(key, next);
       return next;
     });
   }, [key]);
+
   return [val, set];
 }
 
@@ -6925,7 +6997,10 @@ export default function App() {
   useEffect(() => { if (!user) { invRef.current = INITIAL_INVENTORY; } }, [user]);
 
   // Update guest flag whenever auth state changes
-  useEffect(() => { setGuestFlag(!user); }, [user]);
+  useEffect(() => {
+    setGuestFlag(!user);
+    setSyncUserId(user?.id || null);
+  }, [user]);
 
   // ── Debounced cloud save on inv change ────────────────────────────────────────
   const setInv = useCallback((valOrFn) => {
