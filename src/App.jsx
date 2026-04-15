@@ -408,7 +408,7 @@ const HERO_ROSTER = [
   { name:"Jessie",     type:"Lancer",   gen:"Base",  quality:"SR"  },
   { name:"Ling Xue",   type:"Lancer",   gen:"Base",  quality:"SR"  },
   { name:"Patrick",    type:"Lancer",   gen:"Base",  quality:"SR"  },
-  { name:"Walis Bokan",type:"Lancer",   gen:"Base",  quality:"SR"  },
+  { name:"Lumak Bokan",type:"Lancer",   gen:"Base",  quality:"SR"  },
   { name:"Bahiti",     type:"Marksman", gen:"Base",  quality:"SR"  },
   { name:"Gina",       type:"Marksman", gen:"Base",  quality:"SR"  },
   { name:"Jasser",     type:"Marksman", gen:"Base",  quality:"SR"  },
@@ -446,7 +446,7 @@ const HERO_BASE_STATS = {
   "Jessie":     {stars:5,   level:80, widget:0,  levelPower:149280,  starPower:553440,  skillPower:67680,  gearStrength:null,   heroAtk:1776,  heroDef:2220,  heroHp:17760,  escorts:10, troopCap:13470, escortHp:5920,  escortDef:740,  escortAtk:592,  infAtk:1.4011, infDef:1.4011, infLeth:0,     infHp:0},
   "Ling Xue":   {stars:4,   level:80, widget:0,  levelPower:149280,  starPower:440640,  skillPower:67680,  gearStrength:null,   heroAtk:1310,  heroDef:1638,  heroHp:12104,  escorts:10, troopCap:13470, escortHp:4368,  escortDef:546,  escortAtk:436,  infAtk:0.9713, infDef:0.9713, infLeth:0,     infHp:0},
   "Patrick":    {stars:5,   level:80, widget:0,  levelPower:149280,  starPower:553440,  skillPower:67680,  gearStrength:null,   heroAtk:1776,  heroDef:2220,  heroHp:17760,  escorts:10, troopCap:13470, escortHp:5920,  escortDef:740,  escortAtk:592,  infAtk:1.4011, infDef:1.4011, infLeth:0,     infHp:0},
-  "Walis Bokan":{stars:4.2, level:80, widget:0,  levelPower:149280,  starPower:488320,  skillPower:67680,  gearStrength:null,   heroAtk:1449,  heroDef:1812,  heroHp:14496,  escorts:10, troopCap:13470, escortHp:4832,  escortDef:604,  escortAtk:483,  infAtk:1.0977, infDef:1.0977, infLeth:0,     infHp:0},
+  "Lumak Bokan":{stars:4.2, level:80, widget:0,  levelPower:149280,  starPower:488320,  skillPower:67680,  gearStrength:null,   heroAtk:1449,  heroDef:1812,  heroHp:14496,  escorts:10, troopCap:13470, escortHp:4832,  escortDef:604,  escortAtk:483,  infAtk:1.0977, infDef:1.0977, infLeth:0,     infHp:0},
   "Charlie":    {stars:5,   level:80, widget:0,  levelPower:121290,  starPower:449670,  skillPower:40608,  gearStrength:null,   heroAtk:1106,  heroDef:2220,  heroHp:21644,  escorts:10, troopCap:13470, escortHp:7215,  escortDef:740,  escortAtk:368,  infAtk:0.9007, infDef:0.9007, infLeth:0,     infHp:0},
   "Zinman":     {stars:4,   level:80, widget:1,  levelPower:186600,  starPower:537600,  skillPower:101520, gearStrength:56700,  heroAtk:2061,  heroDef:1698,  heroHp:12735,  escorts:10, troopCap:13470, escortHp:4245,  escortDef:566,  escortAtk:686,  infAtk:1.3877, infDef:1.3877, infLeth:0.05,  infHp:0.05},
   "Alonso":     {stars:4.2, level:80, widget:4,  levelPower:223920,  starPower:691200,  skillPower:101520, gearStrength:135000, heroAtk:2911,  heroDef:2035,  heroHp:17982,  escorts:10, troopCap:13470, escortHp:5994,  escortDef:678,  escortAtk:969,  infAtk:1.8818, infDef:1.8818, infLeth:0.24,  infHp:0.24},
@@ -614,7 +614,7 @@ const HERO_SKILLS = {
 "Patrick":{"expS1":{"name":"BBQ Feast","desc":"Patrick prepares a lavish feast, restoring Health by Attack * [200% / 220% / 240% / 260% / 280%] to all troops and increasing Attack by [5% / 5.5% / 6% / 6.5% / 7%] for all troops for 4s."},"expS2":{"name":"Thick Belly","desc":"Patrick's protective blubber reduces damage taken by [10% / 15% / 20% / 25% / 30%]."},"expS3":{"name":"Emergency Snack","desc":"Patrick's regular snacking restores Health equal to Attack * [50% / 55% / 60% / 65% / 70%] every 5s."},"expdS1":{"name":"Super Nutrients","desc":"Patrick's culinary masterpieces invigorate our troops, increasing Health by [5% / 10% / 15% / 20% / 25%] for all troops."},"expdS2":{"name":"","desc":""},"expdS3":{"name":"Caloric Booster","desc":"Patrick's gourmet meals motivate and unleash the potential of our soldiers, increasing Attack * [5% / 10% / 15% / 20% / 25%] for all troops."}},
 "Seo-yoon":{"expS1":{"name":"Heartbeat of Valor","desc":"Seo-Yoon lifts the army's spirits with invigorating drum beats, increasing all hero and troops' Attack by [1.5% / 2% / 2.5% / 3% / 3.5%] and Attack Speed by [2.5% / 3% / 3.5% / 4% / 4.5%] for 4s."},"expS2":{"name":"Bullseye Bash","desc":"Seo-Yoon aims for the enemy's weak spot and hurls the drumstick with full force, dealing Attack * [150% / 165% / 180% / 195% / 210%] damage."},"expS3":{"name":"Gale's Pulse","desc":"Seo-Yoon dances to the rhythm, sharpening her assault. For every 3 basic attacks, increases Attack Speed by [1% / 2% / 3% / 4% / 5%]. Lasts until the end of the battle."},"expdS1":{"name":"Rallying Beat","desc":"As the march nears, Seo-Yoon drums to bolster everyone's morale, increasing Attack by [5% / 10% / 15% / 20% / 25%] for all troops."},"expdS2":{"name":"","desc":""},"expdS3":{"name":"Soothing Dance","desc":"Seo-Yoon treats wounded troops with traditional medicine, increasing Healing Speed in the Infirmary by [10% / 20% / 30% / 40% / 50%]."}},
 "Sergey":{"expS1":{"name":"Shielded Strike","desc":"Sergey gives an enemy a solid whack with his heavy shield, knocking the target back while dealing Attack * [200% / 220% / 240% / 260% / 280%] Area of Effect damage."},"expS2":{"name":"Joint Defense","desc":"Sergey can organize strong perimeters, increasing all friendly hero Defense by [5% / 7.5% / 10% / 12.5% / 15%]."},"expS3":{"name":"Shield Block","desc":"Sergey trades his shield for an upgraded model, reducing damage taken by [10% / 15% / 20% / 25% / 30%]."},"expdS1":{"name":"Defenders' Edge","desc":"Sergey guards our troops with his shield, reducing damage taken by [4% / 8% / 12% / 16% / 20%] for all troops."},"expdS2":{"name":"","desc":""},"expdS3":{"name":"Weaken","desc":"Sergey's intimidating presence reduces Attack by [4% / 8% / 12% / 16% / 20%] for all enemy troops."}},
-"Walis Bokan":{"expS1":{"name":"Earthshake","desc":"Walis Bokan lets out an intimidating war cry, reducing Attack by [1% / 2% / 3% / 4% / 5%] for all enemy troops for 2s."},"expS2":{"name":"Echoing Boost","desc":"Beyond intimidating enemies, Walis Bokan's war cry invigorates allies. Upon casting Earthshake, increases his and nearby friendly troops' Attack by [15% / 20% / 25% / 30% / 35%] for 2s."},"expS3":{"name":"Jungle-Born Agility","desc":"Years of fighting in the jungles and mountains grant Walis Bokan swift agility, increasing his Attack Speed by [10% / 15% / 20% / 25% / 30%]."},"expdS1":{"name":"Tactical Deception","desc":"With Walis Bokan's expert guerrilla tactics, all enemy troops' damage dealt is reduced by [4% / 8% / 12% / 16% / 20%]."},"expdS2":{"name":"","desc":""},"expdS3":{"name":"Huntsman's Gift","desc":"Walis Bokan passes on the islander's hunting techniques to the soldiers, increasing Hunting (Wilderness) March Speed by [20% / 40% / 60% / 80% / 100%]."}},
+"Lumak Bokan":{"expS1":{"name":"Earthshake","desc":"Lumak Bokan lets out an intimidating war cry, reducing Attack by [1% / 2% / 3% / 4% / 5%] for all enemy troops for 2s."},"expS2":{"name":"Echoing Boost","desc":"Beyond intimidating enemies, Lumak Bokan's war cry invigorates allies. Upon casting Earthshake, increases his and nearby friendly troops' Attack by [15% / 20% / 25% / 30% / 35%] for 2s."},"expS3":{"name":"Jungle-Born Agility","desc":"Years of fighting in the jungles and mountains grant Lumak Bokan swift agility, increasing his Attack Speed by [10% / 15% / 20% / 25% / 30%]."},"expdS1":{"name":"Tactical Deception","desc":"With Lumak Bokan's expert guerrilla tactics, all enemy troops' damage dealt is reduced by [4% / 8% / 12% / 16% / 20%]."},"expdS2":{"name":"","desc":""},"expdS3":{"name":"Huntsman's Gift","desc":"Lumak Bokan passes on the islander's hunting techniques to the soldiers, increasing Hunting (Wilderness) March Speed by [20% / 40% / 60% / 80% / 100%]."}},
 "Molly":{"expS1":{"name":"Super Snowball","desc":"Molly launches a Super Snowball which plops down to deal Attack * [180% / 198% / 216% / 234% / 252%] Area of Effect Damage and freezes them for 1.5s."},"expS2":{"name":"Frost Ambush","desc":"Molly ambushes the enemy with her great camouflage skills, dealing Attack * [150% / 165% / 180% / 195% / 210%] damage."},"expS3":{"name":"Youthful Persistence","desc":"Molly loves a challenge, gaining + [20% / 30% / 40% / 50% / 60%] Attack Speed under 50% Health."},"expdS1":{"name":"Calling of the Snow","desc":"Molly leads a charge as overwhelming as an avalanche, granting all troops' attack a [4% / 8% / 12% / 16% / 20%] chance of stunning the target for 1 turn."},"expdS2":{"name":"Ice Dominion","desc":"Molly excels in snowy terrains, granting all troops' attack a 50% chance of increasing damage dealt by [10% / 20% / 30% / 40% / 50%]."},"expdS3":{"name":"Youthful Rage","desc":"Hell hath no fury like an angry Molly, increasing damage dealt by [5% / 10% / 15% / 20% / 25%] for all troops."}},
 "Zinman":{"expS1":{"name":"Nail Scatter","desc":"Zinman covers the target in a stream of nails, each dealing Attack * [55% / 60% / 65% / 70% / 75%] damage and a 2-second stun."},"expS2":{"name":"Quick Defense","desc":"Zinman works well under pressure, fortifying his position under 50% Health with a + [50% / 75% / 100% / 125% / 150%] boost to his Defense."},"expS3":{"name":"Robust","desc":"Zinman's energetic poise provides a + [10% / 15% / 20% / 25% / 30%] Attack Speed boost."},"expdS1":{"name":"Construction Emergency","desc":"Zinman's logistics expertise has accelerated City construction upgrades by [3% / 6% / 9% / 12% / 15%]."},"expdS2":{"name":"Resourceful","desc":"Zinman's talent for maximising efficiency has lowered City Building Upgrade costs by [3% / 6% / 9% / 12% / 15%]."},"expdS3":{"name":"Positional Battler","desc":"Zinman masterfully manipulates the battlefield, increasing damage dealt by [5% / 10% / 15% / 20% / 25%] for all troops."}},
 "Natalia":{"expS1":{"name":"Beast Charge","desc":"Natalia's bear violently smashes the ground, knocking back enemies in range and stunning them for 1s, while dealing Attack * [160% / 176% / 192% / 208% / 224%] Area of Effect Damage."},"expS2":{"name":"Whip","desc":"Natalia wields her whip against a target for Attack * [150% / 165% / 180% / 195% / 210%] damage."},"expS3":{"name":"Rage Response","desc":"Only fools would dare anger Natalia or her furry companion. Natalia has a 10% chance of gaining a + [4% / 6% / 8% / 10% / 12%] Attack boost for 3s upon taking damage (max 5 stacks)."},"expdS1":{"name":"Wildling Roar","desc":"Natalia's bear roars and instills terror into the hearts of enemies, granting all troops' attack a [4% / 8% / 12% / 16% / 20%] chance of stunning the target for 1 turn."},"expdS2":{"name":"Queen of the Wild","desc":"Natalia is a natural leader, increasing Attack by [5% / 10% / 15% / 20% / 25%] for all troops."},"expdS3":{"name":"Call of the Wild","desc":"Natalia's unexplained connection with nature allows her to rally wild beasts, increasing damage dealt by [5% / 10% / 15% / 20% / 25%] for all troops."}},
@@ -657,7 +657,8 @@ function defaultHeroState(type) {
     hero: firstHero?.name ?? "",
     slots: GEAR_SLOTS.map(slot => ({
       slot,
-      status:       "Legendary", // Gear Status (slots 1-4 only)
+      status:       "Mythic",  // Gear Status (slots 1-4 only)
+      goalStatus:   "Mythic",  // Goal Gear Status
       gearCurrent:  0,
       gearGoal:     0,
       masteryCurrent: 0,
@@ -1689,7 +1690,7 @@ function AdminPage() {
   const [note,          setNote]          = useState({});
   const [busy,          setBusy]          = useState({});
   const [validating,    setValidating]    = useState(null); // {sub, existing, diffs}
-  const [reviewedOpen,  setReviewedOpen]  = useState(false);
+  const [reviewedOpen,  setReviewedOpen]  = useState(true);
 
   const load = async () => {
     setLoading(true);
@@ -2005,6 +2006,20 @@ function AdminPage() {
 }
 
 function HeroesPage({ genFilter, setGenFilter, heroStats, setHeroStats, currentUser, activeCharacter, hgHeroes }) {
+  // Preserve scroll position when heroStats updates (prevents jump-to-top on select change)
+  const scrollRef = React.useRef(0);
+  const updateStat_raw = (heroName, field, value) => {
+    scrollRef.current = window.scrollY;
+    setHeroStats(prev => ({
+      ...prev,
+      [heroName]: { ...(prev[heroName] || defaultHeroStats()), [field]: value },
+    }));
+  };
+  React.useLayoutEffect(() => {
+    if (scrollRef.current > 0) {
+      window.scrollTo(0, scrollRef.current);
+    }
+  });
   const [sortBy,      setSortBy]      = useLocalStorage("heroes-sort",      "quality");
   const [favorites,   setFavorites]   = useLocalStorage("heroes-favorites", []);
   const [filterType,  setFilterType]  = useState("");
@@ -2035,12 +2050,7 @@ function HeroesPage({ genFilter, setGenFilter, heroStats, setHeroStats, currentU
   // Favorites in same sort order as roster
   const favHeroes = sorted.filter(h => favorites.includes(h.name));
 
-  const updateStat = (heroName, field, value) => {
-    setHeroStats(prev => ({
-      ...prev,
-      [heroName]: { ...(prev[heroName] || defaultHeroStats()), [field]: value },
-    }));
-  };
+  const updateStat = updateStat_raw;
 
   const toggleFavorite = (heroName) => {
     setFavorites(prev => {
@@ -2150,9 +2160,13 @@ function HeroesPage({ genFilter, setGenFilter, heroStats, setHeroStats, currentU
         </td>
         {/* Widget — now before skills */}
         <td style={{...tdS,textAlign:"center"}}>
-          <select value={stats.widget} onChange={e => updateStat(hero.name,"widget",Number(e.target.value))} style={sel}>
-            {widgetOpts.map(v => <option key={v} value={v}>{v}</option>)}
-          </select>
+          {hero.quality === "SSR" ? (
+            <select value={stats.widget} onChange={e => updateStat(hero.name,"widget",Number(e.target.value))} style={sel}>
+              {widgetOpts.map(v => <option key={v} value={v}>{v}</option>)}
+            </select>
+          ) : (
+            <span style={{fontSize:11,color:C.textDim,fontFamily:"'Space Mono',monospace"}}>N/A</span>
+          )}
         </td>
         {["expS1","expS2","expS3"].map(f => (
           <td key={f} style={{...tdS,textAlign:"center"}}>
@@ -2499,7 +2513,7 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                 <th style={thStyle}>Slot</th>
                 <th style={thStyle}>Gear Status</th>
                 <th style={{...thStyle,textAlign:"center"}} colSpan={2}>Current</th>
-                <th style={{...thStyle,textAlign:"center"}} colSpan={2}>Goal</th>
+                <th style={{...thStyle,textAlign:"center"}} colSpan={3}>Goal</th>
                 <th style={{...thStyle,textAlign:"right"}}>Stones</th>
                 <th style={{...thStyle,textAlign:"right"}}>Mithril</th>
                 <th style={{...thStyle,textAlign:"right"}}>Mythic Needed</th>
@@ -2509,6 +2523,7 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                 <th style={{...thStyle,paddingTop:2,paddingBottom:6}} colSpan={4}/>
                 <th style={{...thStyle,paddingTop:2,paddingBottom:6,textAlign:"center",color:C.textDim,fontSize:9}}>Gear Lvl</th>
                 <th style={{...thStyle,paddingTop:2,paddingBottom:6,textAlign:"center",color:C.textDim,fontSize:9}}>Mastery Lvl</th>
+                <th style={{...thStyle,paddingTop:2,paddingBottom:6,textAlign:"center",color:C.textDim,fontSize:9}}>Status</th>
                 <th style={{...thStyle,paddingTop:2,paddingBottom:6,textAlign:"center",color:C.textDim,fontSize:9}}>Gear Lvl</th>
                 <th style={{...thStyle,paddingTop:2,paddingBottom:6,textAlign:"center",color:C.textDim,fontSize:9}}>Mastery Lvl</th>
                 <th style={{...thStyle,paddingTop:2,paddingBottom:6}} colSpan={4}/>
@@ -2602,6 +2617,18 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                             onChange={e => setSlotField(heroIdx, slotIdx, "masteryCurrent", Number(e.target.value))}
                             style={sel}>
                             {masteryOpts.map(v => <option key={v} value={v}>{v}</option>)}
+                          </select>
+                        ) : <span style={{color:C.textDim}}>—</span>}
+                      </td>
+
+                      {/* Goal: Status */}
+                      <td style={{...tdStyle,width:110}}>
+                        {!isWidget ? (
+                          <select value={s.goalStatus ?? s.status ?? "Mythic"}
+                            onChange={e => setSlotField(heroIdx, slotIdx, "goalStatus", e.target.value)}
+                            style={sel}>
+                            <option value="Mythic">Mythic</option>
+                            <option value="Legendary">Legendary</option>
                           </select>
                         ) : <span style={{color:C.textDim}}>—</span>}
                       </td>
@@ -4218,7 +4245,8 @@ function WarAcademyPage({ inv }) {
   }, []);
 
   // ── SvS date calculation (Tuesday = SvS Day 2) ────────────────────────────
-  const [dailyEarnShards, setDailyEarnShards] = useLocalStorage("wa-dailyshards", 0);
+  const [dailyEarnShards, setDailyEarnShards] = useLocalStorage("wa-dailyshards", null);
+  const effectiveDailyShards = dailyEarnShards !== null ? dailyEarnShards : (inv.dailyIntel ?? 0);
   const daysToSvSTuesday = React.useMemo(() => {
     const today = new Date(); today.setHours(0,0,0,0);
     // Find next Tuesday (day 2 = Tue, JS: 0=Sun, 2=Tue)
@@ -4234,7 +4262,7 @@ function WarAcademyPage({ inv }) {
   const steelRate = inv.steelHourlyRate ?? 0; // per hour
 
   // Estimated SvS inventory
-  const estShardsAtSvS = curShards + dailyEarnShards * daysToSvSTuesday;
+  const estShardsAtSvS = curShards + effectiveDailyShards * daysToSvSTuesday;
   const estSteelAtSvS  = curSteel  + steelRate * 18 * daysToSvSTuesday; // 18 hrs/day effective
 
   // ── Prerequisite checker ───────────────────────────────────────────────────
@@ -4700,15 +4728,18 @@ function WarAcademyPage({ inv }) {
                   color:C_.textPri, padding:"3px 6px", fontSize:11, outline:"none",
                   fontFamily:"'Space Mono',monospace" }} />
             </div>
-            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:12 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:4 }}>
               <span style={{ fontSize:11, color:C_.textSec }}>Daily Earn (shards)</span>
               <input type="number" min={0}
-                value={dailyEarnShards}
+                value={effectiveDailyShards}
                 onChange={e => setDailyEarnShards(Number(e.target.value))}
                 style={{ width:90, textAlign:"right", background:C_.card,
                   border:`1px solid ${C_.border}`, borderRadius:5,
                   color:C_.textPri, padding:"3px 6px", fontSize:11, outline:"none",
                   fontFamily:"'Space Mono',monospace" }} />
+            </div>
+            <div style={{ fontSize:10, color:C_.textDim, marginBottom:12 }}>
+              Pulled from Inventory tab · Daily Intel field
             </div>
             <SummaryRow label={`Est. by SvS Tue (${daysToSvSTuesday}d)`}
               val={Math.round(estShardsAtSvS)} />
@@ -5825,15 +5856,20 @@ function CharacterProfilePage({ hgHeroes, inv }) {
 
   // Buffered number input — holds local string state, commits to parent only on blur
   const BufferedInput = ({ value, onCommit, suffix, width=110 }) => {
-    const [local, setLocal] = React.useState(String(value ?? ""));
-    // Sync if parent value changes externally (e.g. from another tab)
-    React.useEffect(() => { setLocal(String(value ?? "")); }, [value]);
+    const fmt = v => Number(v) > 0 ? Number(v).toLocaleString() : String(v ?? "");
+    const [local, setLocal] = React.useState(fmt(value));
+    React.useEffect(() => { setLocal(fmt(value)); }, [value]);
     return (
       <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-        <input type="number" min={0}
+        <input type="text" inputMode="numeric"
           value={local}
           onChange={e => setLocal(e.target.value)}
-          onBlur={e => { const v = Number(e.target.value); setLocal(String(v)); onCommit(v); }}
+          onFocus={e => setLocal(String(Number(String(local).replace(/,/g,"")) || ""))}
+          onBlur={e => {
+            const v = Number(String(e.target.value).replace(/,/g,"")) || 0;
+            setLocal(fmt(v));
+            onCommit(v);
+          }}
           style={{ width, textAlign:"right", background:C.card,
             border:`1px solid ${C.border}`, borderRadius:5,
             color:C.textPri, padding:"4px 8px", fontSize:12, outline:"none",
@@ -6001,16 +6037,16 @@ export class ErrorBoundary extends Component {
 
 // ─── Layout / Nav ─────────────────────────────────────────────────────────────
 const PAGES = [
-  { id:"char-profile",    label:"Character Profile", icon:"[P]", section:"Character"   },
-  { id:"inventory",    label:"Inventory",     icon:"[I]", section:"Resources"   },
-  { id:"construction", label:"Construction",  icon:"[B]", section:"Resources"   },
-  { id:"rfc-planner",  label:"RFC Planner",   icon:"[R]", section:"Resources"   },
+  { id:"char-profile",    label:"Chief Profile",    icon:"[P]", section:"Chief"      },
+  { id:"inventory",    label:"Inventory",     icon:"[I]", section:"Chief"      },
+  { id:"construction", label:"Construction",  icon:"[B]", section:"Chief"      },
+  { id:"chief-gear",    label:"Chief Gear",    icon:"[C]", section:"Chief"      },
+  { id:"chief-charms",  label:"Chief Charms",  icon:"[K]", section:"Chief"      },
+  { id:"experts",       label:"Experts",       icon:"[E]", section:"Chief"      },
   { id:"war-academy",  label:"War Academy",   icon:"[W]", section:"Resources"   },
   { id:"heroes",        label:"Heroes",        icon:"[H]", section:"Combat"      },
   { id:"hero-gear",     label:"Hero Gear",     icon:"[G]", section:"Combat"      },
-  { id:"chief-gear",    label:"Chief Gear",    icon:"[C]", section:"Combat"      },
-  { id:"chief-charms",  label:"Chief Charms",  icon:"[K]", section:"Combat"      },
-  { id:"experts",       label:"Experts",       icon:"[E]", section:"Combat"      },
+  { id:"rfc-planner",  label:"RFC Planner",   icon:"[R]", section:"Planning"    },
   { id:"svs-calendar",  label:"SvS Calendar",  icon:"[C]", section:"Planning"    },
 ];
 
@@ -6025,7 +6061,7 @@ const PAGE_TITLES = {
   experts:      { title: "Expert Planner", sub: "Skill levels, sigil costs, and per-day SVS contributions" },
   "war-academy":{ title: "War Academy", sub: "Research upgrade planner — track shards, steel, time costs and stat gains across all three troop types" },
   "svs-calendar":{ title: "SvS Calendar", sub: "Rolling 28-week schedule — SvS every 4th week, King of Icefield every 2nd week" },
-  "char-profile": { title: "Character Profile", sub: "Total power summary — tech, gear, heroes, charms, military and growth stats" },
+  "char-profile": { title: "Chief Profile", sub: "Total power summary — tech, gear, heroes, charms, military and growth stats" },
   alliance:     { title: "Alliance Scores", sub: "SvS prep scores and historical results" },
   admin:        { title: "Admin", sub: "Review and approve hero stat submissions" },
 };

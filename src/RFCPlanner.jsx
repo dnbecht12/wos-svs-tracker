@@ -707,21 +707,25 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
                                 </div>
                               </td>
 
-                              {/* Difference — Accept only on today's row */}
+                              {/* Difference — only show for today */}
                               <td>
                                 <div className="cp r" style={{gap:5,justifyContent:"flex-end"}}>
-                                  <span style={{color:diffColor,fontWeight:700,fontFamily:"Space Mono,monospace",fontSize:11}}>
-                                    {r.difference===0?"✓":`${r.difference>0?"+":""}${fmtN(r.difference)}`}
-                                  </span>
-                                  {isToday&&r.difference!==0&&!r.act.acceptedDelta&&(
-                                    <button className="accept-btn"
-                                      onClick={()=>acceptDelta(globalIdx)}
-                                      title="Accept: align Rolling RFC with your current inventory">
-                                      Accept
-                                    </button>
-                                  )}
-                                  {r.act.acceptedDelta&&(
-                                    <span style={{fontSize:9,color:C.textDim,fontFamily:"Space Mono,monospace"}}>accepted</span>
+                                  {isToday && (
+                                    <>
+                                      <span style={{color:diffColor,fontWeight:700,fontFamily:"Space Mono,monospace",fontSize:11}}>
+                                        {r.difference===0?"✓":`${r.difference>0?"+":""}${fmtN(r.difference)}`}
+                                      </span>
+                                      {r.difference!==0&&!r.act.acceptedDelta&&(
+                                        <button className="accept-btn"
+                                          onClick={()=>acceptDelta(globalIdx)}
+                                          title="Accept: align Rolling RFC with your current inventory">
+                                          Accept
+                                        </button>
+                                      )}
+                                      {r.act.acceptedDelta&&(
+                                        <span style={{fontSize:9,color:C.textDim,fontFamily:"Space Mono,monospace"}}>accepted</span>
+                                      )}
+                                    </>
                                   )}
                                 </div>
                               </td>
