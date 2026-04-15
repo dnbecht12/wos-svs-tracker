@@ -1994,7 +1994,7 @@ function AdminPage() {
                     {reviewedOpen ? "▲ collapse" : "▼ expand"}
                   </span>
                 </button>
-                {reviewedOpen && reviewed.map(sub => <SubCard key={sub.id} sub={sub} showActions={false} />)}
+                {reviewedOpen && reviewed.map(sub => <SubCard key={sub.id} sub={sub} showActions={true} />)}
               </div>
             )}
           </>
