@@ -89,22 +89,17 @@ async function acceptSubmission(submission, forceAccept = false) {
     accepted_by: ADMIN_UID,
     is_current:  true,
   };
-  console.log("[Accept] Inserting to hero_stats_data:", JSON.stringify(newRowData).slice(0, 300));
 
   if (existing) {
     const { data: newRow, error: insertErr } = await supabase.from("hero_stats_data")
       .insert(newRowData).select().single();
-    console.log("[Accept] Insert (replace) result:", newRow, "error:", insertErr);
     if (newRow) {
-      const { error: updateErr } = await supabase.from("hero_stats_data")
+      await supabase.from("hero_stats_data")
         .update({ is_current: false, superseded_at: now, superseded_by: newRow.id })
         .eq("id", existing.id);
-      console.log("[Accept] Supersede update error:", updateErr);
     }
   } else {
-    const { data: insertedRow, error: insertErr } = await supabase.from("hero_stats_data")
-      .insert(newRowData).select().single();
-    console.log("[Accept] Insert (new) result:", insertedRow, "error:", insertErr);
+    await supabase.from("hero_stats_data").insert(newRowData);
   }
 
   await updateSubmission(submission.id, { status: "accepted" });
@@ -742,24 +737,18 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
         q.eq("level", Number(heroLevel)).eq("stars", Number(heroStars));
         if (widget === null) q.is("widget", null);
         else q.eq("widget", Number(widget));
-        console.log(`[HeroStats] Exact query: hero=${hero.name} level=${heroLevel} stars=${heroStars} widget=${widget}`);
         return q.maybeSingle();
       } else {
-        // Fallback: most recent current row for this hero, any level/stars
-        console.log(`[HeroStats] Fallback query: hero=${hero.name} (any level/stars)`);
         return q.order("accepted_at", { ascending: false }).limit(1).maybeSingle();
       }
     };
 
-    runQuery(true).then(({ data, error }) => {
-      console.log("[HeroStats] Exact result:", data, "error:", error);
+    runQuery(true).then(({ data }) => {
       if (data) {
         setDbRef(data);
         setDbRefLoading(false);
       } else {
-        // Always fall back to any current row if exact match fails
-        runQuery(false).then(({ data: fallback, error: err2 }) => {
-          console.log("[HeroStats] Fallback result:", fallback, "error:", err2);
+        runQuery(false).then(({ data: fallback }) => {
           setDbRef(fallback || null);
           setDbRefLoading(false);
         });
@@ -1767,6 +1756,49 @@ function AdminPage() {
 
   const statusColor = s => s==="accepted" ? C.green : s==="rejected" ? C.red : C.amber;
 
+  // ── Edit Stats modal ────────────────────────────────────────────────────────
+  const [editingSub, setEditingSub] = useState(null);   // the stat_submission being corrected
+  const [editRow,    setEditRow]    = useState(null);   // the hero_stats_data row
+  const [editVals,   setEditVals]   = useState({});     // working copy of stats
+  const [editBusy,   setEditBusy]   = useState(false);
+  const [editMsg,    setEditMsg]    = useState("");
+
+  const openEdit = async (sub) => {
+    setEditMsg("");
+    // Fetch current hero_stats_data row
+    const row = await getHeroStatsFromDB(sub.hero_name, sub.level, sub.stars, sub.widget);
+    if (!row) { setEditMsg("No hero_stats_data row found — try Re-process first."); return; }
+    setEditRow(row);
+    // Pre-fill with stored values; convert decimals to % display for pct fields
+    const pctFields = new Set(["infAtk","infDef","infLeth","infHp","wgtTroopLeth","wgtTroopHp"]);
+    const vals = {};
+    statKeys.forEach(k => {
+      const v = row.stats?.[k] ?? "";
+      vals[k] = v === "" ? "" : pctFields.has(k) ? String(Math.round(Number(v) * 100 * 10000) / 10000) : String(v);
+    });
+    setEditVals(vals);
+    setEditingSub(sub);
+  };
+
+  const saveEdit = async () => {
+    if (!editRow) return;
+    setEditBusy(true);
+    const pctFields = new Set(["infAtk","infDef","infLeth","infHp","wgtTroopLeth","wgtTroopHp"]);
+    const newStats = { ...(editRow.stats || {}) };
+    statKeys.forEach(k => {
+      const v = editVals[k];
+      if (v === "" || v == null) return;
+      const num = parseFloat(v);
+      newStats[k] = pctFields.has(k) ? num / 100 : num;
+    });
+    const { error } = await supabase.from("hero_stats_data")
+      .update({ stats: newStats })
+      .eq("id", editRow.id);
+    setEditBusy(false);
+    if (error) { setEditMsg("Error: " + error.message); }
+    else { setEditMsg("✓ Saved successfully."); setEditingSub(null); setEditRow(null); }
+  };
+
   return (
     <div className="fade-in" style={{maxWidth:900}}>
       <div className="page-title">Admin <span style={{color:C.accent}}>Panel</span></div>
@@ -1835,6 +1867,76 @@ function AdminPage() {
                   style={{padding:"9px 16px",borderRadius:7,fontSize:12,fontWeight:700,cursor:"pointer",
                     fontFamily:"Syne,sans-serif",background:"transparent",color:C.textSec,
                     border:`1px solid ${C.border}`}}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Edit Stats modal */}
+      {editingSub && createPortal(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.80)",zIndex:9999,
+          display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div style={{background:C.card,border:`1px solid ${C.borderHi}`,borderRadius:14,
+            width:"100%",maxWidth:560,maxHeight:"90vh",overflowY:"auto",
+            boxShadow:"0 24px 80px rgba(0,0,0,0.7)"}}>
+            <div style={{padding:"18px 24px 14px",borderBottom:`1px solid ${C.border}`,
+              display:"flex",alignItems:"center",justifyContent:"space-between",
+              position:"sticky",top:0,background:C.card,zIndex:1}}>
+              <div>
+                <div style={{fontSize:15,fontWeight:800,color:C.textPri}}>
+                  ✏️ Edit Stats — {editingSub.hero_name}
+                </div>
+                <div style={{fontSize:11,color:C.textDim,fontFamily:"Space Mono,monospace",marginTop:2}}>
+                  Stars: {editingSub.stars} · Level: {editingSub.level} · Widget: {editingSub.widget ?? "N/A"}
+                </div>
+              </div>
+              <button onClick={() => setEditingSub(null)}
+                style={{background:"none",border:"none",color:C.textDim,fontSize:20,cursor:"pointer",padding:"4px 8px"}}>✕</button>
+            </div>
+            <div style={{padding:"18px 24px"}}>
+              <div style={{fontSize:11,color:C.amber,marginBottom:14,lineHeight:1.5,
+                padding:"8px 12px",background:C.amberBg,borderRadius:6,border:`1px solid ${C.amber}40`}}>
+                ⚠ % fields (Troop Atk/Def/Leth/HP): enter as percentage e.g. <strong>26.70</strong> — will be stored as 0.2670.
+                All other fields: enter raw values.
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+                {statKeys.map(k => {
+                  const isPct = ["infAtk","infDef","infLeth","infHp","wgtTroopLeth","wgtTroopHp"].includes(k);
+                  return (
+                    <div key={k}>
+                      <div style={{fontSize:11,color:C.textSec,marginBottom:3}}>
+                        {statLabel(k)}{isPct && <span style={{fontSize:9,color:C.accent,marginLeft:4}}>(%)</span>}
+                      </div>
+                      <input type="number" step="any"
+                        value={editVals[k] ?? ""}
+                        onChange={e => setEditVals(p => ({...p,[k]:e.target.value}))}
+                        style={{width:"100%",background:C.surface,border:`1px solid ${C.border}`,
+                          borderRadius:5,color:C.textPri,padding:"5px 8px",fontSize:11,
+                          outline:"none",fontFamily:"Space Mono,monospace",textAlign:"right",
+                          boxSizing:"border-box"}} />
+                    </div>
+                  );
+                })}
+              </div>
+              {editMsg && (
+                <div style={{marginTop:12,fontSize:12,color: editMsg.startsWith("✓") ? C.green : C.red,
+                  fontFamily:"Space Mono,monospace"}}>{editMsg}</div>
+              )}
+              <div style={{display:"flex",gap:8,marginTop:16}}>
+                <button onClick={saveEdit} disabled={editBusy}
+                  style={{padding:"8px 20px",borderRadius:7,fontSize:12,fontWeight:700,
+                    cursor:editBusy?"not-allowed":"pointer",fontFamily:"Syne,sans-serif",
+                    border:"none",background:C.green,color:"#0a0c10",opacity:editBusy?0.6:1}}>
+                  {editBusy ? "Saving…" : "💾 Save Changes"}
+                </button>
+                <button onClick={() => setEditingSub(null)}
+                  style={{padding:"8px 16px",borderRadius:7,fontSize:12,fontWeight:700,
+                    cursor:"pointer",fontFamily:"Syne,sans-serif",
+                    background:"transparent",color:C.textSec,border:`1px solid ${C.border}`}}>
                   Cancel
                 </button>
               </div>
@@ -1942,11 +2044,10 @@ function AdminPage() {
                 </div>
               )}
               {showActions && sub.status === "accepted" && sub.stats?.type !== "rfc_variance" && (
-                <div style={{marginTop:10}}>
+                <div style={{marginTop:10,display:"flex",gap:8,flexWrap:"wrap"}}>
                   <button onClick={async () => {
                     setBusy(p=>({...p,[sub.id]:true}));
-                    const result = await acceptSubmission(sub, true);
-                    console.log("[Re-process] result:", result);
+                    await acceptSubmission(sub, true);
                     setBusy(p=>({...p,[sub.id]:false}));
                     await load();
                   }} disabled={busy[sub.id]}
@@ -1957,6 +2058,15 @@ function AdminPage() {
                       opacity:busy[sub.id]?0.6:1}}>
                     {busy[sub.id] ? "…" : "🔄 Re-process → hero_stats_data"}
                   </button>
+                  <button onClick={() => { setEditMsg(""); openEdit(sub); }}
+                    style={{padding:"5px 12px",borderRadius:6,fontSize:11,fontWeight:700,
+                      cursor:"pointer",fontFamily:"Syne,sans-serif",
+                      border:"1px solid " + C.blue,background:C.blueBg,color:C.blue}}>
+                    ✏️ Edit Stats
+                  </button>
+                  {editMsg && !editingSub && (
+                    <span style={{fontSize:11,color:C.red,fontFamily:"Space Mono,monospace",alignSelf:"center"}}>{editMsg}</span>
+                  )}
                 </div>
               )}
             </div>
