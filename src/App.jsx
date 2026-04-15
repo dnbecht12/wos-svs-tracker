@@ -4680,6 +4680,12 @@ function WarAcademyPage({ inv, setInv }) {
       paddingBottom:5, borderBottom:`1px solid ${C_.border}` }}>{txt}</div>
   );
 
+  // Collapse maxed rows per troop type
+  const [collapseMaxed, setCollapseMaxed] = React.useState({
+    Infantry: false, Lancer: false, Marksman: false
+  });
+  const toggleCollapse = troop => setCollapseMaxed(p => ({ ...p, [troop]: !p[troop] }));
+
   // ── Troop table renderer ───────────────────────────────────────────────────
   const renderTroopTable = (troop) => {
     const lvs = levels[troop] || {};
@@ -4690,15 +4696,30 @@ function WarAcademyPage({ inv, setInv }) {
       troopShards += c.shards; troopSteel += c.steel;
     });
     const tc = typeColor(troop);
+    const hiding = collapseMaxed[troop];
+    const maxedCount = WA_RESEARCH.filter(res => {
+      const cur = lvs[res.id]?.cur ?? 0;
+      return cur >= res.maxLv;
+    }).length;
 
     return (
       <div key={troop} style={{ marginBottom:28 }}>
-        {/* Troop header */}
+        {/* Troop header with collapse toggle */}
         <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
           <div style={{ fontSize:14, fontWeight:800, color:tc, fontFamily:"Syne,sans-serif" }}>{troop}</div>
           <div style={{ fontSize:10, color:C_.textDim, fontFamily:"'Space Mono',monospace" }}>
             War Academy Research
           </div>
+          {maxedCount > 0 && (
+            <button onClick={() => toggleCollapse(troop)}
+              style={{ marginLeft:"auto", padding:"3px 10px", borderRadius:5, fontSize:11,
+                fontWeight:700, cursor:"pointer", fontFamily:"'Space Mono',monospace",
+                background: hiding ? C_.accentBg : C_.surface,
+                color: hiding ? C_.accent : C_.textSec,
+                border:`1px solid ${hiding ? C_.accentDim : C_.border}` }}>
+              {hiding ? `▶ Show ${maxedCount} maxed` : `◀ Hide ${maxedCount} maxed`}
+            </button>
+          )}
         </div>
 
         <div style={{ overflowX:"auto" }}>
@@ -4723,6 +4744,10 @@ function WarAcademyPage({ inv, setInv }) {
                 const { cur, goal } = lvs[res.id] || { cur:0, goal:0 };
                 const isMaxed = cur >= res.maxLv;
                 const changed = goal > cur;
+
+                // Hide maxed rows when collapsed
+                if (hiding && isMaxed) return null;
+
                 const cost = waCalcCost(res, cur, goal);
                 const baseMins = waCalcTime(res, cur, goal);
                 const actualMins = baseMins > 0 ? Math.round(baseMins / (1 + buffTotal)) : 0;
