@@ -1787,11 +1787,16 @@ function AdminPage() {
       if (v === "" || v == null) return;
       newStats[k] = parseFloat(v);
     });
-    const { error } = await supabase.from("hero_stats_data")
+    console.log("[EditStats] Updating row id:", editRow.id);
+    console.log("[EditStats] New stats:", JSON.stringify(newStats).slice(0, 300));
+    const { data, error, status, statusText } = await supabase.from("hero_stats_data")
       .update({ stats: newStats })
-      .eq("id", editRow.id);
+      .eq("id", editRow.id)
+      .select();
+    console.log("[EditStats] Result data:", data, "error:", error, "status:", status, statusText);
     setEditBusy(false);
-    if (error) { setEditMsg("Error: " + error.message); }
+    if (error) { setEditMsg("Error: " + error.message + " (code: " + error.code + ")"); }
+    else if (!data || data.length === 0) { setEditMsg("⚠ No rows updated — row ID may not match or RLS blocking."); }
     else { setEditMsg("✓ Saved successfully."); setEditingSub(null); setEditRow(null); }
   };
 
