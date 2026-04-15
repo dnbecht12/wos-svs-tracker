@@ -1787,23 +1787,37 @@ function AdminPage({ onStatsUpdated }) {
       if (v === "" || v == null) return;
       newStats[k] = parseFloat(v);
     });
+
+    // 1. Update hero_stats_data
     const { data, error } = await supabase.from("hero_stats_data")
       .update({ stats: newStats })
       .eq("id", editRow.id)
       .select();
-    setEditBusy(false);
+
     if (error) {
+      setEditBusy(false);
       setEditMsg("Error: " + error.message + " (code: " + error.code + ")");
-    } else if (!data || data.length === 0) {
-      setEditMsg("⚠ No rows updated — check row ID or RLS policy.");
-    } else {
-      // Success — close modal, reload submissions, signal hero profile to re-query
-      setEditingSub(null);
-      setEditRow(null);
-      setEditMsg("");
-      onStatsUpdated?.();
-      await load();
+      return;
     }
+    if (!data || data.length === 0) {
+      setEditBusy(false);
+      setEditMsg("⚠ No rows updated — check row ID or RLS policy.");
+      return;
+    }
+
+    // 2. Update stat_submissions with corrected stats + admin_edited flag
+    await supabase.from("stat_submissions")
+      .update({
+        stats: { ...newStats, _admin_edited: true, _edited_at: new Date().toISOString() },
+      })
+      .eq("id", editingSub.id);
+
+    setEditBusy(false);
+    setEditingSub(null);
+    setEditRow(null);
+    setEditMsg("");
+    onStatsUpdated?.();
+    await load();
   };
 
   return (
@@ -1967,13 +1981,27 @@ function AdminPage({ onStatsUpdated }) {
         const SubCard = ({ sub, showActions }) => {
           const stats = sub.stats || {};
           const isPending = !sub.status || sub.status === "pending";
+          const adminEdited = stats._admin_edited === true;
+          // Filter out internal flags from display
+          const displayStats = Object.fromEntries(
+            Object.entries(stats).filter(([k]) => !k.startsWith("_"))
+          );
           return (
             <div style={{background:C.card,
               border:"1px solid " + (isPending ? C.amber+"60" : sub.status==="accepted" ? C.green+"30" : C.red+"30"),
               borderRadius:12,padding:"18px 20px",marginBottom:14}}>
               <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",flexWrap:"wrap",gap:10,marginBottom:12}}>
                 <div>
-                  <div style={{fontSize:15,fontWeight:800,color:C.textPri}}>{sub.hero_name}</div>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <div style={{fontSize:15,fontWeight:800,color:C.textPri}}>{sub.hero_name}</div>
+                    {adminEdited && (
+                      <span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:4,
+                        background:"rgba(56,139,253,0.15)",color:C.blue,
+                        border:"1px solid " + C.blue + "40",fontFamily:"Space Mono,monospace"}}>
+                        ✏️ Stats edited by admin
+                      </span>
+                    )}
+                  </div>
                   <div style={{fontSize:11,color:C.textDim,fontFamily:"Space Mono,monospace",marginTop:3}}>
                     Stars: {sub.stars} · Level: {sub.level} · Widget: {sub.widget ?? "N/A"}
                     {" · "}By: {sub.character_name || "Unknown"}
@@ -2012,10 +2040,13 @@ function AdminPage({ onStatsUpdated }) {
                     </button>
                   </div>
                 ) : (
-                  statKeys.filter(k => stats[k] != null).map(k => (
-                    <div key={k} style={{background:C.surface,borderRadius:6,padding:"6px 10px",fontSize:11}}>
+                  statKeys.filter(k => displayStats[k] != null).map(k => (
+                    <div key={k} style={{background: adminEdited ? "rgba(56,139,253,0.06)" : C.surface,
+                      borderRadius:6,padding:"6px 10px",fontSize:11,
+                      border: adminEdited ? "1px solid " + C.blue + "20" : "none"}}>
                       <span style={{color:C.textDim,fontFamily:"Space Mono,monospace"}}>{statLabel(k)}</span>
-                      <span style={{color:C.textPri,fontWeight:700,fontFamily:"Space Mono,monospace",float:"right"}}>{stats[k]}</span>
+                      <span style={{color: adminEdited ? C.blue : C.textPri,fontWeight:700,
+                        fontFamily:"Space Mono,monospace",float:"right"}}>{displayStats[k]}</span>
                     </div>
                   ))
                 )}
