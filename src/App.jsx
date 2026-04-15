@@ -890,7 +890,8 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
       onClick={e => e.target === e.currentTarget && onClose()}>
       <div style={{background:"var(--c-card)",border:"1px solid var(--c-borderHi)",
         borderRadius:14,width:"100%",maxWidth:580,maxHeight:"92vh",overflowY:"auto",
-        boxShadow:"0 24px 80px rgba(0,0,0,0.6)"}}>
+        boxShadow:"0 24px 80px rgba(0,0,0,0.6)"}}
+        onClick={e => e.stopPropagation()}>
 
         {/* Header */}
         <div style={{padding:"20px 24px 16px",borderBottom:`1px solid ${C.border}`,
@@ -1093,7 +1094,8 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
                   display:"flex",alignItems:"center",justifyContent:"center",padding:20}}
                   onClick={e => e.target === e.currentTarget && onClose()}>
                   <div style={{background:C.card,border:`1px solid ${C.borderHi}`,borderRadius:14,
-                    width:"100%",maxWidth:380,maxHeight:"85vh",overflowY:"auto",padding:"20px 18px"}}>
+                    width:"100%",maxWidth:380,maxHeight:"85vh",overflowY:"auto",padding:"20px 18px"}}
+                    onClick={e => e.stopPropagation()}>
                     {/* Header */}
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:14}}>
                       <div>
@@ -1198,7 +1200,8 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
                   display:"flex",alignItems:"center",justifyContent:"center",padding:12}}
                   onClick={e => e.target === e.currentTarget && onClose()}>
                   <div style={{background:C.card,border:`1px solid ${C.borderHi}`,borderRadius:14,
-                    width:"100%",maxWidth:620,maxHeight:"85vh",overflowY:"auto",padding:"18px 16px"}}>
+                    width:"100%",maxWidth:620,maxHeight:"85vh",overflowY:"auto",padding:"18px 16px"}}
+                    onClick={e => e.stopPropagation()}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
                       <div style={{fontSize:14,fontWeight:700,color:C.textPri}}>Full Gear Stats — {hero.name}</div>
                       <button onClick={onClose}
