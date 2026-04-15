@@ -891,7 +891,8 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
       <div style={{background:"var(--c-card)",border:"1px solid var(--c-borderHi)",
         borderRadius:14,width:"100%",maxWidth:580,maxHeight:"92vh",overflowY:"auto",
         boxShadow:"0 24px 80px rgba(0,0,0,0.6)"}}
-        onClick={e => e.stopPropagation()}>
+        onClick={e => e.stopPropagation()}
+        onMouseDown={e => e.stopPropagation()}>
 
         {/* Header */}
         <div style={{padding:"20px 24px 16px",borderBottom:`1px solid ${C.border}`,
@@ -1554,7 +1555,9 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
 
           {/* Submit form */}
           {showSubmit && (
-            <div style={{marginTop:16,padding:"16px 18px",background:C.surface,
+            <div onClick={e => e.stopPropagation()}
+              onMouseDown={e => e.stopPropagation()}
+              style={{marginTop:16,padding:"16px 18px",background:C.surface,
               border:`1px solid ${C.border}`,borderRadius:10}}>
               <div style={{fontSize:13,fontWeight:700,color:C.textPri,marginBottom:4}}>Submit Stats</div>
               <div style={{fontSize:11,color:C.textSec,marginBottom:14}}>
@@ -1632,7 +1635,8 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
               {showSubmitConfirm && createPortal(
                 <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.82)",zIndex:10200,
                   display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-                  <div style={{background:C.card,border:`1px solid ${C.borderHi}`,borderRadius:14,
+                  <div onClick={e => e.stopPropagation()}
+                    style={{background:C.card,border:`1px solid ${C.borderHi}`,borderRadius:14,
                     width:"100%",maxWidth:400,padding:"24px 20px"}}>
                     <div style={{fontSize:16,fontWeight:700,color:C.textPri,marginBottom:12}}>
                       Confirm Submission
