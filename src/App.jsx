@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo, Component } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "./supabase.js";
-import ResearchCenterPage from "./ResearchCenter.jsx";
+import ResearchCenterPage, { getRCTechPower } from "./ResearchCenter.jsx";
 
 const ADMIN_UID = "c5c3392e-2399-4cc9-b2ab-f22a61e7b91c";
 
@@ -6229,19 +6229,23 @@ function CharacterProfilePage({ hgHeroes, inv }) {
 
   // War Academy (Tech) power — sum of current level power across all researches × 3 troops
   const techPower = React.useMemo(() => {
+    let total = 0;
+    // War Academy power
     try {
       const raw = localStorage.getItem("wa-levels");
-      if (!raw) return 0;
-      const levels = JSON.parse(raw);
-      let total = 0;
-      ["Infantry","Lancer","Marksman"].forEach(troop => {
-        WA_RESEARCH.forEach(res => {
-          const cur = levels[troop]?.[res.id]?.cur ?? 0;
-          total += waPower(res, cur);
+      if (raw) {
+        const levels = JSON.parse(raw);
+        ["Infantry","Lancer","Marksman"].forEach(troop => {
+          WA_RESEARCH.forEach(res => {
+            const cur = levels[troop]?.[res.id]?.cur ?? 0;
+            total += waPower(res, cur);
+          });
         });
-      });
-      return Math.round(total);
-    } catch { return 0; }
+      }
+    } catch {}
+    // Research Center power
+    total += getRCTechPower();
+    return Math.round(total);
   }, []);
 
   // Deployment Capacity — sum from War Academy (Flame Squad) + Chief Gear deploy buff
@@ -7269,6 +7273,9 @@ export default function App() {
   const [heroStats,   setHeroStats]  = useLocalStorage("hg-hero-stats", defaultAllHeroStats());
   const [hgHeroes,    setHgHeroes]   = useLocalStorage("hg-heroes", HERO_SLOTS.map(s => defaultHeroState(s.type)));
   const [heroStatsVersion, setHeroStatsVersion] = useState(0);
+  // Research Center — cloud-synced so state persists across devices and tab switches
+  const [rcLevels,    setRcLevels]    = useLocalStorage("rc-levels", {});
+  const [rcCollapse,  setRcCollapse]  = useLocalStorage("rc-collapse", {});
   const [savedAt,       setSavedAt]      = useState(null);
   const [loadedPlanKey, setLoadedPlanKey]= useState(null);
   const [syncing,       setSyncing]      = useState(false);
@@ -7786,7 +7793,7 @@ export default function App() {
             {page === "chief-charms" && <ChiefCharmsPage inv={inv} />}
             {page === "experts"      && <ExpertsPage      inv={inv} />}
             {page === "war-academy"  && <WarAcademyPage   inv={inv} setInv={setInv} />}
-            {page === "research-center" && <ResearchCenterPage inv={inv} />}
+            {page === "research-center" && <ResearchCenterPage inv={inv} rcLevels={rcLevels} setRcLevels={setRcLevels} rcCollapse={rcCollapse} setRcCollapse={setRcCollapse} />}
             {page === "svs-calendar" && <SvSCalendar />}
             {page === "char-profile" && <CharacterProfilePage hgHeroes={hgHeroes} inv={inv} />}
           </div>

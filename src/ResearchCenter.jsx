@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo } from "react";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -1271,6 +1271,36 @@ function getBuff(res, lv) {
   return row?.buff || "—";
 }
 
+// Sum power from levels 1→lv (each level row stores incremental power gained)
+function getRCPower(res, lv) {
+  if (!lv || lv <= 0) return 0;
+  const maxLv = res.levels.length - 1;
+  let total = 0;
+  for (let i = 1; i <= Math.min(lv, maxLv); i++) {
+    total += res.levels[i]?.power || 0;
+  }
+  return total;
+}
+
+// Exported — called by CharacterProfilePage to add RC power into techPower
+export function getRCTechPower() {
+  try {
+    const raw = localStorage.getItem("rc-levels");
+    if (!raw) return 0;
+    const saved = JSON.parse(raw);
+    let total = 0;
+    ["Growth","Economy","Battle"].forEach(treeName => {
+      RC[treeName].tiers.forEach(tier => {
+        tier.researches.forEach(res => {
+          const cur = saved[res.id]?.cur ?? 0;
+          total += getRCPower(res, cur);
+        });
+      });
+    });
+    return Math.round(total);
+  } catch { return 0; }
+}
+
 // ─── COLORS helper ────────────────────────────────────────────────────────────
 const COLORS = {
   bg:"var(--c-bg)",surface:"var(--c-surface)",card:"var(--c-card)",
@@ -1285,32 +1315,17 @@ const COLORS = {
 
 // ─── RC localStorage hook ────────────────────────────────────────────────────
 
-function useRCLevels() {
-  const KEY = "rc-levels";
-  const [levels, setLevels] = React.useState(() => {
-    try {
-      const raw = localStorage.getItem(KEY);
-      return raw ? JSON.parse(raw) : {};
-    } catch { return {}; }
-  });
-  const setLevelsAndSave = useCallback((fn) => {
-    setLevels(prev => {
-      const next = typeof fn === "function" ? fn(prev) : fn;
-      try { localStorage.setItem(KEY, JSON.stringify(next)); } catch {}
-      return next;
-    });
-  }, []);
-  return [levels, setLevelsAndSave];
-}
-
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function ResearchCenterPage({ inv }) {
+export default function ResearchCenterPage({ inv, rcLevels, setRcLevels, rcCollapse, setRcCollapse }) {
   const C = COLORS;
   const [tree, setTree] = useState("Growth");
-  const [levels, setLevels] = useRCLevels();
 
-  // ── Share wa-speedbuff / wa-buffs with War Academy ─────────────────────────
+  // Use props (cloud-synced from App.jsx) — fall back to empty obj if not yet loaded
+  const levels    = rcLevels   ?? {};
+  const setLevels = setRcLevels ?? (() => {});
+  const collapseAllMaxed    = rcCollapse   ?? {};
+  const setCollapseAllMaxed = setRcCollapse ?? (() => {});
   const [speedBuff, setSpeedBuffState] = useState(() => {
     try { return Number(localStorage.getItem("wa-speedbuff") || 0); } catch { return 0; }
   });
@@ -1345,8 +1360,7 @@ export default function ResearchCenterPage({ inv }) {
     return t;
   }, [speedBuff, buffs]);
 
-  // ── Collapse state — per tier per tree, also "allMaxed" collapse ───────────
-  const [collapseAllMaxed, setCollapseAllMaxed] = useState({});
+  // ── Toggle collapse — writes to cloud-synced rcCollapse prop ──────────────
   const toggleCollapseAllMaxed = (treeKey, tierKey) => {
     setCollapseAllMaxed(p => ({ ...p, [`${treeKey}-${tierKey}`]: !p[`${treeKey}-${tierKey}`] }));
   };
@@ -1666,6 +1680,7 @@ export default function ResearchCenterPage({ inv }) {
                       <th style={{...thS,width:190}}>Current Buff</th>
                       <th style={{...thS,textAlign:"center",width:70}}>Goal</th>
                       <th style={{...thS,width:190}}>Goal Buff</th>
+                      <th style={{...thS,textAlign:"right"}}>Power</th>
                       <th style={{...thS,textAlign:"right"}}>Orig. Time</th>
                       <th style={{...thS,textAlign:"right",color:C.accent}}>Actual Time</th>
                     </tr>
@@ -1679,6 +1694,7 @@ export default function ResearchCenterPage({ inv }) {
                       const curIsMax  = cur  >= maxLv;
                       const goalIsMax = goal >= maxLv;
                       const hasUpgrade = goal > cur;
+                      const curPower = getRCPower(res, cur);
 
                       return (
                         <tr key={res.id} style={{
@@ -1727,6 +1743,12 @@ export default function ResearchCenterPage({ inv }) {
                           {/* Goal buff */}
                           <td style={{...tdS,color:goal>cur?C.accent:C.textSec,fontSize:11}}>
                             {goal === 0 ? <span style={{color:C.textDim}}>—</span> : getBuff(res, goal)}
+                          </td>
+
+                          {/* Power at current level */}
+                          <td style={{...tdS,textAlign:"right",fontFamily:"'Space Mono',monospace",
+                            color:curPower>0?C.textPri:C.textDim}}>
+                            {curPower > 0 ? curPower.toLocaleString() : "—"}
                           </td>
 
                           {/* Original time */}
