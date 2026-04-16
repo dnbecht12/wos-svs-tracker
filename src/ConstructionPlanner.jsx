@@ -685,7 +685,7 @@ async function syncCPFromCloud(userId, setters) {
   } catch {}
 }
 
-export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSnapshot, onUpdatePlan }) {
+export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSnapshot, onUpdatePlan, cpSpeedBuff: cpSpeedBuffProp, setCpSpeedBuff: setCpSpeedBuffProp }) {
   // Cycle selector linked to SvS Calendar
   const currentCycle = useMemo(() => getCurrentCycleNum(), []);
   const cycleOpts    = useMemo(() => buildCycles(Math.max(1, currentCycle - 1), 16), [currentCycle]);
@@ -784,8 +784,14 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
     setUpdateNote("");
   };
 
-  // Single construction speed bonus — user enters e.g. "91.5" meaning 91.5%
-  const [speedBuff, setSpeedBuff] = useState(() => loadState("cp-speedbuff", 91.5));
+  // Construction speed — use prop from App.jsx (cloud-synced) if provided, else local state
+  const [speedBuffLocal, setSpeedBuffLocal] = useState(() => loadState("cp-speedbuff", 91.5));
+  const speedBuff    = cpSpeedBuffProp  !== undefined ? Number(cpSpeedBuffProp)  : speedBuffLocal;
+  const setSpeedBuff = (v) => {
+    setSpeedBuffLocal(v);
+    setCpSpeedBuffProp?.(v);  // update cloud-synced prop in App.jsx
+    saveState("cp-speedbuff", v);
+  };
 
   // Keep pet, chiefOrder, presSkill, presPos as toggles (4 remaining)
   const [buffs, setBuffs] = useState(() => loadState("cp-buffs", {
@@ -1058,7 +1064,7 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
                     className="inp-field"
                     type="number" min={0} max={500} step={0.5}
                     value={speedBuff}
-                    onChange={e => { const v=Number(e.target.value); setSpeedBuff(v); saveState("cp-speedbuff",v); }}
+                    onChange={e => { const v=Number(e.target.value); setSpeedBuff(v); }}
                     style={{width:100,textAlign:"right"}}
                   />
                   <span style={{fontSize:12,color:C.textSec,fontFamily:"Space Mono,monospace"}}>%</span>

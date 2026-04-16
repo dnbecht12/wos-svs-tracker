@@ -6126,7 +6126,7 @@ function getBuildingLevel(buildingName) {
   } catch { return null; }
 }
 
-function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion }) {
+function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeedBuff: cpSpeedBuffProp, setCpSpeedBuff: setCpSpeedBuffProp }) {
   const C = COLORS;
 
   // VIP level
@@ -6252,11 +6252,8 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileVersion]);
 
-  // Construction Speed — reads from localStorage, refreshes on profileVersion
-  const constructionSpeed = React.useMemo(() => {
-    try { return Number(localStorage.getItem("cp-speedbuff") || 0); } catch { return 0; }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profileVersion]);
+  // Construction Speed — reactive via prop from App.jsx (cloud-synced)
+  const constructionSpeed = cpSpeedBuffProp !== undefined ? Number(cpSpeedBuffProp) : 0;
 
   // Research Speed — reads from localStorage, refreshes on profileVersion
   const researchSpeed = React.useMemo(() => {
@@ -6524,13 +6521,7 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion }) {
         <Row label="Construction Speed"
           isEntry
           entryVal={constructionSpeed}
-          onEntry={v => {
-            try {
-              localStorage.setItem("cp-speedbuff", JSON.stringify(v));
-              localStorage.setItem("cp-speedbuff__ts", new Date().toISOString());
-              scheduleSync("cp-speedbuff", v);
-            } catch {}
-          }}
+          onEntry={v => setCpSpeedBuffProp?.(v)}
           source="Synced with Construction tab · Bonus Overview > Growth"
           suffix="%" />
 
@@ -7208,6 +7199,8 @@ export default function App() {
   // Research Center — cloud-synced so state persists across devices and tab switches
   const [rcLevels,    setRcLevels]    = useLocalStorage("rc-levels", {});
   const [rcCollapse,  setRcCollapse]  = useLocalStorage("rc-collapse", {});
+  // Construction Speed — shared between Construction tab and Chief Profile
+  const [cpSpeedBuff, setCpSpeedBuff] = useLocalStorage("cp-speedbuff", 0);
   // Version counter — increments when cloud sync completes, triggers CharacterProfilePage re-read
   const [profileVersion, setProfileVersion] = useState(0);
   const [savedAt,       setSavedAt]      = useState(null);
@@ -7738,7 +7731,8 @@ export default function App() {
             {page === "construction" && <ConstructionPlanner inv={inv} setInv={setInv}
                 planSnapshot={planSnapshot}
                 onSetSnapshot={handleSetSnapshot}
-                onUpdatePlan={handleUpdatePlan} />}
+                onUpdatePlan={handleUpdatePlan}
+                cpSpeedBuff={cpSpeedBuff} setCpSpeedBuff={setCpSpeedBuff} />}
             {page === "rfc-planner"  && <RFCPlanner inv={inv} setInv={setInv}
                 savedPlans={user ? savedPlans : {}}
                 onSavePlan={user ? handleSavePlan : ()=>{}}
@@ -7756,7 +7750,8 @@ export default function App() {
             {page === "research-center" && <ResearchCenterPage inv={inv} rcLevels={rcLevels} setRcLevels={setRcLevels} rcCollapse={rcCollapse} setRcCollapse={setRcCollapse} />}
             {page === "svs-calendar" && <SvSCalendar />}
             {page === "char-profile" && <CharacterProfilePage hgHeroes={hgHeroes} inv={inv}
-                rcLevels={rcLevels} profileVersion={profileVersion} />}
+                rcLevels={rcLevels} profileVersion={profileVersion}
+                cpSpeedBuff={cpSpeedBuff} setCpSpeedBuff={setCpSpeedBuff} />}
           </div>
         </main>
       </div>

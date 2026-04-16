@@ -163,6 +163,7 @@ table.dt tr.mon-row td{background:rgba(56,139,253,0.05)}
 td.ec{position:relative}
 td.ec select,td.ec input{position:absolute;inset:0;width:100%;height:100%;background:transparent;border:none;outline:none;font-family:'Space Mono',monospace;font-size:11px;color:${C.textPri};padding:0 10px;cursor:pointer}
 td.ec select:focus,td.ec input:focus{background:rgba(227,107,26,0.1)}
+td.ec select option{background:${C.card};color:${C.textPri}}
 td.ec input[type=number]{-moz-appearance:textfield;text-align:right}
 td.ec input[type=number]::-webkit-outer-spin-button,td.ec input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
 td.ec select.mon-sel{color:${C.accent};font-weight:700}
