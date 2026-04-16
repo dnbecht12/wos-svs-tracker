@@ -3778,6 +3778,9 @@ function ProfileModal({ open, onClose, initialSection="account",
     });
   };
 
+  // Submissions tab — closed folder toggle
+  const [closedFolderOpen, setClosedFolderOpen] = useState(false);
+
   useEffect(() => { if (open) setSection(initialSection); }, [open, initialSection]);
   useEffect(() => { clearCharError?.(); clearAuthError?.(); setMsg(""); }, [section]);
   useEffect(() => {
@@ -4055,7 +4058,6 @@ function ProfileModal({ open, onClose, initialSection="account",
 
             // Anything in closed folder
             const hasClosed = closedSubs.length > 0 || closedIssues.length > 0 || readNotifs.length > 0;
-            const [closedFolderOpen, setClosedFolderOpen] = React.useState(false);
 
             const issueStatusStyle = (status) => {
               if (status === "acknowledged") return { bg:C.blueBg,   color:C.blue,   border:C.blueDim };
