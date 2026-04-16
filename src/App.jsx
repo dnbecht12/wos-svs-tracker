@@ -7223,7 +7223,7 @@ const PAGES = [
   { id:"chief-charms",  label:"Chief Charms",  icon:"[K]", section:"Chief"      },
   { id:"experts",       label:"Experts",       icon:"[E]", section:"Chief"      },
   { id:"war-academy",  label:"War Academy",   icon:"[W]", section:"Resources"   },
-  { id:"research-center", label:"Research Center", icon:"[RC]", section:"Resources" },
+  { id:"research-center", label:"Research", icon:"[RC]", section:"Resources" },
   { id:"heroes",        label:"Heroes",        icon:"[H]", section:"Combat"      },
   { id:"hero-gear",     label:"Hero Gear",     icon:"[G]", section:"Combat"      },
   { id:"troops",        label:"Troops",        icon:"[T]", section:"Combat"      },

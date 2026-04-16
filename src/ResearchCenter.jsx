@@ -1309,21 +1309,33 @@ export default function ResearchCenterPage({ inv }) {
   const C = COLORS;
   const [tree, setTree] = useState("Growth");
   const [levels, setLevels] = useRCLevels();
-  const [speedBuff, setSpeedBuff] = useState(() => {
-    try { return Number(localStorage.getItem("rc-speedbuff") || 0); } catch { return 0; }
+
+  // ── Share wa-speedbuff / wa-buffs with War Academy ─────────────────────────
+  const [speedBuff, setSpeedBuffState] = useState(() => {
+    try { return Number(localStorage.getItem("wa-speedbuff") || 0); } catch { return 0; }
   });
-  const [buffs, setBuffs] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("rc-buffs") || "{}"); } catch { return {}; }
+  const [buffs, setBuffsState] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("wa-buffs") || "{}"); } catch { return {}; }
   });
 
-  const saveSpeedBuff = (v) => {
-    setSpeedBuff(v);
-    try { localStorage.setItem("rc-speedbuff", v); } catch {}
+  // Listen for wa-speedbuff changes made in War Academy tab (storage event)
+  React.useEffect(() => {
+    const onStorage = (e) => {
+      if (e.key === "wa-speedbuff") setSpeedBuffState(Number(e.newValue || 0));
+      if (e.key === "wa-buffs") { try { setBuffsState(JSON.parse(e.newValue || "{}")); } catch {} }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
+  const setSpeedBuff = (v) => {
+    setSpeedBuffState(v);
+    try { localStorage.setItem("wa-speedbuff", v); } catch {}
   };
   const toggleBuff = (k) => {
     const next = { ...buffs, [k]: !buffs[k] };
-    setBuffs(next);
-    try { localStorage.setItem("rc-buffs", JSON.stringify(next)); } catch {}
+    setBuffsState(next);
+    try { localStorage.setItem("wa-buffs", JSON.stringify(next)); } catch {}
   };
 
   const buffTotal = useMemo(() => {
@@ -1333,15 +1345,19 @@ export default function ResearchCenterPage({ inv }) {
     return t;
   }, [speedBuff, buffs]);
 
+  // ── Collapse state — per tier per tree, also "allMaxed" collapse ───────────
+  const [collapseAllMaxed, setCollapseAllMaxed] = useState({});
+  const toggleCollapseAllMaxed = (treeKey, tierKey) => {
+    setCollapseAllMaxed(p => ({ ...p, [`${treeKey}-${tierKey}`]: !p[`${treeKey}-${tierKey}`] }));
+  };
+
   const getLv = (id) => levels[id] || { cur: 0, goal: 0 };
   const setLv = (id, field, val) => {
     setLevels(prev => {
       const cur  = prev[id]?.cur  ?? 0;
       const goal = prev[id]?.goal ?? 0;
       let next = { cur, goal, [field]: val };
-      // if setting current above goal, raise goal
       if (field === "cur" && val > next.goal) next.goal = val;
-      // if setting goal below current, lower to current
       if (field === "goal" && val < next.cur) next.goal = next.cur;
       return { ...prev, [id]: next };
     });
@@ -1368,8 +1384,12 @@ export default function ResearchCenterPage({ inv }) {
     return { meat, wood, coal, iron, steel, secs, actual };
   }, [levels, buffTotal]);
 
-  // ── Current tree data ─────────────────────────────────────────────────────
-  const treeData = RC[tree];
+  // ── Inv resource values (respect unit multipliers) ────────────────────────
+  const invMeat  = inv ? (inv.meat  ?? 0) * (inv.meatUnit  === "B" ? 1e9 : 1e6) : 0;
+  const invWood  = inv ? (inv.wood  ?? 0) * (inv.woodUnit  === "B" ? 1e9 : 1e6) : 0;
+  const invCoal  = inv ? (inv.coal  ?? 0) * (inv.coalUnit  === "B" ? 1e9 : 1e6) : 0;
+  const invIron  = inv ? (inv.iron  ?? 0) * (inv.ironUnit  === "B" ? 1e9 : 1e6) : 0;
+  const invSteel = inv ? (inv.steel ?? 0) * (inv.steelUnit === "B" ? 1000 : 1) * 1e6 : 0;
 
   // ── Styles ────────────────────────────────────────────────────────────────
   const thS = {
@@ -1388,39 +1408,63 @@ export default function ResearchCenterPage({ inv }) {
   };
 
   const treeColor = { Growth:C.green, Economy:C.amber, Battle:C.red };
+  const treeData = RC[tree];
 
   return (
     <div className="fade-in">
 
-      {/* ── Speed Buff Panel ────────────────────────────────────────────── */}
-      <div className="card" style={{marginBottom:16}}>
-        <div className="card-header">
-          <div className="card-title">Research Speed Buffs</div>
+      {/* ── Research Speed Buffs — matches War Academy exactly ───────────── */}
+      <div style={{ marginBottom:24, padding:"16px", background:C.surface,
+        borderRadius:8, border:`1px solid ${C.border}` }}>
+        <div style={{ fontSize:9, fontWeight:700, letterSpacing:"1.5px", textTransform:"uppercase",
+          color:C.textDim, fontFamily:"'Space Mono',monospace", marginBottom:10,
+          paddingBottom:5, borderBottom:`1px solid ${C.border}` }}>
+          Research Buffs (Time Reduction)
         </div>
-        <div className="card-body" style={{display:"flex",flexWrap:"wrap",gap:16,alignItems:"center"}}>
-          <div style={{display:"flex",alignItems:"center",gap:8}}>
-            <span style={{fontSize:12,color:C.textSec}}>Research Speed %</span>
-            <input type="number" min={0} max={500} value={speedBuff}
-              onChange={e => saveSpeedBuff(Number(e.target.value))}
-              style={{...sel,width:70,textAlign:"right",fontSize:13,fontWeight:700}}/>
-            <span style={{fontSize:11,color:C.textDim,fontFamily:"'Space Mono',monospace"}}>%</span>
+        <div style={{ display:"flex", flexWrap:"wrap", gap:16, alignItems:"flex-start" }}>
+          <div style={{ display:"flex", flexDirection:"column", gap:5, minWidth:260 }}>
+            <label style={{ fontSize:11, color:C.textSec }}>
+              Bonus Overview Total — Research Speed (%)
+            </label>
+            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+              <input type="number" min={0} max={500} step={0.5}
+                value={speedBuff}
+                onChange={e => setSpeedBuff(Number(e.target.value))}
+                style={{ width:100, textAlign:"right", background:C.card,
+                  border:`1px solid ${C.border}`, borderRadius:6,
+                  color:C.textPri, padding:"5px 8px", fontSize:12, outline:"none" }} />
+              <span style={{ fontSize:12, color:C.textSec, fontFamily:"Space Mono,monospace" }}>%</span>
+            </div>
+            <div style={{ fontSize:11, color:C.textSec, marginTop:2, lineHeight:1.5 }}>
+              Non-buffed Research speed — located in{" "}
+              <span style={{ color:C.accent, fontFamily:"Space Mono,monospace" }}>
+                Bonus Overview &gt; Growth
+              </span>
+            </div>
           </div>
-          {[
-            { k:"presSkill", label:"President Skill — Research Advancement +10%" },
-            { k:"presPos",   label:"Vice President +10%" },
-          ].map(({k,label}) => (
-            <button key={k} onClick={() => toggleBuff(k)}
-              style={{padding:"5px 12px",borderRadius:6,fontSize:11,fontWeight:700,
-                cursor:"pointer",fontFamily:"'Space Mono',monospace",
-                background: buffs[k] ? C.accentBg : "transparent",
-                color: buffs[k] ? C.accent : C.textSec,
-                border:`1px solid ${buffs[k] ? C.accentDim : C.border}`}}>
-              {buffs[k] ? "✓ " : ""}{label}
-            </button>
-          ))}
-          <span style={{fontSize:11,color:C.textDim,fontFamily:"'Space Mono',monospace",marginLeft:"auto"}}>
-            Total buff: {(buffTotal*100).toFixed(1)}% · Actual = Base ÷ {(1+buffTotal).toFixed(2)}
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, alignSelf:"flex-end" }}>
+            {[
+              { k:"presSkill", label:"President Skill — Research Advancement", val:"10%" },
+              { k:"presPos",   label:"Vice President",                          val:"10%" },
+            ].map(b => (
+              <button key={b.k} type="button" onClick={() => toggleBuff(b.k)}
+                style={{ padding:"7px 13px", borderRadius:7, fontSize:11, fontWeight:700,
+                  cursor:"pointer", fontFamily:"Syne,sans-serif", transition:"all 0.15s",
+                  textAlign:"left",
+                  background: buffs[b.k] ? C.greenBg  : C.surface,
+                  color:      buffs[b.k] ? C.green    : C.textDim,
+                  border:     `1px solid ${buffs[b.k] ? C.greenDim : C.border}` }}>
+                {b.label} <span style={{ opacity:0.7 }}>+{b.val}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{ marginTop:10, fontSize:12, color:C.textSec }}>
+          Total research speed bonus:{" "}
+          <span style={{ color:C.green, fontFamily:"Space Mono,monospace", fontWeight:700 }}>
+            {(buffTotal*100).toFixed(1)}%
           </span>
+          {" · "}Actual time = base time ÷ (1 + {(buffTotal*100).toFixed(1)}%)
         </div>
       </div>
 
@@ -1433,28 +1477,36 @@ export default function ResearchCenterPage({ inv }) {
           </span>
         </div>
         <div className="card-body">
-          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(150px,1fr))",gap:10}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:10}}>
             {[
-              {label:"Meat",        val:globalSummary.meat,   color:C.green},
-              {label:"Wood",        val:globalSummary.wood,   color:C.green},
-              {label:"Coal",        val:globalSummary.coal,   color:C.textSec},
-              {label:"Iron",        val:globalSummary.iron,   color:C.textSec},
-              {label:"Steel",       val:globalSummary.steel,  color:C.blue},
-              {label:"Orig. Time",  val:null, display:fmtSecs(globalSummary.secs),  color:C.textSec},
-              {label:"Actual Time", val:null, display:fmtSecs(globalSummary.actual),color:C.accent},
-            ].map(({label,val,display,color}) => (
-              <div key={label} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 14px"}}>
-                <div style={{fontSize:9,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",color:C.textDim,fontFamily:"'Space Mono',monospace",marginBottom:6}}>{label}</div>
-                <div style={{fontFamily:"'Space Mono',monospace",fontWeight:700,fontSize:14,color}}>
-                  {display ?? (val === 0 ? "—" : fmtNum(val))}
+              {label:"Meat",        needed:globalSummary.meat,  have:invMeat,  color:C.green},
+              {label:"Wood",        needed:globalSummary.wood,  have:invWood,  color:C.green},
+              {label:"Coal",        needed:globalSummary.coal,  have:invCoal,  color:C.textSec},
+              {label:"Iron",        needed:globalSummary.iron,  have:invIron,  color:C.textSec},
+              {label:"Steel (M)",   needed:globalSummary.steel/1e6, have:invSteel/1e6, color:C.blue},
+              {label:"Orig. Time",  needed:null, display:fmtSecs(globalSummary.secs),  color:C.textSec},
+              {label:"Actual Time", needed:null, display:fmtSecs(globalSummary.actual),color:C.accent},
+            ].map(({label,needed,have,display,color}) => {
+              const short = needed != null && have != null && needed > have;
+              return (
+                <div key={label} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 14px"}}>
+                  <div style={{fontSize:9,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",color:C.textDim,fontFamily:"'Space Mono',monospace",marginBottom:4}}>{label}</div>
+                  <div style={{fontFamily:"'Space Mono',monospace",fontWeight:700,fontSize:13,color:short?C.red:color}}>
+                    {display ?? (needed === 0 ? "—" : fmtNum(needed))}
+                  </div>
+                  {have != null && needed != null && needed > 0 && (
+                    <div style={{fontSize:10,color:C.textDim,fontFamily:"'Space Mono',monospace",marginTop:2}}>
+                      have {fmtNum(have)}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
 
-      {/* ── Speedup Cards ───────────────────────────────────────────────── */}
+      {/* ── Research Speedup Cards ───────────────────────────────────────── */}
       {inv && (
         <div className="card" style={{marginBottom:16}}>
           <div className="card-header">
@@ -1468,7 +1520,6 @@ export default function ResearchCenterPage({ inv }) {
                 {label:"Learning", d:inv.speedLearningD, h:inv.speedLearningH, m:inv.speedLearningM},
               ].map(({label,d,h,m}) => {
                 const totalMins = (d||0)*1440 + (h||0)*60 + (m||0);
-                const totalSecs = totalMins * 60;
                 const parts = [];
                 const days = Math.floor(totalMins/1440);
                 const hrs  = Math.floor((totalMins%1440)/60);
@@ -1480,8 +1531,8 @@ export default function ResearchCenterPage({ inv }) {
                 return (
                   <div key={label} style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 16px",minWidth:140}}>
                     <div style={{fontSize:9,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",color:C.textDim,fontFamily:"'Space Mono',monospace",marginBottom:4}}>{label}</div>
-                    <div style={{fontFamily:"'Space Mono',monospace",fontWeight:700,fontSize:14,color:totalSecs>0?C.blue:C.textDim}}>{display}</div>
-                    {totalSecs > 0 && <div style={{fontSize:10,color:C.textDim,fontFamily:"'Space Mono',monospace",marginTop:2}}>{(totalSecs/3600).toFixed(1)} hrs total</div>}
+                    <div style={{fontFamily:"'Space Mono',monospace",fontWeight:700,fontSize:14,color:totalMins>0?C.blue:C.textDim}}>{display}</div>
+                    {totalMins > 0 && <div style={{fontSize:10,color:C.textDim,fontFamily:"'Space Mono',monospace",marginTop:2}}>{(totalMins/60).toFixed(1)} hrs total</div>}
                   </div>
                 );
               })}
@@ -1507,8 +1558,12 @@ export default function ResearchCenterPage({ inv }) {
       </div>
 
       {/* ── Tier Tables ─────────────────────────────────────────────────── */}
-      {treeData.tiers.map((tier, ti) => {
-        // Tier totals
+      {treeData.tiers.map((tier) => {
+        const tc = treeColor[tree];
+        const collapseKey = `${tree}-${tier.tier}`;
+        const isHiding = !!collapseAllMaxed[collapseKey];
+
+        // Per-tier cost totals (goal → current diff)
         let tierMeat=0,tierWood=0,tierCoal=0,tierIron=0,tierSteel=0,tierSecs=0;
         tier.researches.forEach(res => {
           const {cur,goal} = getLv(res.id);
@@ -1516,20 +1571,26 @@ export default function ResearchCenterPage({ inv }) {
           tierMeat+=cost.meat; tierWood+=cost.wood; tierCoal+=cost.coal;
           tierIron+=cost.iron; tierSteel+=cost.steel; tierSecs+=cost.secs;
         });
-        const tierActual = tierSecs>0 ? Math.round(tierSecs/(1+buffTotal)) : 0;
-        const tc = treeColor[tree];
+        const tierActual = tierSecs > 0 ? Math.round(tierSecs/(1+buffTotal)) : 0;
+
+        // Check if ALL researches in this tier are maxed at current level
+        const allCurMaxed = tier.researches.every(res => {
+          const maxLv = res.levels.length - 1;
+          return (getLv(res.id).cur ?? 0) >= maxLv;
+        });
 
         return (
           <div key={tier.tier} style={{marginBottom:24}}>
             {/* Tier header */}
-            <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:10,flexWrap:"wrap"}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:10,flexWrap:"wrap"}}>
               <div style={{fontSize:15,fontWeight:800,color:tc,fontFamily:"Syne,sans-serif"}}>
                 Tier {tier.tier}
               </div>
               <div style={{fontSize:10,color:C.textDim,fontFamily:"'Space Mono',monospace"}}>
                 Min RC Lv. {tier.minRCLevel}
               </div>
-              {/* Tier cost summary chips */}
+
+              {/* Cost chips */}
               {tierSecs > 0 && (
                 <div style={{display:"flex",gap:6,flexWrap:"wrap",marginLeft:4}}>
                   {[
@@ -1552,114 +1613,137 @@ export default function ResearchCenterPage({ inv }) {
                   </span>
                 </div>
               )}
-              {/* Max Tier button */}
-              <button type="button"
-                onClick={() => {
-                  setLevels(prev => {
-                    const next = {...prev};
-                    tier.researches.forEach(res => {
-                      const maxLv = res.levels.length - 1;
-                      const cur = prev[res.id]?.cur ?? 0;
-                      next[res.id] = { cur, goal: maxLv };
+
+              {/* Right side buttons */}
+              <div style={{marginLeft:"auto",display:"flex",gap:6,alignItems:"center"}}>
+                {/* Collapse all-maxed toggle — only shown when whole tier is maxed */}
+                {allCurMaxed && (
+                  <button type="button"
+                    onClick={() => toggleCollapseAllMaxed(tree, tier.tier)}
+                    style={{padding:"4px 10px",borderRadius:5,fontSize:11,fontWeight:700,
+                      cursor:"pointer",fontFamily:"'Space Mono',monospace",
+                      background: isHiding ? C.accentBg : C.surface,
+                      color: isHiding ? C.accent : C.textSec,
+                      border:`1px solid ${isHiding ? C.accentDim : C.border}`}}>
+                    {isHiding ? `▶ Show Tier ${tier.tier}` : `◀ Hide Tier ${tier.tier}`}
+                  </button>
+                )}
+                {/* Max Tier — sets CURRENT to max for all researches */}
+                <button type="button"
+                  onClick={() => {
+                    setLevels(prev => {
+                      const next = {...prev};
+                      tier.researches.forEach(res => {
+                        const maxLv = res.levels.length - 1;
+                        next[res.id] = { cur: maxLv, goal: maxLv };
+                      });
+                      return next;
                     });
-                    return next;
-                  });
-                }}
-                style={{marginLeft:"auto",padding:"4px 12px",borderRadius:5,fontSize:11,
-                  fontWeight:700,cursor:"pointer",fontFamily:"'Space Mono',monospace",
-                  background:C.accentBg,color:C.accent,border:`1px solid ${C.accentDim}`}}>
-                ⚡ Max Tier {tier.tier}
-              </button>
+                  }}
+                  style={{padding:"4px 12px",borderRadius:5,fontSize:11,
+                    fontWeight:700,cursor:"pointer",fontFamily:"'Space Mono',monospace",
+                    background:C.accentBg,color:C.accent,border:`1px solid ${C.accentDim}`}}>
+                  ⚡ Max Tier {tier.tier}
+                </button>
+              </div>
             </div>
 
-            <div style={{overflowX:"auto"}}>
-              <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:720}}>
-                <thead>
-                  <tr>
-                    <th style={{...thS,minWidth:160}}>Research</th>
-                    <th style={{...thS,textAlign:"center",width:70}}>Current</th>
-                    <th style={{...thS,width:180}}>Current Buff</th>
-                    <th style={{...thS,textAlign:"center",width:70}}>Goal</th>
-                    <th style={{...thS,width:180}}>Goal Buff</th>
-                    <th style={{...thS,textAlign:"right"}}>Orig. Time</th>
-                    <th style={{...thS,textAlign:"right",color:C.accent}}>Actual Time</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {tier.researches.map((res, ri) => {
-                    const {cur, goal} = getLv(res.id);
-                    const maxLv = res.levels.length - 1;
-                    const cost = calcResearchCost(res, cur, goal);
-                    const actualSecs = cost.secs > 0 ? Math.round(cost.secs / (1 + buffTotal)) : 0;
-                    const isMaxed = cur >= maxLv;
-                    const hasUpgrade = goal > cur;
+            {/* Hide table when collapsed */}
+            {!isHiding && (
+              <div style={{overflowX:"auto"}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:720}}>
+                  <thead>
+                    <tr>
+                      <th style={{...thS,minWidth:160}}>Research</th>
+                      <th style={{...thS,textAlign:"center",width:70}}>Current</th>
+                      <th style={{...thS,width:190}}>Current Buff</th>
+                      <th style={{...thS,textAlign:"center",width:70}}>Goal</th>
+                      <th style={{...thS,width:190}}>Goal Buff</th>
+                      <th style={{...thS,textAlign:"right"}}>Orig. Time</th>
+                      <th style={{...thS,textAlign:"right",color:C.accent}}>Actual Time</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tier.researches.map((res, ri) => {
+                      const {cur, goal} = getLv(res.id);
+                      const maxLv = res.levels.length - 1;
+                      const cost = calcResearchCost(res, cur, goal);
+                      const actualSecs = cost.secs > 0 ? Math.round(cost.secs / (1 + buffTotal)) : 0;
+                      const curIsMax  = cur  >= maxLv;
+                      const goalIsMax = goal >= maxLv;
+                      const hasUpgrade = goal > cur;
 
-                    return (
-                      <tr key={res.id} style={{
-                        background: ri%2===0 ? "transparent" : C.surface,
-                        opacity: isMaxed && !hasUpgrade ? 0.65 : 1,
-                      }}>
-                        <td style={{...tdS,fontWeight:600,color:C.textPri}}>
-                          <div style={{fontSize:12}}>{res.name}</div>
-                          {isMaxed && !hasUpgrade && (
-                            <span style={{fontSize:9,fontFamily:"'Space Mono',monospace",
-                              color:C.green,fontWeight:700}}>MAXED</span>
-                          )}
-                        </td>
+                      return (
+                        <tr key={res.id} style={{
+                          background: ri%2===0 ? "transparent" : C.surface,
+                          opacity: curIsMax && !hasUpgrade ? 0.65 : 1,
+                        }}>
+                          <td style={{...tdS,fontWeight:600,color:C.textPri}}>
+                            <div>{res.name}</div>
+                            {curIsMax && !hasUpgrade && (
+                              <span style={{fontSize:9,fontFamily:"'Space Mono',monospace",
+                                color:C.green,fontWeight:700}}>MAXED</span>
+                            )}
+                          </td>
 
-                        {/* Current level dropdown */}
-                        <td style={{...tdS,textAlign:"center"}}>
-                          <select value={cur}
-                            onChange={e => setLv(res.id, "cur", Number(e.target.value))}
-                            style={sel}>
-                            {res.levels.map((_,i) => (
-                              <option key={i} value={i}>{i}</option>
-                            ))}
-                          </select>
-                        </td>
+                          {/* Current level */}
+                          <td style={{...tdS,textAlign:"center"}}>
+                            {curIsMax ? (
+                              <span style={{fontSize:10,color:C.green,fontFamily:"'Space Mono',monospace",fontWeight:700}}>Max</span>
+                            ) : (
+                              <select value={cur}
+                                onChange={e => setLv(res.id, "cur", Number(e.target.value))}
+                                style={sel}>
+                                {res.levels.map((_,i) => (
+                                  <option key={i} value={i}>{i}</option>
+                                ))}
+                              </select>
+                            )}
+                          </td>
 
-                        {/* Current buff */}
-                        <td style={{...tdS,color:C.textSec,fontSize:11}}>
-                          {cur === 0 ? <span style={{color:C.textDim}}>—</span> : getBuff(res, cur)}
-                        </td>
+                          {/* Current buff */}
+                          <td style={{...tdS,color:C.textSec,fontSize:11}}>
+                            {cur === 0 ? <span style={{color:C.textDim}}>—</span> : getBuff(res, cur)}
+                          </td>
 
-                        {/* Goal level dropdown */}
-                        <td style={{...tdS,textAlign:"center"}}>
-                          {isMaxed && !hasUpgrade ? (
-                            <span style={{fontSize:10,color:C.green,fontFamily:"'Space Mono',monospace",fontWeight:700}}>Max</span>
-                          ) : (
-                            <select value={goal}
-                              onChange={e => setLv(res.id, "goal", Number(e.target.value))}
-                              style={{...sel,color: goal > cur ? C.accent : C.textPri}}>
-                              {res.levels.map((_,i) => (
-                                <option key={i} value={i}>{i}</option>
-                              ))}
-                            </select>
-                          )}
-                        </td>
+                          {/* Goal level */}
+                          <td style={{...tdS,textAlign:"center"}}>
+                            {goalIsMax ? (
+                              <span style={{fontSize:10,color:C.green,fontFamily:"'Space Mono',monospace",fontWeight:700}}>Max</span>
+                            ) : (
+                              <select value={goal}
+                                onChange={e => setLv(res.id, "goal", Number(e.target.value))}
+                                style={{...sel,color: goal > cur ? C.accent : C.textPri}}>
+                                {res.levels.map((_,i) => (
+                                  <option key={i} value={i}>{i}</option>
+                                ))}
+                              </select>
+                            )}
+                          </td>
 
-                        {/* Goal buff */}
-                        <td style={{...tdS,color:goal>cur?C.accent:C.textSec,fontSize:11}}>
-                          {goal === 0 ? <span style={{color:C.textDim}}>—</span> : getBuff(res, goal)}
-                        </td>
+                          {/* Goal buff */}
+                          <td style={{...tdS,color:goal>cur?C.accent:C.textSec,fontSize:11}}>
+                            {goal === 0 ? <span style={{color:C.textDim}}>—</span> : getBuff(res, goal)}
+                          </td>
 
-                        {/* Original time */}
-                        <td style={{...tdS,textAlign:"right",fontFamily:"'Space Mono',monospace",
-                          color:hasUpgrade?C.textPri:C.textDim}}>
-                          {hasUpgrade ? fmtSecs(cost.secs) : "—"}
-                        </td>
+                          {/* Original time */}
+                          <td style={{...tdS,textAlign:"right",fontFamily:"'Space Mono',monospace",
+                            color:hasUpgrade?C.textPri:C.textDim}}>
+                            {hasUpgrade ? fmtSecs(cost.secs) : "—"}
+                          </td>
 
-                        {/* Actual time */}
-                        <td style={{...tdS,textAlign:"right",fontFamily:"'Space Mono',monospace",
-                          color:hasUpgrade?C.accent:C.textDim}}>
-                          {hasUpgrade ? fmtSecs(actualSecs) : "—"}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                          {/* Actual time */}
+                          <td style={{...tdS,textAlign:"right",fontFamily:"'Space Mono',monospace",
+                            color:hasUpgrade?C.accent:C.textDim}}>
+                            {hasUpgrade ? fmtSecs(actualSecs) : "—"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         );
       })}
