@@ -1558,7 +1558,14 @@ export default function ResearchCenterPage({ inv }) {
       </div>
 
       {/* ── Tier Tables ─────────────────────────────────────────────────── */}
-      {treeData.tiers.map((tier) => {
+      {[...treeData.tiers]
+        .sort((a, b) => {
+          const aHidden = !!collapseAllMaxed[`${tree}-${a.tier}`];
+          const bHidden = !!collapseAllMaxed[`${tree}-${b.tier}`];
+          if (aHidden === bHidden) return 0; // preserve original order within each group
+          return aHidden ? 1 : -1;           // hidden tiers sink to bottom
+        })
+        .map((tier) => {
         const tc = treeColor[tree];
         const collapseKey = `${tree}-${tier.tier}`;
         const isHiding = !!collapseAllMaxed[collapseKey];
