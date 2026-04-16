@@ -660,18 +660,21 @@ function loadState(key, fallback) {
 
 async function syncCPFromCloud(userId, setters) {
   try {
-    // Fall back to current session if no userId provided
     if (!userId) {
       const { data: { session } } = await supabase.auth.getSession();
       userId = session?.user?.id;
     }
     if (!userId) return;
+
     const { data } = await supabase.from("user_data")
       .select("key, value, updated_at")
       .eq("user_id", userId)
       .in("key", CP_KEYS);
-    if (!data?.length) return;
-    data.forEach(row => {
+
+    const cloudKeys = new Set((data || []).map(r => r.key));
+
+    // Pull cloud → local where cloud is newer
+    (data || []).forEach(row => {
       try {
         const remote = JSON.parse(row.value);
         const localTs = localStorage.getItem(`${row.key}__ts`) || "0";
@@ -679,6 +682,20 @@ async function syncCPFromCloud(userId, setters) {
           localStorage.setItem(row.key, JSON.stringify(remote));
           localStorage.setItem(`${row.key}__ts`, row.updated_at);
           setters[row.key]?.(remote);
+        }
+      } catch {}
+    });
+
+    // Push local → cloud for any keys missing from Supabase or where local is newer
+    CP_KEYS.forEach(key => {
+      try {
+        const localVal = localStorage.getItem(key);
+        if (!localVal) return; // nothing local to push
+        const localTs = localStorage.getItem(`${key}__ts`) || "0";
+        const cloudRow = (data || []).find(r => r.key === key);
+        // Push if key missing from cloud OR local timestamp is newer
+        if (!cloudKeys.has(key) || (cloudRow && localTs > cloudRow.updated_at)) {
+          cpSyncToCloud(key, JSON.parse(localVal));
         }
       } catch {}
     });

@@ -7269,28 +7269,43 @@ export default function App() {
       setSyncUserId(null);
       return;
     }
-    // Bulk-fetch ALL keys for this user in one query, write to localStorage,
-    // then fire wos-user-ready so individual hooks pick up their values.
-    // This ensures data lands in localStorage BEFORE hooks try to read it.
     supabase.from("user_data")
       .select("key, value, updated_at")
       .eq("user_id", user.id)
       .then(({ data, error }) => {
-        if (!error && data?.length) {
-          data.forEach(row => {
-            try {
-              const localTs = localStorage.getItem(`${row.key}__ts`) || "0";
-              if (row.updated_at > localTs) {
-                localStorage.setItem(row.key, row.value);
-                localStorage.setItem(`${row.key}__ts`, row.updated_at);
-              }
-            } catch {}
-          });
-        }
-        // Fire event — mounted hooks will re-read from localStorage (now populated)
+        const cloudRows = (!error && data) ? data : [];
+        const cloudMap = new Map(cloudRows.map(r => [r.key, r]));
+
+        // Pull cloud → local where cloud is newer
+        cloudRows.forEach(row => {
+          try {
+            const localTs = localStorage.getItem(`${row.key}__ts`) || "0";
+            if (row.updated_at > localTs) {
+              localStorage.setItem(row.key, row.value);
+              localStorage.setItem(`${row.key}__ts`, row.updated_at);
+            }
+          } catch {}
+        });
+
+        // Push local → cloud for keys that exist locally but not in Supabase
+        // This handles first-time sync after RLS was fixed
+        const allLocalKeys = Object.keys(localStorage).filter(k =>
+          !k.endsWith("__ts") && !NO_SYNC_KEYS.has(k) &&
+          !k.startsWith("sb-") && k !== "wos-theme"
+        );
+        allLocalKeys.forEach(key => {
+          try {
+            if (cloudMap.has(key)) return; // already in cloud, skip
+            const localVal = localStorage.getItem(key);
+            if (!localVal || localVal === "null") return;
+            // Schedule upload with a small delay to avoid hammering Supabase
+            scheduleSync(key, JSON.parse(localVal));
+          } catch {}
+        });
+
+        // Fire event — mounted hooks re-read from localStorage
         setSyncUserId(user.id);
-        // Bump profileVersion after a short delay so CharacterProfilePage re-computes
-        setTimeout(() => setProfileVersion(v => v + 1), 500);
+        setTimeout(() => setProfileVersion(v => v + 1), 1500);
       });
   }, [user]);
 
