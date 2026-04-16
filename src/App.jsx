@@ -3761,6 +3761,22 @@ function ProfileModal({ open, onClose, initialSection="account",
   // My Submissions
   const [mySubs,    setMySubs]      = useState([]);
   const [subsLoading, setSubsLoading] = useState(false);
+  // Issues submitted by this user
+  const [myIssues,     setMyIssues]    = useState([]);
+  const [issuesLoading,setIssuesLoading] = useState(false);
+  // Locally tracked "read" stat submissions (stored in localStorage per user)
+  const [readSubIds,   setReadSubIds]  = useState(() => {
+    try { return new Set(JSON.parse(localStorage.getItem("read-sub-ids") || "[]")); }
+    catch { return new Set(); }
+  });
+
+  const markSubRead = (id) => {
+    setReadSubIds(prev => {
+      const next = new Set(prev); next.add(id);
+      try { localStorage.setItem("read-sub-ids", JSON.stringify([...next])); } catch {}
+      return next;
+    });
+  };
 
   useEffect(() => { if (open) setSection(initialSection); }, [open, initialSection]);
   useEffect(() => { clearCharError?.(); clearAuthError?.(); setMsg(""); }, [section]);
@@ -3772,6 +3788,22 @@ function ProfileModal({ open, onClose, initialSection="account",
         .eq("submitted_by", user.id)
         .order("submitted_at", { ascending: false })
         .then(({ data }) => { setMySubs(data || []); setSubsLoading(false); });
+    }
+    if (open && section === "submissions" && user) {
+      // Load stat submissions
+      setSubsLoading(true);
+      supabase.from("stat_submissions")
+        .select("*")
+        .eq("submitted_by", user.id)
+        .order("submitted_at", { ascending: false })
+        .then(({ data }) => { setMySubs(data || []); setSubsLoading(false); });
+      // Load issue reports
+      setIssuesLoading(true);
+      supabase.from("issue_reports")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("submitted_at", { ascending: false })
+        .then(({ data }) => { setMyIssues(data || []); setIssuesLoading(false); });
     }
   }, [open, section, user]);
 
@@ -3822,9 +3854,11 @@ function ProfileModal({ open, onClose, initialSection="account",
     if (!ok) flash(authError || "Invalid code.", "error");
   };
 
+  const unreadCount = notifications.filter(n => !n.read).length;
   const tabs = [
-    { id:"characters", label:"Characters" },
-    { id:"account",    label:"Account"    },
+    { id:"characters",   label:"Characters" },
+    { id:"account",      label:"Account"    },
+    { id:"submissions",  label:"Submissions & Issues", badge: unreadCount },
   ];
 
   return (
@@ -3843,8 +3877,13 @@ function ProfileModal({ open, onClose, initialSection="account",
                 fontSize:12,fontWeight:700,fontFamily:"Syne,sans-serif",
                 color: section===t.id ? C.accent : C.textDim,
                 borderBottom: section===t.id ? `2px solid ${C.accent}` : "2px solid transparent",
-                transition:"all 0.15s",marginBottom:-1}}>
+                transition:"all 0.15s",marginBottom:-1,
+                display:"flex",alignItems:"center",gap:6}}>
               {t.label}
+              {t.badge > 0 && (
+                <span style={{background:C.red,color:"#fff",borderRadius:10,
+                  padding:"1px 6px",fontSize:10,fontWeight:800}}>{t.badge}</span>
+              )}
             </button>
           ))}
         </div>
@@ -3971,138 +4010,6 @@ function ProfileModal({ open, onClose, initialSection="account",
               </div>
 
               <div className="modal-section">
-                <div className="modal-section-title">My Submissions</div>
-                {subsLoading && <div style={{fontSize:12,color:C.textDim,fontFamily:"Space Mono,monospace"}}>Loading…</div>}
-                {!subsLoading && mySubs.length === 0 && (
-                  <div style={{fontSize:12,color:C.textDim,fontFamily:"Space Mono,monospace"}}>No submissions yet.</div>
-                )}
-                {!subsLoading && mySubs.length > 0 && (() => {
-                  const pending  = mySubs.filter(s => !s.status || s.status === "pending" || s.status === "rejected");
-                  const approved = mySubs.filter(s => s.status === "accepted");
-
-                  const SubCard = ({ sub, readOnly }) => {
-                    const status = sub.status || "pending";
-                    const statusColor = status === "accepted" ? C.green : status === "rejected" ? C.red : C.amber;
-                    const statusBg    = status === "accepted" ? C.greenBg : status === "rejected" ? C.redBg : C.amberBg;
-                    return (
-                      <div style={{background:C.surface,border:`1px solid ${C.border}`,
-                        borderRadius:8,padding:"10px 12px"}}>
-                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:4}}>
-                          <span style={{fontSize:13,fontWeight:700,color:C.textPri}}>{sub.hero_name}</span>
-                          <span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:4,
-                            background:statusBg,color:statusColor,border:`1px solid ${statusColor}40`,
-                            fontFamily:"Space Mono,monospace",textTransform:"uppercase"}}>
-                            {status}
-                          </span>
-                        </div>
-                        <div style={{fontSize:11,color:C.textDim,fontFamily:"Space Mono,monospace"}}>
-                          Stars: {sub.stars} · Level: {sub.level} · Widget: {sub.widget ?? "N/A"}
-                        </div>
-                        <div style={{fontSize:11,color:C.textDim,fontFamily:"Space Mono,monospace"}}>
-                          Submitted: {sub.submitted_at ? new Date(sub.submitted_at).toLocaleDateString() : "—"}
-                        </div>
-                        {status === "rejected" && sub.admin_note && (
-                          <div style={{marginTop:6,fontSize:11,color:C.red,
-                            background:C.redBg,borderRadius:5,padding:"5px 8px",fontFamily:"Space Mono,monospace"}}>
-                            Note: {sub.admin_note}
-                          </div>
-                        )}
-                        {readOnly && (
-                          <div style={{marginTop:5,fontSize:10,color:C.textDim,fontFamily:"Space Mono,monospace",fontStyle:"italic"}}>
-                            View only — approved stats cannot be edited.
-                          </div>
-                        )}
-                      </div>
-                    );
-                  };
-
-                  return (
-                    <div style={{display:"flex",flexDirection:"column",gap:16}}>
-                      {pending.length > 0 && (
-                        <div>
-                          <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",
-                            color:C.textSec,fontFamily:"Space Mono,monospace",marginBottom:8}}>
-                            Pending / Rejected
-                          </div>
-                          <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                            {pending.map(sub => <SubCard key={sub.id} sub={sub} readOnly={false} />)}
-                          </div>
-                        </div>
-                      )}
-                      {approved.length > 0 && (
-                        <div>
-                          <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",
-                            color:C.green,fontFamily:"Space Mono,monospace",marginBottom:8}}>
-                            Approved
-                          </div>
-                          <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                            {approved.map(sub => <SubCard key={sub.id} sub={sub} readOnly={true} />)}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-              </div>
-
-              {/* Notifications from closed tickets */}
-              <div className="modal-section">
-                <div className="modal-section-title" style={{display:"flex",alignItems:"center",gap:8}}>
-                  Notifications
-                  {notifications.filter(n=>!n.read).length > 0 && (
-                    <span style={{background:C.red,color:"#fff",borderRadius:10,padding:"1px 7px",
-                      fontSize:10,fontWeight:800}}>{notifications.filter(n=>!n.read).length} new</span>
-                  )}
-                </div>
-                {notifications.length === 0 ? (
-                  <div style={{fontSize:12,color:C.textDim,fontFamily:"Space Mono,monospace"}}>No notifications.</div>
-                ) : (
-                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                    {notifications.map(notif => (
-                      <div key={notif.id} style={{
-                        background: notif.read ? C.surface : C.accentBg,
-                        border:`1px solid ${notif.read ? C.border : C.accentDim}`,
-                        borderRadius:8,padding:"10px 12px",
-                        opacity: notif.read ? 0.7 : 1,
-                      }}>
-                        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4,flexWrap:"wrap"}}>
-                          <span style={{fontSize:10,fontWeight:700,color:notif.read?C.textDim:C.accent,
-                            fontFamily:"'Space Mono',monospace",textTransform:"uppercase"}}>
-                            {notif.issue_type}
-                          </span>
-                          <span style={{fontSize:10,color:C.textDim,fontFamily:"'Space Mono',monospace"}}>
-                            {notif.module}
-                          </span>
-                          {!notif.read && (
-                            <span style={{marginLeft:"auto",fontSize:9,fontWeight:800,color:C.accent,
-                              fontFamily:"'Space Mono',monospace",textTransform:"uppercase"}}>● NEW</span>
-                          )}
-                        </div>
-                        <div style={{fontSize:12,color:notif.read?C.textSec:C.textPri,marginBottom:6,lineHeight:1.5}}>
-                          {notif.admin_note}
-                        </div>
-                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
-                          <span style={{fontSize:10,color:C.textDim,fontFamily:"'Space Mono',monospace"}}>
-                            {notif.created_at ? new Date(notif.created_at).toLocaleDateString() : "—"}
-                          </span>
-                          {!notif.read && (
-                            <button onClick={async () => {
-                              await markNotificationRead(notif.id);
-                              setNotifications(p => p.map(n => n.id===notif.id ? {...n,read:true} : n));
-                            }} style={{fontSize:10,fontWeight:700,cursor:"pointer",
-                              padding:"2px 8px",borderRadius:4,fontFamily:"'Space Mono',monospace",
-                              background:"transparent",color:C.textDim,border:`1px solid ${C.border}`}}>
-                              Mark as read
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="modal-section">
                 <div className="modal-section-title" style={{color:C.red}}>Danger Zone</div>
                 {deleteStep === 0 && (
                   <>
@@ -4129,6 +4036,292 @@ function ProfileModal({ open, onClose, initialSection="account",
               </div>
             </>
           )}
+
+          {/* ── Submissions & Issues tab ── */}
+          {section === "submissions" && (() => {
+            const fmtDT = s => s ? new Date(s).toLocaleString([], {dateStyle:"short",timeStyle:"short"}) : "—";
+
+            // Stat submissions split
+            const activeSubs  = mySubs.filter(s => !readSubIds.has(s.id) && s.status !== "accepted");
+            const closedSubs  = mySubs.filter(s => readSubIds.has(s.id) || s.status === "accepted");
+
+            // Issues split — active = not closed; archived = closed AND read notification
+            const activeIssues = myIssues.filter(i => i.status !== "closed");
+            const closedIssues = myIssues.filter(i => i.status === "closed");
+
+            // Notifications split
+            const unreadNotifs = notifications.filter(n => !n.read);
+            const readNotifs   = notifications.filter(n => n.read);
+
+            // Anything in closed folder
+            const hasClosed = closedSubs.length > 0 || closedIssues.length > 0 || readNotifs.length > 0;
+            const [closedFolderOpen, setClosedFolderOpen] = React.useState(false);
+
+            const issueStatusStyle = (status) => {
+              if (status === "acknowledged") return { bg:C.blueBg,   color:C.blue,   border:C.blueDim };
+              if (status === "in_progress")  return { bg:C.amberBg,  color:C.amber,  border:"#7d5a0d" };
+              if (status === "resolved")     return { bg:C.greenBg,  color:C.green,  border:C.greenDim };
+              return { bg:C.surface, color:C.textDim, border:C.border };
+            };
+
+            const isEmpty = unreadNotifs.length === 0 && activeIssues.length === 0 && activeSubs.length === 0;
+
+            return (
+              <div style={{display:"flex",flexDirection:"column",gap:16}}>
+
+                {/* ── Notifications (top) ── */}
+                {unreadNotifs.length > 0 && (
+                  <div>
+                    <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",
+                      color:C.red,fontFamily:"Space Mono,monospace",marginBottom:8,
+                      display:"flex",alignItems:"center",gap:6}}>
+                      🔔 Notifications
+                      <span style={{background:C.red,color:"#fff",borderRadius:10,
+                        padding:"1px 6px",fontSize:10,fontWeight:800}}>{unreadNotifs.length}</span>
+                    </div>
+                    <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                      {unreadNotifs.map(notif => (
+                        <div key={notif.id} style={{background:C.accentBg,
+                          border:`1px solid ${C.accentDim}`,borderRadius:8,padding:"10px 12px"}}>
+                          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4,flexWrap:"wrap"}}>
+                            <span style={{fontSize:9,fontWeight:800,color:C.accent,
+                              fontFamily:"Space Mono,monospace",textTransform:"uppercase"}}>● NEW</span>
+                            <span style={{fontSize:10,fontWeight:700,color:C.accent,
+                              fontFamily:"Space Mono,monospace",textTransform:"uppercase"}}>
+                              {notif.issue_type}
+                            </span>
+                            <span style={{fontSize:10,color:C.textDim,fontFamily:"Space Mono,monospace"}}>
+                              {notif.module}
+                            </span>
+                            <span style={{fontSize:10,color:C.textDim,fontFamily:"Space Mono,monospace",marginLeft:"auto"}}>
+                              {fmtDT(notif.created_at)}
+                            </span>
+                          </div>
+                          <div style={{fontSize:12,color:C.textPri,marginBottom:8,lineHeight:1.5}}>
+                            {notif.admin_note}
+                          </div>
+                          <button onClick={async () => {
+                            await markNotificationRead(notif.id);
+                            setNotifications(p => p.map(n => n.id===notif.id ? {...n,read:true} : n));
+                          }} style={{fontSize:10,fontWeight:700,cursor:"pointer",
+                            padding:"2px 8px",borderRadius:4,fontFamily:"Space Mono,monospace",
+                            background:"transparent",color:C.textDim,border:`1px solid ${C.border}`}}>
+                            Mark as read
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Active Issues ── */}
+                {(issuesLoading || activeIssues.length > 0) && (
+                  <div>
+                    <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",
+                      color:C.textSec,fontFamily:"Space Mono,monospace",marginBottom:8}}>
+                      Issue Reports
+                    </div>
+                    {issuesLoading ? (
+                      <div style={{fontSize:12,color:C.textDim,fontFamily:"Space Mono,monospace"}}>Loading…</div>
+                    ) : (
+                      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                        {activeIssues.map(issue => {
+                          const sc = issueStatusStyle(issue.status);
+                          const lastChange = issue.updated_at || issue.submitted_at;
+                          return (
+                            <div key={issue.id} style={{background:C.surface,
+                              border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 12px"}}>
+                              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,flexWrap:"wrap"}}>
+                                <span style={{fontSize:10,fontWeight:700,color:C.textDim,
+                                  fontFamily:"Space Mono,monospace",textTransform:"uppercase"}}>
+                                  {issue.issue_type}
+                                </span>
+                                <span style={{fontSize:10,color:C.accent,fontFamily:"Space Mono,monospace"}}>
+                                  {issue.module}
+                                </span>
+                                <span style={{marginLeft:"auto",fontSize:10,fontWeight:700,
+                                  padding:"2px 8px",borderRadius:4,fontFamily:"Space Mono,monospace",
+                                  background:sc.bg,color:sc.color,border:`1px solid ${sc.border}`}}>
+                                  {(issue.status||"acknowledged").replace("_"," ").toUpperCase()}
+                                </span>
+                              </div>
+                              <div style={{fontSize:12,color:C.textPri,marginBottom:6,lineHeight:1.5}}>
+                                {issue.description}
+                              </div>
+                              <div style={{fontSize:10,color:C.textDim,fontFamily:"Space Mono,monospace"}}>
+                                Submitted: {fmtDT(issue.submitted_at)}
+                                {lastChange && lastChange !== issue.submitted_at &&
+                                  ` · Last update: ${fmtDT(lastChange)}`}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ── Active Stat Submissions ── */}
+                {(subsLoading || activeSubs.length > 0) && (
+                  <div>
+                    <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",
+                      color:C.textSec,fontFamily:"Space Mono,monospace",marginBottom:8}}>
+                      Hero Stat Submissions
+                    </div>
+                    {subsLoading ? (
+                      <div style={{fontSize:12,color:C.textDim,fontFamily:"Space Mono,monospace"}}>Loading…</div>
+                    ) : (
+                      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                        {activeSubs.map(sub => {
+                          const status = sub.status || "pending";
+                          const statusColor = status === "rejected" ? C.red : C.amber;
+                          const statusBg    = status === "rejected" ? C.redBg : C.amberBg;
+                          return (
+                            <div key={sub.id} style={{background:C.surface,
+                              border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 12px"}}>
+                              <div style={{display:"flex",alignItems:"center",
+                                justifyContent:"space-between",marginBottom:4}}>
+                                <span style={{fontSize:13,fontWeight:700,color:C.textPri}}>
+                                  {sub.hero_name}
+                                </span>
+                                <span style={{fontSize:10,fontWeight:700,padding:"2px 8px",borderRadius:4,
+                                  background:statusBg,color:statusColor,
+                                  border:`1px solid ${statusColor}40`,
+                                  fontFamily:"Space Mono,monospace",textTransform:"uppercase"}}>
+                                  {status}
+                                </span>
+                              </div>
+                              <div style={{fontSize:11,color:C.textDim,fontFamily:"Space Mono,monospace",marginBottom:4}}>
+                                Stars: {sub.stars} · Level: {sub.level} · Widget: {sub.widget ?? "N/A"}
+                              </div>
+                              <div style={{fontSize:11,color:C.textDim,fontFamily:"Space Mono,monospace",marginBottom:4}}>
+                                Submitted: {fmtDT(sub.submitted_at)}
+                              </div>
+                              {status === "rejected" && sub.admin_note && (
+                                <div style={{marginTop:4,fontSize:11,color:C.red,
+                                  background:C.redBg,borderRadius:5,padding:"5px 8px",
+                                  fontFamily:"Space Mono,monospace",marginBottom:6}}>
+                                  Note: {sub.admin_note}
+                                </div>
+                              )}
+                              <button onClick={() => markSubRead(sub.id)}
+                                style={{fontSize:10,fontWeight:700,cursor:"pointer",marginTop:4,
+                                  padding:"2px 8px",borderRadius:4,fontFamily:"Space Mono,monospace",
+                                  background:"transparent",color:C.textDim,border:`1px solid ${C.border}`}}>
+                                Dismiss
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Empty state */}
+                {isEmpty && !subsLoading && !issuesLoading && (
+                  <div style={{fontSize:12,color:C.textDim,fontFamily:"Space Mono,monospace",
+                    padding:"20px 0",textAlign:"center"}}>
+                    Nothing active — all clear! 🎉
+                  </div>
+                )}
+
+                {/* ── 📁 Closed folder ── */}
+                {hasClosed && (
+                  <div style={{marginTop:4}}>
+                    <button onClick={() => setClosedFolderOpen(o => !o)}
+                      style={{display:"flex",alignItems:"center",gap:8,background:"none",border:"none",
+                        cursor:"pointer",padding:"8px 0",width:"100%",textAlign:"left"}}>
+                      <span style={{fontSize:10,fontWeight:700,letterSpacing:"1.5px",
+                        textTransform:"uppercase",color:C.textSec,fontFamily:"Space Mono,monospace"}}>
+                        📁 Closed / Dismissed ({closedSubs.length + closedIssues.length + readNotifs.length})
+                      </span>
+                      <span style={{fontSize:11,color:C.textDim,marginLeft:"auto"}}>
+                        {closedFolderOpen ? "▲" : "▼"}
+                      </span>
+                    </button>
+                    {closedFolderOpen && (
+                      <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:8,opacity:0.7}}>
+                        {/* Read notifications */}
+                        {readNotifs.map(notif => (
+                          <div key={notif.id} style={{background:C.surface,
+                            border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px"}}>
+                            <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:3}}>
+                              <span style={{fontSize:10,fontWeight:700,color:C.textDim,
+                                fontFamily:"Space Mono,monospace",textTransform:"uppercase"}}>
+                                {notif.issue_type}
+                              </span>
+                              <span style={{fontSize:10,color:C.textDim,fontFamily:"Space Mono,monospace"}}>
+                                {notif.module}
+                              </span>
+                              <span style={{fontSize:10,color:C.textDim,fontFamily:"Space Mono,monospace",marginLeft:"auto"}}>
+                                {fmtDT(notif.created_at)}
+                              </span>
+                            </div>
+                            <div style={{fontSize:11,color:C.textSec}}>{notif.admin_note}</div>
+                          </div>
+                        ))}
+                        {/* Closed issues */}
+                        {closedIssues.map(issue => (
+                          <div key={issue.id} style={{background:C.surface,
+                            border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px"}}>
+                            <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:3}}>
+                              <span style={{fontSize:10,fontWeight:700,color:C.textDim,
+                                fontFamily:"Space Mono,monospace",textTransform:"uppercase"}}>
+                                {issue.issue_type}
+                              </span>
+                              <span style={{fontSize:10,color:C.textDim,fontFamily:"Space Mono,monospace"}}>
+                                {issue.module}
+                              </span>
+                              <span style={{fontSize:10,fontWeight:700,padding:"1px 6px",borderRadius:4,
+                                background:C.surface,color:C.textDim,border:`1px solid ${C.border}`,
+                                fontFamily:"Space Mono,monospace",textTransform:"uppercase",marginLeft:"auto"}}>
+                                CLOSED
+                              </span>
+                            </div>
+                            <div style={{fontSize:11,color:C.textSec,marginBottom:4}}>{issue.description}</div>
+                            {issue.admin_note && (
+                              <div style={{fontSize:11,color:C.green,fontFamily:"Space Mono,monospace",
+                                background:C.greenBg,borderRadius:4,padding:"3px 7px"}}>
+                                Admin: {issue.admin_note}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                        {/* Dismissed/accepted stat submissions */}
+                        {closedSubs.map(sub => {
+                          const status = sub.status || "pending";
+                          const color  = status === "accepted" ? C.green : C.textDim;
+                          const bg     = status === "accepted" ? C.greenBg : C.surface;
+                          return (
+                            <div key={sub.id} style={{background:C.surface,
+                              border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px"}}>
+                              <div style={{display:"flex",alignItems:"center",
+                                justifyContent:"space-between",marginBottom:3}}>
+                                <span style={{fontSize:12,fontWeight:700,color:C.textSec}}>
+                                  {sub.hero_name}
+                                </span>
+                                <span style={{fontSize:10,fontWeight:700,padding:"1px 6px",borderRadius:4,
+                                  background:bg,color:color,
+                                  border:`1px solid ${color}40`,
+                                  fontFamily:"Space Mono,monospace",textTransform:"uppercase"}}>
+                                  {status}
+                                </span>
+                              </div>
+                              <div style={{fontSize:11,color:C.textDim,fontFamily:"Space Mono,monospace"}}>
+                                Stars: {sub.stars} · Level: {sub.level} · {fmtDT(sub.submitted_at)}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
         </div>
       </div>
     </div>
