@@ -6525,8 +6525,11 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion }) {
           isEntry
           entryVal={constructionSpeed}
           onEntry={v => {
-            setConstructionSpeed(v);
-            try { localStorage.setItem("cp-speedbuff", JSON.stringify(v)); } catch {}
+            try {
+              localStorage.setItem("cp-speedbuff", JSON.stringify(v));
+              localStorage.setItem("cp-speedbuff__ts", new Date().toISOString());
+              scheduleSync("cp-speedbuff", v);
+            } catch {}
           }}
           source="Synced with Construction tab · Bonus Overview > Growth"
           suffix="%" />
@@ -6535,8 +6538,11 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion }) {
           isEntry
           entryVal={researchSpeed}
           onEntry={v => {
-            setResearchSpeed(v);
-            try { localStorage.setItem("wa-speedbuff", JSON.stringify(v)); } catch {}
+            try {
+              localStorage.setItem("wa-speedbuff", JSON.stringify(v));
+              localStorage.setItem("wa-speedbuff__ts", new Date().toISOString());
+              scheduleSync("wa-speedbuff", v);
+            } catch {}
           }}
           source="Synced with War Academy tab · Bonus Overview > Growth"
           suffix="%" />

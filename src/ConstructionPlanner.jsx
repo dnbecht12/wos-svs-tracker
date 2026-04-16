@@ -630,8 +630,11 @@ const DEFAULT_BUILDINGS = [
 const CP_KEYS = ["cp-buildings","cp-buffs","cp-speedbuff","cp-cycle","cp-dailyfc","cp-agnes"];
 const _cpTimers = {};
 
-async function cpSyncToCloud(userId, key, val) {
+async function cpSyncToCloud(key, val) {
   try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id;
+    if (!userId) return;
     await supabase.from("user_data").upsert(
       { user_id: userId, key, value: JSON.stringify(val),
         updated_at: new Date().toISOString() },
@@ -640,27 +643,14 @@ async function cpSyncToCloud(userId, key, val) {
   } catch {}
 }
 
-// Get the logged-in user ID from the Supabase auth token in localStorage
-function getCPUserId() {
-  try {
-    const tokenKey = Object.keys(localStorage).find(
-      k => k.startsWith("sb-") && k.endsWith("-auth-token")
-    );
-    if (!tokenKey) return null;
-    return JSON.parse(localStorage.getItem(tokenKey))?.user?.id || null;
-  } catch { return null; }
-}
-
 function saveState(key, val) {
   try {
     localStorage.setItem(key, JSON.stringify(val));
     localStorage.setItem(`${key}__ts`, new Date().toISOString());
   } catch {}
-  // Debounced cloud write
-  const userId = getCPUserId();
-  if (!userId) return;
+  // Debounced cloud write — uses supabase.auth directly, no localStorage token parsing
   clearTimeout(_cpTimers[key]);
-  _cpTimers[key] = setTimeout(() => cpSyncToCloud(userId, key, val), 800);
+  _cpTimers[key] = setTimeout(() => cpSyncToCloud(key, val), 800);
 }
 
 function loadState(key, fallback) {
@@ -670,6 +660,12 @@ function loadState(key, fallback) {
 
 async function syncCPFromCloud(userId, setters) {
   try {
+    // Fall back to current session if no userId provided
+    if (!userId) {
+      const { data: { session } } = await supabase.auth.getSession();
+      userId = session?.user?.id;
+    }
+    if (!userId) return;
     const { data } = await supabase.from("user_data")
       .select("key, value, updated_at")
       .eq("user_id", userId)
@@ -811,15 +807,12 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
       "cp-dailyfc":    setDailyFCIncome,
       "cp-agnes":      setAgnesLevel,
     };
-    const userId = getCPUserId();
-    if (userId) {
-      syncCPFromCloud(userId, setters);
-    } else {
-      // Wait for App.jsx to fire wos-user-ready after auth resolves
-      const handler = (e) => syncCPFromCloud(e.detail.id, setters);
-      window.addEventListener("wos-user-ready", handler, { once: true });
-      return () => window.removeEventListener("wos-user-ready", handler);
-    }
+    // Always call syncCPFromCloud — it will get userId from supabase.auth internally
+    // Also listen for wos-user-ready in case auth hasn't resolved yet
+    syncCPFromCloud(null, setters);
+    const handler = (e) => syncCPFromCloud(e.detail.id, setters);
+    window.addEventListener("wos-user-ready", handler, { once: true });
+    return () => window.removeEventListener("wos-user-ready", handler);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
