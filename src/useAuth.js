@@ -7,10 +7,27 @@ export function useAuth() {
   const [error,   setError]   = useState("");
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
+    // Validate the session — if token is expired/invalid, sign out cleanly
+    supabase.auth.getSession().then(async ({ data: { session }, error: sessionErr }) => {
+      if (sessionErr || !session) {
+        // No valid session — clear any stale auth state and show login
+        await supabase.auth.signOut().catch(() => {});
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+      // Session exists — verify it's actually valid with Supabase
+      const { data: { user: verifiedUser }, error: userErr } = await supabase.auth.getUser();
+      if (userErr || !verifiedUser) {
+        // Token is stale/rejected (403) — sign out so user sees login screen
+        await supabase.auth.signOut().catch(() => {});
+        setUser(null);
+      } else {
+        setUser(verifiedUser);
+      }
       setLoading(false);
     });
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
     });
