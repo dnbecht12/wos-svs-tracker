@@ -106,7 +106,7 @@ async function acceptSubmission(submission, forceAccept = false) {
   await updateSubmission(submission.id, { status: "accepted" });
   return { needsValidation: false };
 }
-import ConstructionPlanner from "./ConstructionPlanner.jsx";
+import ConstructionPlanner, { getBuildingPower, BUILDINGS_LIST } from "./ConstructionPlanner.jsx";
 import RFCPlanner from "./RFCPlanner.jsx";
 import SvSCalendar from "./SvSCalendar.jsx";
 import { useAuth } from "./useAuth.js";
@@ -6393,8 +6393,28 @@ function CharacterProfilePage({ hgHeroes, inv }) {
     } catch { return 0; }
   }, []);
 
-  // Grand total power — includes fixed non-FC building power
-  const totalPower = techPower + chiefGearPower + chiefCharmsPower + heroPower + heroGearPower + troopsPower + NON_FC_BUILDING_POWER;
+  // Dynamic building power — sums power at CURRENT level for each FC building,
+  // plus fixed power for non-FC buildings (always at max, never changes)
+  const NON_FC_FIXED = 817958;
+  const buildingPower = React.useMemo(() => {
+    let fcTotal = 0;
+    try {
+      const raw = localStorage.getItem("cp-buildings");
+      if (raw) {
+        const saved = JSON.parse(raw);
+        BUILDINGS_LIST.forEach(name => {
+          const b = saved.find(x => x.name === name);
+          if (b?.current) {
+            fcTotal += getBuildingPower(name, b.current, b.currentSub || 0);
+          }
+        });
+      }
+    } catch {}
+    return fcTotal + NON_FC_FIXED;
+  }, []);
+
+  // Grand total power
+  const totalPower = techPower + chiefGearPower + chiefCharmsPower + heroPower + heroGearPower + troopsPower + buildingPower;
 
   // ── Styles ─────────────────────────────────────────────────────────────────
   const sectionHead = (label, sub) => (
@@ -6514,7 +6534,7 @@ function CharacterProfilePage({ hgHeroes, inv }) {
             ["Chief Charms", chiefCharmsPower],
             ["Hero",         heroPower + heroGearPower],
             ["Troops",       troopsPower],
-            ["Buildings",    NON_FC_BUILDING_POWER],
+            ["Buildings",    buildingPower],
           ].map(([lbl, val]) => (
             <div key={lbl} style={{ display:"flex", justifyContent:"space-between", gap:16 }}>
               <span style={{ color:C.textDim }}>{lbl}</span>
@@ -6537,7 +6557,7 @@ function CharacterProfilePage({ hgHeroes, inv }) {
         {sectionHead("Power Breakdown", "Current levels across all tracked categories")}
 
         <Row label="Tech Power" value={fmt(techPower)}
-          source="War Academy (current levels) · Research Center (coming soon)" />
+          source="War Academy (current levels) · Research Center (current levels)" />
 
         <Row label="Chief Gear Power" value={fmt(chiefGearPower)}
           source="Chief Gear tab · current levels" />
@@ -6562,8 +6582,8 @@ function CharacterProfilePage({ hgHeroes, inv }) {
           source="Calculated from Troops tab · count × power per troop at Training Camp FC level" />
 
         <Row label="Buildings Power"
-          value={fmt(NON_FC_BUILDING_POWER)}
-          source="Fixed power from max-level non-FC buildings (Hunter's Hut, Sawmill, Coal Mine, Iron Mine, Cookhouse, Clinic, Shelter ×8, Research Center, Storehouse)" />
+          value={fmt(buildingPower)}
+          source="FC buildings at current level (Construction tab) + fixed non-FC buildings at max level (Hunter's Hut, Sawmill, Coal Mine, Iron Mine, Cookhouse, Clinic, Shelter ×8, Research Center, Storehouse)" />
       </SectionCard>
 
       {/* ── Military ────────────────────────────────────────────────────── */}

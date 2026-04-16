@@ -600,11 +600,13 @@ const POWER_DB = {
 };
 
 // Power is a direct lookup — return the value at the given level/sub key
-function getBuildingPower(building, level, sub) {
+export function getBuildingPower(building, level, sub) {
   const db = POWER_DB[building] || POWER_DB[BUILDING_KEY(building)];
   if (!db) return 0;
   return db[levelKey(level, sub||0)] || 0;
 }
+
+export { BUILDINGS_LIST };
 
 const BUILDINGS_LIST = [
   "Furnace","Embassy","Infantry","Marksman","Lancer","Command","Infirmary","War Academy"
