@@ -1283,11 +1283,13 @@ function getRCPower(res, lv) {
 }
 
 // Exported — called by CharacterProfilePage to add RC power into techPower
-export function getRCTechPower() {
+// Accepts optional rcLevels prop so it can use reactive state instead of localStorage
+export function getRCTechPower(rcLevelsProp) {
   try {
-    const raw = localStorage.getItem("rc-levels");
-    if (!raw) return 0;
-    const saved = JSON.parse(raw);
+    const saved = rcLevelsProp ?? (() => {
+      const raw = localStorage.getItem("rc-levels");
+      return raw ? JSON.parse(raw) : {};
+    })();
     let total = 0;
     ["Growth","Economy","Battle"].forEach(treeName => {
       RC[treeName].tiers.forEach(tier => {

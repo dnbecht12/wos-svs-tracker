@@ -6147,21 +6147,26 @@ function getBuildingLevel(buildingName) {
   } catch { return null; }
 }
 
-function CharacterProfilePage({ hgHeroes, inv }) {
+function CharacterProfilePage({ hgHeroes, inv, cpBuildings, waLevels, waSpeedBuff, cpSpeedBuff, cgSlots, ccSlots, troopsInv, rcLevels }) {
   const C = COLORS;
 
   // VIP level
   const [vipLevel, setVipLevel] = useLocalStorage("cp-vip-level", 0);
 
-  // Embassy Reinforcement Cap — read from cp-buildings
+  // Embassy Reinforcement Cap — reactive via cpBuildings prop
   const reinforceCap = React.useMemo(() => {
-    const embLvl = getBuildingLevel("Embassy");
-    return EMBASSY_REINFORCE[embLvl] ?? null;
-  }, []);
+    const b = (cpBuildings || []).find(b => b.name === "Embassy");
+    if (!b?.current) return null;
+    const cur = b.current;
+    let key = null;
+    if (/^\d+\.\d+$/.test(cur)) key = "F30";
+    else { const m = cur.match(/^FC(\d+)(?:\.\d+)?$/); if (m) key = `FC${m[1]}`; }
+    return key ? (EMBASSY_REINFORCE[key] ?? null) : null;
+  }, [cpBuildings]);
 
-  // ── Read all power sources from localStorage ────────────────────────────────
+  // ── All power sources use reactive props — re-renders whenever cloud sync updates ─
 
-  // Hero Gear power — sum across all 4 slots (Goggles/Gloves/Belt/Boots) × 3 heroes
+  // Hero Gear power — reactive via hgHeroes prop
   const heroGearPower = React.useMemo(() => {
     if (!hgHeroes) return 0;
     let total = 0;
@@ -6200,218 +6205,168 @@ function CharacterProfilePage({ hgHeroes, inv }) {
       });
   }, []);
 
-  // Chief Gear power — sum of current level power across all 6 pieces
+  // Chief Gear power — reactive via cgSlots prop
   const chiefGearPower = React.useMemo(() => {
-    try {
-      const raw = localStorage.getItem("cg-slots");
-      if (!raw) return 0;
-      const slots = JSON.parse(raw);
-      return slots.reduce((sum, s) => {
-        const row = CHIEF_GEAR_LEVELS[s.current ?? 0];
-        return sum + (row?.[6] ?? 0);
-      }, 0);
-    } catch { return 0; }
-  }, []);
+    if (!cgSlots?.length) return 0;
+    return cgSlots.reduce((sum, s) => {
+      const row = CHIEF_GEAR_LEVELS[s.current ?? 0];
+      return sum + (row?.[6] ?? 0);
+    }, 0);
+  }, [cgSlots]);
 
-  // Chief Charms power — sum of current level power across all 18 charms
+  // Chief Charms power — reactive via ccSlots prop
   const chiefCharmsPower = React.useMemo(() => {
-    try {
-      const raw = localStorage.getItem("cc-slots");
-      if (!raw) return 0;
-      const slots = JSON.parse(raw);
-      return slots.reduce((sum, s) => {
-        const cur = s.current ?? 0;
-        if (cur === 0) return sum;
-        return sum + (CHIEF_CHARM_LEVELS[cur - 1]?.power ?? 0);
-      }, 0);
-    } catch { return 0; }
-  }, []);
+    if (!ccSlots?.length) return 0;
+    return ccSlots.reduce((sum, s) => {
+      const cur = s.current ?? 0;
+      if (cur === 0) return sum;
+      return sum + (CHIEF_CHARM_LEVELS[cur - 1]?.power ?? 0);
+    }, 0);
+  }, [ccSlots]);
 
-  // War Academy (Tech) power — sum of current level power across all researches × 3 troops
+  // Tech power — reactive via waLevels and rcLevels props
   const techPower = React.useMemo(() => {
     let total = 0;
-    // War Academy power
+    // War Academy
     try {
-      const raw = localStorage.getItem("wa-levels");
-      if (raw) {
-        const levels = JSON.parse(raw);
-        ["Infantry","Lancer","Marksman"].forEach(troop => {
-          WA_RESEARCH.forEach(res => {
-            const cur = levels[troop]?.[res.id]?.cur ?? 0;
-            total += waPower(res, cur);
-          });
+      const levels = waLevels || {};
+      ["Infantry","Lancer","Marksman"].forEach(troop => {
+        WA_RESEARCH.forEach(res => {
+          const cur = levels[troop]?.[res.id]?.cur ?? 0;
+          total += waPower(res, cur);
         });
-      }
+      });
     } catch {}
-    // Research Center power
-    total += getRCTechPower();
+    // Research Center — pass reactive rcLevels prop directly
+    total += getRCTechPower(rcLevels);
     return Math.round(total);
-  }, []);
+  }, [waLevels, rcLevels]);
 
-  // Deployment Capacity — sum from War Academy (Flame Squad) + Chief Gear deploy buff
-  // Deployment Capacity = Command Center base + WA Flame Squad (×3) + WA Helios Training (×3) + Chief Gear
-  // Rally Capacity = Command Center base + WA Flame Legion (×3 troops)
+  // Deployment + Rally capacity — reactive via waLevels, cgSlots, cpBuildings props
   const { deployCapacity, rallyCapacityTotal } = React.useMemo(() => {
     let deployWA = 0;
     let rallyWA  = 0;
     try {
-      const raw = localStorage.getItem("wa-levels");
-      if (raw) {
-        const levels = JSON.parse(raw);
-        const fsRes  = WA_RESEARCH.find(r => r.id === "flameSquad");
-        const htRes  = WA_RESEARCH.find(r => r.id === "heliosTraining");
-        const flRes  = WA_RESEARCH.find(r => r.id === "flameLegion");
-        ["Infantry","Lancer","Marksman"].forEach(troop => {
-          // Flame Squad → deploy buff col [2]
-          const fsCur = levels[troop]?.flameSquad?.cur ?? 0;
-          deployWA += fsRes?.levels[fsCur]?.[2] ?? 0;
-          // Helios Training → deploy buff col [2]
-          const htCur = levels[troop]?.heliosTraining?.cur ?? 0;
-          deployWA += htRes?.levels[htCur]?.[2] ?? 0;
-          // Flame Legion → rally buff col [2]
-          const flCur = levels[troop]?.flameLegion?.cur ?? 0;
-          rallyWA += flRes?.levels[flCur]?.[2] ?? 0;
-        });
-      }
+      const levels = waLevels || {};
+      const fsRes  = WA_RESEARCH.find(r => r.id === "flameSquad");
+      const htRes  = WA_RESEARCH.find(r => r.id === "heliosTraining");
+      const flRes  = WA_RESEARCH.find(r => r.id === "flameLegion");
+      ["Infantry","Lancer","Marksman"].forEach(troop => {
+        const fsCur = levels[troop]?.flameSquad?.cur ?? 0;
+        deployWA += fsRes?.levels[fsCur]?.[2] ?? 0;
+        const htCur = levels[troop]?.heliosTraining?.cur ?? 0;
+        deployWA += htRes?.levels[htCur]?.[2] ?? 0;
+        const flCur = levels[troop]?.flameLegion?.cur ?? 0;
+        rallyWA += flRes?.levels[flCur]?.[2] ?? 0;
+      });
     } catch {}
 
-    // Chief Gear deploy buff
+    // Chief Gear deploy buff — reactive via cgSlots prop
     let deployGear = 0;
-    try {
-      const raw = localStorage.getItem("cg-slots");
-      if (raw) {
-        const slots = JSON.parse(raw);
-        slots.forEach(s => { deployGear += CHIEF_GEAR_LEVELS[s.current ?? 0]?.[9] ?? 0; });
-      }
-    } catch {}
+    (cgSlots || []).forEach(s => { deployGear += CHIEF_GEAR_LEVELS[s.current ?? 0]?.[9] ?? 0; });
 
-    const cmdLvl   = getBuildingLevel("Command");
-    const cmdBase  = COMMAND_CENTER_STATS[cmdLvl] ?? null;
+    // Command building base — reactive via cpBuildings prop
+    const cmdB  = (cpBuildings || []).find(b => b.name === "Command");
+    let cmdKey  = null;
+    if (cmdB?.current) {
+      if (/^\d+\.\d+$/.test(cmdB.current)) cmdKey = "F30";
+      else { const m = cmdB.current.match(/^FC(\d+)(?:\.\d+)?$/); if (m) cmdKey = `FC${m[1]}`; }
+    }
+    const cmdBase = cmdKey ? (COMMAND_CENTER_STATS[cmdKey] ?? null) : null;
 
     return {
-      deployCapacity:    Math.round(deployWA + deployGear + (cmdBase?.deploy ?? 0)),
+      deployCapacity:     Math.round(deployWA + deployGear + (cmdBase?.deploy ?? 0)),
       rallyCapacityTotal: Math.round(rallyWA + (cmdBase?.rally ?? 0)),
     };
-  }, []);
+  }, [waLevels, cgSlots, cpBuildings]);
 
-  // Construction Speed — read from cp-speedbuff
-  const [constructionSpeed, setConstructionSpeed] = React.useState(() => {
-    try { return Number(localStorage.getItem("cp-speedbuff") || 0); } catch { return 0; }
-  });
+  // Construction Speed — reactive via cpSpeedBuff prop
+  const constructionSpeed = Number(cpSpeedBuff) || 0;
 
-  // Research Speed — read from wa-speedbuff
-  const [researchSpeed, setResearchSpeed] = React.useState(() => {
-    try { return Number(localStorage.getItem("wa-speedbuff") || 0); } catch { return 0; }
-  });
+  // Research Speed — reactive via waSpeedBuff prop
+  const researchSpeed = Number(waSpeedBuff) || 0;
 
-  // Troops Power — computed from Troops tab inventory × per-troop power at building FC level
-  // Uses inline logic since TROOP_STATS/getTroopStats are defined later in the file
+  // Troops Power — reactive via troopsInv and cpBuildings props
   const troopsPower = React.useMemo(() => {
     try {
-      const troopsRaw = localStorage.getItem("troops-inventory-v2");
-      const bldgsRaw  = localStorage.getItem("cp-buildings");
-      if (!troopsRaw) return 0;
-
-      const troops  = JSON.parse(troopsRaw);
-      const bldgs   = bldgsRaw ? JSON.parse(bldgsRaw) : [];
-
-      // Get FC level number for a building name
+      const troops = troopsInv || {};
+      const bldgs  = cpBuildings || [];
       const getFCNum = name => {
         const b = bldgs.find(b => b.name === name);
         if (!b?.current) return 0;
         const m = b.current.match(/FC(\d+)/i);
         return m ? parseInt(m[1]) : 0;
       };
-
-      // Building names per troop type
       const buildingMap = { infantry:"Infantry", lancer:"Lancer", marksman:"Marksman" };
-
-      // Inline stats lookup — same data as TROOP_STATS below
-      // Returns power-per-troop for a given type, tier number, and FC level
+      const POWER_ONLY = {
+        infantry: {
+          0:[[1,3],[2,4],[3,6],[4,9],[5,13],[6,20],[7,28],[8,38],[9,50],[10,66],[11,80]],
+          1:[[1,3],[2,4],[3,6],[4,10],[5,14],[6,21],[7,30],[8,41],[9,54],[10,71],[11,86]],
+          2:[[1,3],[2,4],[3,6],[4,10],[5,15],[6,22],[7,32],[8,44],[9,58],[10,76],[11,92]],
+          3:[[1,3],[2,4],[3,6],[4,11],[5,16],[6,24],[7,34],[8,47],[9,62],[10,83],[11,100]],
+          4:[[1,3],[2,4],[3,8],[4,12],[5,17],[6,26],[7,37],[8,51],[9,67],[10,88],[11,106]],
+          5:[[1,4],[2,5],[3,9],[4,13],[5,18],[6,28],[7,40],[8,54],[9,72],[10,94],[11,114]],
+          6:[[1,4],[2,5],[3,9],[4,14],[5,19],[6,30],[7,43],[8,57],[9,77],[10,99],[11,120]],
+          7:[[1,4],[2,5],[3,10],[4,15],[5,20],[6,32],[7,46],[8,60],[9,82],[10,104],[11,126]],
+          8:[[1,5],[2,6],[3,11],[4,16],[5,21],[6,34],[7,49],[8,63],[9,87],[10,110],[11,135]],
+          9:[[1,5],[2,6],[3,11],[4,16],[5,22],[6,35],[7,51],[8,66],[9,91],[10,115],[11,141]],
+          10:[[1,5],[2,6],[3,12],[4,17],[5,23],[6,37],[7,54],[8,69],[9,95],[10,121],[11,148]],
+        },
+        lancer: {
+          0:[[1,3],[2,4],[3,6],[4,9],[5,13],[6,20],[7,28],[8,38],[9,50],[10,66],[11,80]],
+          1:[[1,3],[2,4],[3,6],[4,10],[5,14],[6,21],[7,30],[8,41],[9,54],[10,71],[11,86]],
+          2:[[1,3],[2,5],[3,6],[4,10],[5,15],[6,22],[7,32],[8,44],[9,58],[10,76],[11,92]],
+          3:[[1,3],[2,4],[3,6],[4,11],[5,16],[6,24],[7,34],[8,47],[9,62],[10,83],[11,100]],
+          4:[[1,3],[2,4],[3,8],[4,12],[5,17],[6,26],[7,37],[8,51],[9,67],[10,88],[11,106]],
+          5:[[1,3],[2,4],[3,8],[4,12],[5,17],[6,26],[7,37],[8,54],[9,72],[10,94],[11,114]],
+          6:[[1,4],[2,5],[3,9],[4,14],[5,19],[6,30],[7,43],[8,57],[9,77],[10,99],[11,120]],
+          7:[[1,4],[2,5],[3,10],[4,15],[5,20],[6,32],[7,46],[8,60],[9,82],[10,104],[11,126]],
+          8:[[1,5],[2,6],[3,11],[4,16],[5,21],[6,34],[7,49],[8,63],[9,87],[10,110],[11,135]],
+          9:[[1,5],[2,6],[3,11],[4,16],[5,22],[6,35],[7,51],[8,66],[9,91],[10,115],[11,141]],
+          10:[[1,5],[2,6],[3,12],[4,17],[5,23],[6,37],[7,54],[8,69],[9,95],[10,121],[11,148]],
+        },
+        marksman: {
+          0:[[1,3],[2,4],[3,6],[4,9],[5,13],[6,20],[7,28],[8,38],[9,50],[10,66],[11,80]],
+          1:[[1,3],[2,4],[3,6],[4,10],[5,14],[6,21],[7,30],[8,41],[9,54],[10,71],[11,86]],
+          2:[[1,3],[2,4],[3,6],[4,10],[5,15],[6,22],[7,32],[8,44],[9,58],[10,76],[11,92]],
+          3:[[1,3],[2,4],[3,6],[4,11],[5,16],[6,24],[7,34],[8,47],[9,62],[10,83],[11,100]],
+          4:[[1,3],[2,4],[3,8],[4,12],[5,17],[6,26],[7,37],[8,51],[9,67],[10,88],[11,106]],
+          5:[[1,4],[2,5],[3,9],[4,13],[5,18],[6,28],[7,40],[8,54],[9,72],[10,94],[11,114]],
+          6:[[1,4],[2,5],[3,9],[4,14],[5,19],[6,30],[7,43],[8,57],[9,77],[10,99],[11,120]],
+          7:[[1,4],[2,5],[3,10],[4,15],[5,20],[6,32],[7,46],[8,60],[9,82],[10,104],[11,126]],
+          8:[[1,5],[2,6],[3,11],[4,16],[5,21],[6,34],[7,49],[8,63],[9,87],[10,110],[11,135]],
+          9:[[1,5],[2,6],[3,11],[4,16],[5,22],[6,35],[7,51],[8,66],[9,91],[10,115],[11,141]],
+          10:[[1,5],[2,6],[3,12],[4,17],[5,23],[6,37],[7,54],[8,69],[9,95],[10,121],[11,148]],
+        },
+      };
       const getPower = (type, tierNum, fc) => {
-        const fcClamped = Math.min(Math.max(fc, 0), 10);
-        // We can't reference TROOP_STATS here (defined later), so re-read from
-        // the same source: use a minimal inline table for power values only
-        // [fcLevel]: [[tierNum, power], ...]
-        const POWER_ONLY = {
-          infantry: {
-            0:[[1,3],[2,4],[3,6],[4,9],[5,13],[6,20],[7,28],[8,38],[9,50],[10,66],[11,80]],
-            1:[[1,3],[2,4],[3,6],[4,10],[5,14],[6,21],[7,30],[8,41],[9,54],[10,71],[11,86]],
-            2:[[1,3],[2,4],[3,6],[4,10],[5,15],[6,22],[7,32],[8,44],[9,58],[10,76],[11,92]],
-            3:[[1,3],[2,4],[3,6],[4,11],[5,16],[6,24],[7,34],[8,47],[9,62],[10,83],[11,100]],
-            4:[[1,3],[2,4],[3,8],[4,12],[5,17],[6,26],[7,37],[8,51],[9,67],[10,88],[11,106]],
-            5:[[1,4],[2,5],[3,9],[4,13],[5,18],[6,28],[7,40],[8,54],[9,72],[10,94],[11,114]],
-            6:[[1,4],[2,5],[3,9],[4,14],[5,19],[6,30],[7,43],[8,57],[9,77],[10,99],[11,120]],
-            7:[[1,4],[2,5],[3,10],[4,15],[5,20],[6,32],[7,46],[8,60],[9,82],[10,104],[11,126]],
-            8:[[1,5],[2,6],[3,11],[4,16],[5,21],[6,34],[7,49],[8,63],[9,87],[10,110],[11,135]],
-            9:[[1,5],[2,6],[3,11],[4,16],[5,22],[6,35],[7,51],[8,66],[9,91],[10,115],[11,141]],
-            10:[[1,5],[2,6],[3,12],[4,17],[5,23],[6,37],[7,54],[8,69],[9,95],[10,121],[11,148]],
-          },
-          lancer: {
-            0:[[1,3],[2,4],[3,6],[4,9],[5,13],[6,20],[7,28],[8,38],[9,50],[10,66],[11,80]],
-            1:[[1,3],[2,4],[3,6],[4,10],[5,14],[6,21],[7,30],[8,41],[9,54],[10,71],[11,86]],
-            2:[[1,3],[2,5],[3,6],[4,10],[5,15],[6,22],[7,32],[8,44],[9,58],[10,76],[11,92]],
-            3:[[1,3],[2,4],[3,6],[4,11],[5,16],[6,24],[7,34],[8,47],[9,62],[10,83],[11,100]],
-            4:[[1,3],[2,4],[3,8],[4,12],[5,17],[6,26],[7,37],[8,51],[9,67],[10,88],[11,106]],
-            5:[[1,3],[2,4],[3,8],[4,12],[5,17],[6,26],[7,37],[8,54],[9,72],[10,94],[11,114]],
-            6:[[1,4],[2,5],[3,9],[4,14],[5,19],[6,30],[7,43],[8,57],[9,77],[10,99],[11,120]],
-            7:[[1,4],[2,5],[3,10],[4,15],[5,20],[6,32],[7,46],[8,60],[9,82],[10,104],[11,126]],
-            8:[[1,5],[2,6],[3,11],[4,16],[5,21],[6,34],[7,49],[8,63],[9,87],[10,110],[11,135]],
-            9:[[1,5],[2,6],[3,11],[4,16],[5,22],[6,35],[7,51],[8,66],[9,91],[10,115],[11,141]],
-            10:[[1,5],[2,6],[3,12],[4,17],[5,23],[6,37],[7,54],[8,69],[9,95],[10,121],[11,148]],
-          },
-          marksman: {
-            0:[[1,3],[2,4],[3,6],[4,9],[5,13],[6,20],[7,28],[8,38],[9,50],[10,66],[11,80]],
-            1:[[1,3],[2,4],[3,6],[4,10],[5,14],[6,21],[7,30],[8,41],[9,54],[10,71],[11,86]],
-            2:[[1,3],[2,4],[3,6],[4,10],[5,15],[6,22],[7,32],[8,44],[9,58],[10,76],[11,92]],
-            3:[[1,3],[2,4],[3,6],[4,11],[5,16],[6,24],[7,34],[8,47],[9,62],[10,83],[11,100]],
-            4:[[1,3],[2,4],[3,8],[4,12],[5,17],[6,26],[7,37],[8,51],[9,67],[10,88],[11,106]],
-            5:[[1,4],[2,5],[3,9],[4,13],[5,18],[6,28],[7,40],[8,54],[9,72],[10,94],[11,114]],
-            6:[[1,4],[2,5],[3,9],[4,14],[5,19],[6,30],[7,43],[8,57],[9,77],[10,99],[11,120]],
-            7:[[1,4],[2,5],[3,10],[4,15],[5,20],[6,32],[7,46],[8,60],[9,82],[10,104],[11,126]],
-            8:[[1,5],[2,6],[3,11],[4,16],[5,21],[6,34],[7,49],[8,63],[9,87],[10,110],[11,135]],
-            9:[[1,5],[2,6],[3,11],[4,16],[5,22],[6,35],[7,51],[8,66],[9,91],[10,115],[11,141]],
-            10:[[1,5],[2,6],[3,12],[4,17],[5,23],[6,37],[7,54],[8,69],[9,95],[10,121],[11,148]],
-          },
-        };
-        const rows = POWER_ONLY[type]?.[fcClamped];
+        const rows = POWER_ONLY[type]?.[Math.min(Math.max(fc,0),10)];
         if (!rows) return 0;
         const r = rows.find(r => r[0] === tierNum);
         return r ? r[1] : 0;
       };
-
       let total = 0;
       ["infantry","lancer","marksman"].forEach(id => {
         const fc = getFCNum(buildingMap[id]);
         (troops[id] || []).forEach(row => {
-          const tierNum = parseInt((row.tier||"T0").replace("T",""));
-          const count   = Number(row.count) || 0;
-          total += count * getPower(id, tierNum, fc);
+          total += (Number(row.count)||0) * getPower(id, parseInt((row.tier||"T0").replace("T","")), fc);
         });
       });
       return Math.round(total);
     } catch { return 0; }
-  }, []);
+  }, [troopsInv, cpBuildings]);
 
-  // Dynamic building power — sums power at CURRENT level for each FC building,
-  // plus fixed power for non-FC buildings (always at max, never changes)
+  // Building power — reactive via cpBuildings prop
   const NON_FC_FIXED = 817958;
   const buildingPower = React.useMemo(() => {
     let fcTotal = 0;
-    try {
-      const raw = localStorage.getItem("cp-buildings");
-      if (raw) {
-        const saved = JSON.parse(raw);
-        BUILDINGS_LIST.forEach(name => {
-          const b = saved.find(x => x.name === name);
-          if (b?.current) {
-            fcTotal += getBuildingPower(name, b.current, b.currentSub || 0);
-          }
-        });
+    (cpBuildings || []).forEach(b => {
+      if (BUILDINGS_LIST.includes(b.name) && b.current) {
+        fcTotal += getBuildingPower(b.name, b.current, b.currentSub || 0);
       }
-    } catch {}
+    });
     return fcTotal + NON_FC_FIXED;
-  }, []);
+  }, [cpBuildings]);
 
   // Grand total power
   const totalPower = techPower + chiefGearPower + chiefCharmsPower + heroPower + heroGearPower + troopsPower + buildingPower;
@@ -7296,6 +7251,14 @@ export default function App() {
   // Research Center — cloud-synced so state persists across devices and tab switches
   const [rcLevels,    setRcLevels]    = useLocalStorage("rc-levels", {});
   const [rcCollapse,  setRcCollapse]  = useLocalStorage("rc-collapse", {});
+  // Keys read by CharacterProfilePage — must be reactive so cloud sync triggers re-render
+  const [cpBuildings,  setCpBuildings]  = useLocalStorage("cp-buildings", []);
+  const [waLevels,     setWaLevels]     = useLocalStorage("wa-levels", {});
+  const [waSpeedBuff,  setWaSpeedBuff]  = useLocalStorage("wa-speedbuff", 0);
+  const [cpSpeedBuff,  setCpSpeedBuff]  = useLocalStorage("cp-speedbuff", 0);
+  const [cgSlots,      setCgSlots]      = useLocalStorage("cg-slots", []);
+  const [ccSlots,      setCcSlots]      = useLocalStorage("cc-slots", []);
+  const [troopsInv,    setTroopsInv]    = useLocalStorage("troops-inventory-v2", {});
   const [savedAt,       setSavedAt]      = useState(null);
   const [loadedPlanKey, setLoadedPlanKey]= useState(null);
   const [syncing,       setSyncing]      = useState(false);
@@ -7815,7 +7778,10 @@ export default function App() {
             {page === "war-academy"  && <WarAcademyPage   inv={inv} setInv={setInv} />}
             {page === "research-center" && <ResearchCenterPage inv={inv} rcLevels={rcLevels} setRcLevels={setRcLevels} rcCollapse={rcCollapse} setRcCollapse={setRcCollapse} />}
             {page === "svs-calendar" && <SvSCalendar />}
-            {page === "char-profile" && <CharacterProfilePage hgHeroes={hgHeroes} inv={inv} />}
+            {page === "char-profile" && <CharacterProfilePage hgHeroes={hgHeroes} inv={inv}
+                cpBuildings={cpBuildings} waLevels={waLevels} waSpeedBuff={waSpeedBuff}
+                cpSpeedBuff={cpSpeedBuff} cgSlots={cgSlots} ccSlots={ccSlots}
+                troopsInv={troopsInv} rcLevels={rcLevels} />}
           </div>
         </main>
       </div>
