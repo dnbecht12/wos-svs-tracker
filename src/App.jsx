@@ -42,7 +42,7 @@ async function updateSubmission(id, updates) {
 async function submitIssue(payload) {
   const { error } = await supabase.from("issue_reports").insert({
     ...payload,
-    status: "acknowledged",
+    status: "submitted",
     submitted_at: new Date().toISOString(),
   });
   return !error;
@@ -1937,7 +1937,7 @@ function AdminPage({ onStatsUpdated }) {
     const data = await fetchIssues();
     setIssues(data);
     const statusMap = {};
-    data.forEach(i => { statusMap[i.id] = i.status || "acknowledged"; });
+    data.forEach(i => { statusMap[i.id] = i.status || "submitted"; });
     setIssueStatus(statusMap);
     setIssuesLoading(false);
   };
@@ -2480,6 +2480,7 @@ function AdminPage({ onStatsUpdated }) {
         const open   = issues.filter(i => i.status !== "closed");
         const closed = issues.filter(i => i.status === "closed");
         const statusColors = {
+          submitted:    { bg: C.redBg,    color: C.red,    border: C.redDim },
           acknowledged: { bg: C.blueBg,   color: C.blue,   border: C.blueDim },
           in_progress:  { bg: C.amberBg,  color: C.amber,  border: "#7d5a0d" },
           resolved:     { bg: C.greenBg,  color: C.green,  border: C.greenDim },
@@ -2500,8 +2501,8 @@ function AdminPage({ onStatsUpdated }) {
             <>
               {/* Open issues */}
               {open.map(issue => {
-                const st = issueStatus[issue.id] || issue.status || "acknowledged";
-                const sc = statusColors[st] || statusColors.acknowledged;
+                const st = issueStatus[issue.id] || issue.status || "submitted";
+                const sc = statusColors[st] || statusColors.submitted;
                 return (
                   <div key={issue.id} style={{background:C.card,border:`1px solid ${C.border}`,
                     borderRadius:10,marginBottom:12,overflow:"hidden"}}>
@@ -2532,6 +2533,7 @@ function AdminPage({ onStatsUpdated }) {
                         style={{background:sc.bg,border:`1px solid ${sc.border}`,borderRadius:6,
                           color:sc.color,padding:"4px 8px",fontSize:11,fontWeight:700,
                           fontFamily:"'Space Mono',monospace",outline:"none",cursor:"pointer"}}>
+                        <option value="submitted">Submitted</option>
                         <option value="acknowledged">Acknowledged</option>
                         <option value="in_progress">In Progress</option>
                         <option value="resolved">Resolved</option>
@@ -4060,6 +4062,7 @@ function ProfileModal({ open, onClose, initialSection="account",
             const hasClosed = closedSubs.length > 0 || closedIssues.length > 0 || readNotifs.length > 0;
 
             const issueStatusStyle = (status) => {
+              if (status === "submitted")    return { bg:C.redBg,    color:C.red,    border:C.redDim };
               if (status === "acknowledged") return { bg:C.blueBg,   color:C.blue,   border:C.blueDim };
               if (status === "in_progress")  return { bg:C.amberBg,  color:C.amber,  border:"#7d5a0d" };
               if (status === "resolved")     return { bg:C.greenBg,  color:C.green,  border:C.greenDim };
@@ -7908,6 +7911,7 @@ export default function App() {
   const [savedAt,       setSavedAt]      = useState(null);
   const [loadedPlanKey, setLoadedPlanKey]= useState(null);
   const [syncing,       setSyncing]      = useState(false);
+  const [pendingAdminCount, setPendingAdminCount] = useState(0);
   const [sidebarOpen,    setSidebarOpen]   = useState(false);
   const [profileOpen,    setProfileOpen]   = useState(false);
   const [profileSection, setProfileSection]= useState("account");
@@ -8010,6 +8014,15 @@ export default function App() {
         setTimeout(() => setProfileVersion(v => v + 1), 1500);
         // Load notifications for this user
         fetchNotifications(user.id).then(setNotifications);
+        // Load pending count for admin nav dot
+        if (user.id === ADMIN_UID) {
+          Promise.all([
+            supabase.from("issue_reports").select("id", {count:"exact"}).eq("status","submitted"),
+            supabase.from("stat_submissions").select("id", {count:"exact"}).eq("status","pending"),
+          ]).then(([issues, subs]) => {
+            setPendingAdminCount((issues.count || 0) + (subs.count || 0));
+          });
+        }
       });
   }, [user]);
 
@@ -8281,9 +8294,17 @@ export default function App() {
                 <div className="nav-section">Admin</div>
                 <div
                   className={clsx("nav-item", page === "admin" && "active")}
-                  onClick={() => { setPage("admin"); setSidebarOpen(false); }}
+                  onClick={() => { setPage("admin"); setSidebarOpen(false); setPendingAdminCount(0); }}
+                  style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}
                 >
                   Submissions
+                  {pendingAdminCount > 0 && (
+                    <span style={{
+                      background:"var(--c-red)", color:"#fff", borderRadius:10,
+                      padding:"1px 6px", fontSize:10, fontWeight:800,
+                      fontFamily:"Space Mono,monospace", lineHeight:1.4,
+                    }}>{pendingAdminCount}</span>
+                  )}
                 </div>
               </div>
             )}
