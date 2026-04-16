@@ -184,8 +184,8 @@ const THEMES = {
     amber:     "#d29922",
     amberBg:   "#1a1408",
     textPri:   "#e6edf3",
-    textSec:   "#8b949e",
-    textDim:   "#484f58",
+    textSec:   "#b1bac4",
+    textDim:   "#768390",
     hover:     "rgba(255,255,255,0.04)",
     btnText:   "#0a0c10",
   },
@@ -7027,7 +7027,7 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
     <div style={{ marginBottom:16 }}>
       <div style={{ fontSize:16, fontWeight:800, color:C.textPri, fontFamily:"Syne,sans-serif",
         letterSpacing:"0.3px" }}>{label}</div>
-      {sub && <div style={{ fontSize:11, color:C.textDim, marginTop:2 }}>{sub}</div>}
+      {sub && <div style={{ fontSize:11, color:C.textSec, marginTop:3 }}>{sub}</div>}
     </div>
   );
 
@@ -7060,17 +7060,17 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
 
   const Row = ({ label, value, source, isEntry, onEntry, entryVal, accent, dim, suffix="" }) => (
     <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
-      padding:"9px 0", borderBottom:`1px solid ${C.border}40` }}>
-      <div style={{ flex:1 }}>
-        <div style={{ fontSize:12, color: dim ? C.textDim : C.textSec }}>{label}</div>
-        {source && <div style={{ fontSize:10, color:C.textDim, fontFamily:"'Space Mono',monospace",
-          marginTop:1 }}>{source}</div>}
+      padding:"11px 0", borderBottom:`1px solid ${C.border}` }}>
+      <div style={{ flex:1, paddingRight:12 }}>
+        <div style={{ fontSize:13, fontWeight:700, color: dim ? C.textSec : C.textPri }}>{label}</div>
+        {source && <div style={{ fontSize:11, color:C.textSec, fontFamily:"'Space Mono',monospace",
+          marginTop:2, lineHeight:1.4 }}>{source}</div>}
       </div>
       {isEntry ? (
         <BufferedInput value={entryVal} onCommit={onEntry} suffix={suffix} />
       ) : (
-        <div style={{ fontSize:13, fontFamily:"'Space Mono',monospace", fontWeight:600,
-          color: accent ? C.accent : dim ? C.textDim : C.textPri }}>
+        <div style={{ fontSize:13, fontFamily:"'Space Mono',monospace", fontWeight:700,
+          color: accent ? C.accent : dim ? C.textSec : C.textPri, whiteSpace:"nowrap" }}>
           {value}{suffix}
         </div>
       )}
@@ -7097,7 +7097,7 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
             color:C.accent, fontFamily:"'Space Mono',monospace", marginBottom:4 }}>Total Power</div>
           <div style={{ fontSize:32, fontWeight:800, color:C.textPri, fontFamily:"Syne,sans-serif",
             letterSpacing:"-0.5px" }}>{fmt(totalPower)}</div>
-          <div style={{ fontSize:11, color:C.textDim, marginTop:4 }}>
+          <div style={{ fontSize:11, color:C.textSec, marginTop:4 }}>
             Sum of all tracked power sources
           </div>
         </div>
