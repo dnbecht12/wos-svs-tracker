@@ -1686,19 +1686,15 @@ export default function ResearchCenterPage({ inv }) {
                             )}
                           </td>
 
-                          {/* Current level */}
+                          {/* Current level — always shows dropdown */}
                           <td style={{...tdS,textAlign:"center"}}>
-                            {curIsMax ? (
-                              <span style={{fontSize:10,color:C.green,fontFamily:"'Space Mono',monospace",fontWeight:700}}>Max</span>
-                            ) : (
-                              <select value={cur}
-                                onChange={e => setLv(res.id, "cur", Number(e.target.value))}
-                                style={sel}>
-                                {res.levels.map((_,i) => (
-                                  <option key={i} value={i}>{i}</option>
-                                ))}
-                              </select>
-                            )}
+                            <select value={cur}
+                              onChange={e => setLv(res.id, "cur", Number(e.target.value))}
+                              style={sel}>
+                              {res.levels.map((_,i) => (
+                                <option key={i} value={i}>{i}</option>
+                              ))}
+                            </select>
                           </td>
 
                           {/* Current buff */}
