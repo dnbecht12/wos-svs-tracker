@@ -6147,24 +6147,20 @@ function getBuildingLevel(buildingName) {
   } catch { return null; }
 }
 
-function CharacterProfilePage({ hgHeroes, inv, cpBuildings, waLevels, waSpeedBuff, cpSpeedBuff, cgSlots, ccSlots, troopsInv, rcLevels }) {
+function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion }) {
   const C = COLORS;
 
   // VIP level
   const [vipLevel, setVipLevel] = useLocalStorage("cp-vip-level", 0);
 
-  // Embassy Reinforcement Cap — reactive via cpBuildings prop
+  // Embassy Reinforcement Cap
   const reinforceCap = React.useMemo(() => {
-    const b = (cpBuildings || []).find(b => b.name === "Embassy");
-    if (!b?.current) return null;
-    const cur = b.current;
-    let key = null;
-    if (/^\d+\.\d+$/.test(cur)) key = "F30";
-    else { const m = cur.match(/^FC(\d+)(?:\.\d+)?$/); if (m) key = `FC${m[1]}`; }
-    return key ? (EMBASSY_REINFORCE[key] ?? null) : null;
-  }, [cpBuildings]);
+    const embLvl = getBuildingLevel("Embassy");
+    return EMBASSY_REINFORCE[embLvl] ?? null;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileVersion]);
 
-  // ── All power sources use reactive props — re-renders whenever cloud sync updates ─
+  // ── All power sources ──────────────────────────────────────────────────────
 
   // Hero Gear power — reactive via hgHeroes prop
   const heroGearPower = React.useMemo(() => {
@@ -6188,7 +6184,7 @@ function CharacterProfilePage({ hgHeroes, inv, cpBuildings, waLevels, waSpeedBuf
     return Math.round(total);
   }, [hgHeroes]);
 
-  // Hero Power — levelPower + starPower + skillPower + gearStrength from Supabase accepted stats
+  // Hero Power — from Supabase accepted stats
   const [heroPower, setHeroPower] = React.useState(0);
   React.useEffect(() => {
     supabase.from("hero_stats_data")
@@ -6205,92 +6201,98 @@ function CharacterProfilePage({ hgHeroes, inv, cpBuildings, waLevels, waSpeedBuf
       });
   }, []);
 
-  // Chief Gear power — reactive via cgSlots prop
+  // Chief Gear power — reads from localStorage, refreshes on profileVersion
   const chiefGearPower = React.useMemo(() => {
-    if (!cgSlots?.length) return 0;
-    return cgSlots.reduce((sum, s) => {
-      const row = CHIEF_GEAR_LEVELS[s.current ?? 0];
-      return sum + (row?.[6] ?? 0);
-    }, 0);
-  }, [cgSlots]);
+    try {
+      const raw = localStorage.getItem("cg-slots");
+      if (!raw) return 0;
+      return JSON.parse(raw).reduce((sum, s) => sum + (CHIEF_GEAR_LEVELS[s.current ?? 0]?.[6] ?? 0), 0);
+    } catch { return 0; }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileVersion]);
 
-  // Chief Charms power — reactive via ccSlots prop
+  // Chief Charms power — reads from localStorage, refreshes on profileVersion
   const chiefCharmsPower = React.useMemo(() => {
-    if (!ccSlots?.length) return 0;
-    return ccSlots.reduce((sum, s) => {
-      const cur = s.current ?? 0;
-      if (cur === 0) return sum;
-      return sum + (CHIEF_CHARM_LEVELS[cur - 1]?.power ?? 0);
-    }, 0);
-  }, [ccSlots]);
+    try {
+      const raw = localStorage.getItem("cc-slots");
+      if (!raw) return 0;
+      return JSON.parse(raw).reduce((sum, s) => {
+        const cur = s.current ?? 0;
+        return cur === 0 ? sum : sum + (CHIEF_CHARM_LEVELS[cur - 1]?.power ?? 0);
+      }, 0);
+    } catch { return 0; }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileVersion]);
 
-  // Tech power — reactive via waLevels and rcLevels props
+  // Tech power — WA from localStorage + RC from rcLevels prop, refreshes on profileVersion
   const techPower = React.useMemo(() => {
     let total = 0;
-    // War Academy
     try {
-      const levels = waLevels || {};
-      ["Infantry","Lancer","Marksman"].forEach(troop => {
-        WA_RESEARCH.forEach(res => {
-          const cur = levels[troop]?.[res.id]?.cur ?? 0;
-          total += waPower(res, cur);
+      const raw = localStorage.getItem("wa-levels");
+      if (raw) {
+        const levels = JSON.parse(raw);
+        ["Infantry","Lancer","Marksman"].forEach(troop => {
+          WA_RESEARCH.forEach(res => {
+            total += waPower(res, levels[troop]?.[res.id]?.cur ?? 0);
+          });
         });
-      });
+      }
     } catch {}
-    // Research Center — pass reactive rcLevels prop directly
     total += getRCTechPower(rcLevels);
     return Math.round(total);
-  }, [waLevels, rcLevels]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileVersion, rcLevels]);
 
-  // Deployment + Rally capacity — reactive via waLevels, cgSlots, cpBuildings props
+  // Deployment + Rally capacity — reads from localStorage, refreshes on profileVersion
   const { deployCapacity, rallyCapacityTotal } = React.useMemo(() => {
-    let deployWA = 0;
-    let rallyWA  = 0;
+    let deployWA = 0, rallyWA = 0;
     try {
-      const levels = waLevels || {};
-      const fsRes  = WA_RESEARCH.find(r => r.id === "flameSquad");
-      const htRes  = WA_RESEARCH.find(r => r.id === "heliosTraining");
-      const flRes  = WA_RESEARCH.find(r => r.id === "flameLegion");
-      ["Infantry","Lancer","Marksman"].forEach(troop => {
-        const fsCur = levels[troop]?.flameSquad?.cur ?? 0;
-        deployWA += fsRes?.levels[fsCur]?.[2] ?? 0;
-        const htCur = levels[troop]?.heliosTraining?.cur ?? 0;
-        deployWA += htRes?.levels[htCur]?.[2] ?? 0;
-        const flCur = levels[troop]?.flameLegion?.cur ?? 0;
-        rallyWA += flRes?.levels[flCur]?.[2] ?? 0;
-      });
+      const raw = localStorage.getItem("wa-levels");
+      if (raw) {
+        const levels = JSON.parse(raw);
+        const fsRes = WA_RESEARCH.find(r => r.id === "flameSquad");
+        const htRes = WA_RESEARCH.find(r => r.id === "heliosTraining");
+        const flRes = WA_RESEARCH.find(r => r.id === "flameLegion");
+        ["Infantry","Lancer","Marksman"].forEach(troop => {
+          deployWA += fsRes?.levels[levels[troop]?.flameSquad?.cur ?? 0]?.[2] ?? 0;
+          deployWA += htRes?.levels[levels[troop]?.heliosTraining?.cur ?? 0]?.[2] ?? 0;
+          rallyWA  += flRes?.levels[levels[troop]?.flameLegion?.cur ?? 0]?.[2] ?? 0;
+        });
+      }
     } catch {}
-
-    // Chief Gear deploy buff — reactive via cgSlots prop
     let deployGear = 0;
-    (cgSlots || []).forEach(s => { deployGear += CHIEF_GEAR_LEVELS[s.current ?? 0]?.[9] ?? 0; });
-
-    // Command building base — reactive via cpBuildings prop
-    const cmdB  = (cpBuildings || []).find(b => b.name === "Command");
-    let cmdKey  = null;
-    if (cmdB?.current) {
-      if (/^\d+\.\d+$/.test(cmdB.current)) cmdKey = "F30";
-      else { const m = cmdB.current.match(/^FC(\d+)(?:\.\d+)?$/); if (m) cmdKey = `FC${m[1]}`; }
-    }
-    const cmdBase = cmdKey ? (COMMAND_CENTER_STATS[cmdKey] ?? null) : null;
-
+    try {
+      const raw = localStorage.getItem("cg-slots");
+      if (raw) JSON.parse(raw).forEach(s => { deployGear += CHIEF_GEAR_LEVELS[s.current ?? 0]?.[9] ?? 0; });
+    } catch {}
+    const cmdBase = COMMAND_CENTER_STATS[getBuildingLevel("Command")] ?? null;
     return {
       deployCapacity:     Math.round(deployWA + deployGear + (cmdBase?.deploy ?? 0)),
       rallyCapacityTotal: Math.round(rallyWA + (cmdBase?.rally ?? 0)),
     };
-  }, [waLevels, cgSlots, cpBuildings]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileVersion]);
 
-  // Construction Speed — reactive via cpSpeedBuff prop
-  const constructionSpeed = Number(cpSpeedBuff) || 0;
+  // Construction Speed — reads from localStorage, refreshes on profileVersion
+  const constructionSpeed = React.useMemo(() => {
+    try { return Number(localStorage.getItem("cp-speedbuff") || 0); } catch { return 0; }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileVersion]);
 
-  // Research Speed — reactive via waSpeedBuff prop
-  const researchSpeed = Number(waSpeedBuff) || 0;
+  // Research Speed — reads from localStorage, refreshes on profileVersion
+  const researchSpeed = React.useMemo(() => {
+    try { return Number(localStorage.getItem("wa-speedbuff") || 0); } catch { return 0; }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileVersion]);
 
-  // Troops Power — reactive via troopsInv and cpBuildings props
+  // Troops power — reads from localStorage, refreshes on profileVersion
   const troopsPower = React.useMemo(() => {
     try {
-      const troops = troopsInv || {};
-      const bldgs  = cpBuildings || [];
+      const troopsRaw = localStorage.getItem("troops-inventory-v2");
+      const bldgsRaw  = localStorage.getItem("cp-buildings");
+      if (!troopsRaw) return 0;
+      const troops = JSON.parse(troopsRaw);
+      const bldgs  = bldgsRaw ? JSON.parse(bldgsRaw) : [];
       const getFCNum = name => {
         const b = bldgs.find(b => b.name === name);
         if (!b?.current) return 0;
@@ -6299,50 +6301,13 @@ function CharacterProfilePage({ hgHeroes, inv, cpBuildings, waLevels, waSpeedBuf
       };
       const buildingMap = { infantry:"Infantry", lancer:"Lancer", marksman:"Marksman" };
       const POWER_ONLY = {
-        infantry: {
-          0:[[1,3],[2,4],[3,6],[4,9],[5,13],[6,20],[7,28],[8,38],[9,50],[10,66],[11,80]],
-          1:[[1,3],[2,4],[3,6],[4,10],[5,14],[6,21],[7,30],[8,41],[9,54],[10,71],[11,86]],
-          2:[[1,3],[2,4],[3,6],[4,10],[5,15],[6,22],[7,32],[8,44],[9,58],[10,76],[11,92]],
-          3:[[1,3],[2,4],[3,6],[4,11],[5,16],[6,24],[7,34],[8,47],[9,62],[10,83],[11,100]],
-          4:[[1,3],[2,4],[3,8],[4,12],[5,17],[6,26],[7,37],[8,51],[9,67],[10,88],[11,106]],
-          5:[[1,4],[2,5],[3,9],[4,13],[5,18],[6,28],[7,40],[8,54],[9,72],[10,94],[11,114]],
-          6:[[1,4],[2,5],[3,9],[4,14],[5,19],[6,30],[7,43],[8,57],[9,77],[10,99],[11,120]],
-          7:[[1,4],[2,5],[3,10],[4,15],[5,20],[6,32],[7,46],[8,60],[9,82],[10,104],[11,126]],
-          8:[[1,5],[2,6],[3,11],[4,16],[5,21],[6,34],[7,49],[8,63],[9,87],[10,110],[11,135]],
-          9:[[1,5],[2,6],[3,11],[4,16],[5,22],[6,35],[7,51],[8,66],[9,91],[10,115],[11,141]],
-          10:[[1,5],[2,6],[3,12],[4,17],[5,23],[6,37],[7,54],[8,69],[9,95],[10,121],[11,148]],
-        },
-        lancer: {
-          0:[[1,3],[2,4],[3,6],[4,9],[5,13],[6,20],[7,28],[8,38],[9,50],[10,66],[11,80]],
-          1:[[1,3],[2,4],[3,6],[4,10],[5,14],[6,21],[7,30],[8,41],[9,54],[10,71],[11,86]],
-          2:[[1,3],[2,5],[3,6],[4,10],[5,15],[6,22],[7,32],[8,44],[9,58],[10,76],[11,92]],
-          3:[[1,3],[2,4],[3,6],[4,11],[5,16],[6,24],[7,34],[8,47],[9,62],[10,83],[11,100]],
-          4:[[1,3],[2,4],[3,8],[4,12],[5,17],[6,26],[7,37],[8,51],[9,67],[10,88],[11,106]],
-          5:[[1,3],[2,4],[3,8],[4,12],[5,17],[6,26],[7,37],[8,54],[9,72],[10,94],[11,114]],
-          6:[[1,4],[2,5],[3,9],[4,14],[5,19],[6,30],[7,43],[8,57],[9,77],[10,99],[11,120]],
-          7:[[1,4],[2,5],[3,10],[4,15],[5,20],[6,32],[7,46],[8,60],[9,82],[10,104],[11,126]],
-          8:[[1,5],[2,6],[3,11],[4,16],[5,21],[6,34],[7,49],[8,63],[9,87],[10,110],[11,135]],
-          9:[[1,5],[2,6],[3,11],[4,16],[5,22],[6,35],[7,51],[8,66],[9,91],[10,115],[11,141]],
-          10:[[1,5],[2,6],[3,12],[4,17],[5,23],[6,37],[7,54],[8,69],[9,95],[10,121],[11,148]],
-        },
-        marksman: {
-          0:[[1,3],[2,4],[3,6],[4,9],[5,13],[6,20],[7,28],[8,38],[9,50],[10,66],[11,80]],
-          1:[[1,3],[2,4],[3,6],[4,10],[5,14],[6,21],[7,30],[8,41],[9,54],[10,71],[11,86]],
-          2:[[1,3],[2,4],[3,6],[4,10],[5,15],[6,22],[7,32],[8,44],[9,58],[10,76],[11,92]],
-          3:[[1,3],[2,4],[3,6],[4,11],[5,16],[6,24],[7,34],[8,47],[9,62],[10,83],[11,100]],
-          4:[[1,3],[2,4],[3,8],[4,12],[5,17],[6,26],[7,37],[8,51],[9,67],[10,88],[11,106]],
-          5:[[1,4],[2,5],[3,9],[4,13],[5,18],[6,28],[7,40],[8,54],[9,72],[10,94],[11,114]],
-          6:[[1,4],[2,5],[3,9],[4,14],[5,19],[6,30],[7,43],[8,57],[9,77],[10,99],[11,120]],
-          7:[[1,4],[2,5],[3,10],[4,15],[5,20],[6,32],[7,46],[8,60],[9,82],[10,104],[11,126]],
-          8:[[1,5],[2,6],[3,11],[4,16],[5,21],[6,34],[7,49],[8,63],[9,87],[10,110],[11,135]],
-          9:[[1,5],[2,6],[3,11],[4,16],[5,22],[6,35],[7,51],[8,66],[9,91],[10,115],[11,141]],
-          10:[[1,5],[2,6],[3,12],[4,17],[5,23],[6,37],[7,54],[8,69],[9,95],[10,121],[11,148]],
-        },
+        infantry: { 0:[[1,3],[2,4],[3,6],[4,9],[5,13],[6,20],[7,28],[8,38],[9,50],[10,66],[11,80]], 1:[[1,3],[2,4],[3,6],[4,10],[5,14],[6,21],[7,30],[8,41],[9,54],[10,71],[11,86]], 2:[[1,3],[2,4],[3,6],[4,10],[5,15],[6,22],[7,32],[8,44],[9,58],[10,76],[11,92]], 3:[[1,3],[2,4],[3,6],[4,11],[5,16],[6,24],[7,34],[8,47],[9,62],[10,83],[11,100]], 4:[[1,3],[2,4],[3,8],[4,12],[5,17],[6,26],[7,37],[8,51],[9,67],[10,88],[11,106]], 5:[[1,4],[2,5],[3,9],[4,13],[5,18],[6,28],[7,40],[8,54],[9,72],[10,94],[11,114]], 6:[[1,4],[2,5],[3,9],[4,14],[5,19],[6,30],[7,43],[8,57],[9,77],[10,99],[11,120]], 7:[[1,4],[2,5],[3,10],[4,15],[5,20],[6,32],[7,46],[8,60],[9,82],[10,104],[11,126]], 8:[[1,5],[2,6],[3,11],[4,16],[5,21],[6,34],[7,49],[8,63],[9,87],[10,110],[11,135]], 9:[[1,5],[2,6],[3,11],[4,16],[5,22],[6,35],[7,51],[8,66],[9,91],[10,115],[11,141]], 10:[[1,5],[2,6],[3,12],[4,17],[5,23],[6,37],[7,54],[8,69],[9,95],[10,121],[11,148]] },
+        lancer:   { 0:[[1,3],[2,4],[3,6],[4,9],[5,13],[6,20],[7,28],[8,38],[9,50],[10,66],[11,80]], 1:[[1,3],[2,4],[3,6],[4,10],[5,14],[6,21],[7,30],[8,41],[9,54],[10,71],[11,86]], 2:[[1,3],[2,5],[3,6],[4,10],[5,15],[6,22],[7,32],[8,44],[9,58],[10,76],[11,92]], 3:[[1,3],[2,4],[3,6],[4,11],[5,16],[6,24],[7,34],[8,47],[9,62],[10,83],[11,100]], 4:[[1,3],[2,4],[3,8],[4,12],[5,17],[6,26],[7,37],[8,51],[9,67],[10,88],[11,106]], 5:[[1,3],[2,4],[3,8],[4,12],[5,17],[6,26],[7,37],[8,54],[9,72],[10,94],[11,114]], 6:[[1,4],[2,5],[3,9],[4,14],[5,19],[6,30],[7,43],[8,57],[9,77],[10,99],[11,120]], 7:[[1,4],[2,5],[3,10],[4,15],[5,20],[6,32],[7,46],[8,60],[9,82],[10,104],[11,126]], 8:[[1,5],[2,6],[3,11],[4,16],[5,21],[6,34],[7,49],[8,63],[9,87],[10,110],[11,135]], 9:[[1,5],[2,6],[3,11],[4,16],[5,22],[6,35],[7,51],[8,66],[9,91],[10,115],[11,141]], 10:[[1,5],[2,6],[3,12],[4,17],[5,23],[6,37],[7,54],[8,69],[9,95],[10,121],[11,148]] },
+        marksman: { 0:[[1,3],[2,4],[3,6],[4,9],[5,13],[6,20],[7,28],[8,38],[9,50],[10,66],[11,80]], 1:[[1,3],[2,4],[3,6],[4,10],[5,14],[6,21],[7,30],[8,41],[9,54],[10,71],[11,86]], 2:[[1,3],[2,4],[3,6],[4,10],[5,15],[6,22],[7,32],[8,44],[9,58],[10,76],[11,92]], 3:[[1,3],[2,4],[3,6],[4,11],[5,16],[6,24],[7,34],[8,47],[9,62],[10,83],[11,100]], 4:[[1,3],[2,4],[3,8],[4,12],[5,17],[6,26],[7,37],[8,51],[9,67],[10,88],[11,106]], 5:[[1,4],[2,5],[3,9],[4,13],[5,18],[6,28],[7,40],[8,54],[9,72],[10,94],[11,114]], 6:[[1,4],[2,5],[3,9],[4,14],[5,19],[6,30],[7,43],[8,57],[9,77],[10,99],[11,120]], 7:[[1,4],[2,5],[3,10],[4,15],[5,20],[6,32],[7,46],[8,60],[9,82],[10,104],[11,126]], 8:[[1,5],[2,6],[3,11],[4,16],[5,21],[6,34],[7,49],[8,63],[9,87],[10,110],[11,135]], 9:[[1,5],[2,6],[3,11],[4,16],[5,22],[6,35],[7,51],[8,66],[9,91],[10,115],[11,141]], 10:[[1,5],[2,6],[3,12],[4,17],[5,23],[6,37],[7,54],[8,69],[9,95],[10,121],[11,148]] },
       };
       const getPower = (type, tierNum, fc) => {
         const rows = POWER_ONLY[type]?.[Math.min(Math.max(fc,0),10)];
-        if (!rows) return 0;
-        const r = rows.find(r => r[0] === tierNum);
+        const r = rows?.find(r => r[0] === tierNum);
         return r ? r[1] : 0;
       };
       let total = 0;
@@ -6354,21 +6319,28 @@ function CharacterProfilePage({ hgHeroes, inv, cpBuildings, waLevels, waSpeedBuf
       });
       return Math.round(total);
     } catch { return 0; }
-  }, [troopsInv, cpBuildings]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileVersion]);
 
-  // Building power — reactive via cpBuildings prop
+  // Building power — reads from localStorage, refreshes on profileVersion
   const NON_FC_FIXED = 817958;
   const buildingPower = React.useMemo(() => {
     let fcTotal = 0;
-    (cpBuildings || []).forEach(b => {
-      if (BUILDINGS_LIST.includes(b.name) && b.current) {
-        fcTotal += getBuildingPower(b.name, b.current, b.currentSub || 0);
+    try {
+      const raw = localStorage.getItem("cp-buildings");
+      if (raw) {
+        JSON.parse(raw).forEach(b => {
+          if (BUILDINGS_LIST.includes(b.name) && b.current) {
+            fcTotal += getBuildingPower(b.name, b.current, b.currentSub || 0);
+          }
+        });
       }
-    });
+    } catch {}
     return fcTotal + NON_FC_FIXED;
-  }, [cpBuildings]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileVersion]);
 
-  // Grand total power
+  // Grand total
   const totalPower = techPower + chiefGearPower + chiefCharmsPower + heroPower + heroGearPower + troopsPower + buildingPower;
 
   // ── Styles ─────────────────────────────────────────────────────────────────
@@ -7251,14 +7223,8 @@ export default function App() {
   // Research Center — cloud-synced so state persists across devices and tab switches
   const [rcLevels,    setRcLevels]    = useLocalStorage("rc-levels", {});
   const [rcCollapse,  setRcCollapse]  = useLocalStorage("rc-collapse", {});
-  // Keys read by CharacterProfilePage — must be reactive so cloud sync triggers re-render
-  const [cpBuildings,  setCpBuildings]  = useLocalStorage("cp-buildings", []);
-  const [waLevels,     setWaLevels]     = useLocalStorage("wa-levels", {});
-  const [waSpeedBuff,  setWaSpeedBuff]  = useLocalStorage("wa-speedbuff", 0);
-  const [cpSpeedBuff,  setCpSpeedBuff]  = useLocalStorage("cp-speedbuff", 0);
-  const [cgSlots,      setCgSlots]      = useLocalStorage("cg-slots", []);
-  const [ccSlots,      setCcSlots]      = useLocalStorage("cc-slots", []);
-  const [troopsInv,    setTroopsInv]    = useLocalStorage("troops-inventory-v2", {});
+  // Version counter — increments when cloud sync completes, triggers CharacterProfilePage re-read
+  const [profileVersion, setProfileVersion] = useState(0);
   const [savedAt,       setSavedAt]      = useState(null);
   const [loadedPlanKey, setLoadedPlanKey]= useState(null);
   const [syncing,       setSyncing]      = useState(false);
@@ -7322,6 +7288,11 @@ export default function App() {
   useEffect(() => {
     setGuestFlag(!user);
     setSyncUserId(user?.id || null);
+    // After cloud sync completes (give it 2s), bump version so CharacterProfilePage re-reads localStorage
+    if (user?.id) {
+      const t = setTimeout(() => setProfileVersion(v => v + 1), 2000);
+      return () => clearTimeout(t);
+    }
   }, [user]);
 
   // ── Debounced cloud save on inv change ────────────────────────────────────────
@@ -7779,9 +7750,7 @@ export default function App() {
             {page === "research-center" && <ResearchCenterPage inv={inv} rcLevels={rcLevels} setRcLevels={setRcLevels} rcCollapse={rcCollapse} setRcCollapse={setRcCollapse} />}
             {page === "svs-calendar" && <SvSCalendar />}
             {page === "char-profile" && <CharacterProfilePage hgHeroes={hgHeroes} inv={inv}
-                cpBuildings={cpBuildings} waLevels={waLevels} waSpeedBuff={waSpeedBuff}
-                cpSpeedBuff={cpSpeedBuff} cgSlots={cgSlots} ccSlots={ccSlots}
-                troopsInv={troopsInv} rcLevels={rcLevels} />}
+                rcLevels={rcLevels} profileVersion={profileVersion} />}
           </div>
         </main>
       </div>
