@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo, Component } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "./supabase.js";
-import ResearchCenterPage, { getRCTechPower } from "./ResearchCenter.jsx";
+import ResearchCenterPage, { getRCTechPower, getRCDeployRally } from "./ResearchCenter.jsx";
 
 const ADMIN_UID = "c5c3392e-2399-4cc9-b2ab-f22a61e7b91c";
 
@@ -6925,7 +6925,7 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileVersion, rcLevels]);
 
-  // Deployment + Rally capacity — reads from localStorage, refreshes on profileVersion
+  // Deployment + Rally capacity — WA research + Chief Gear + Command Center + RC research
   const { deployCapacity, rallyCapacityTotal } = React.useMemo(() => {
     let deployWA = 0, rallyWA = 0;
     try {
@@ -6948,12 +6948,14 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
       if (raw) JSON.parse(raw).forEach(s => { deployGear += CHIEF_GEAR_LEVELS[s.current ?? 0]?.[9] ?? 0; });
     } catch {}
     const cmdBase = COMMAND_CENTER_STATS[getBuildingLevel("Command")] ?? null;
+    // Research Center contributions
+    const rcContrib = getRCDeployRally(rcLevels);
     return {
-      deployCapacity:     Math.round(deployWA + deployGear + (cmdBase?.deploy ?? 0)),
-      rallyCapacityTotal: Math.round(rallyWA + (cmdBase?.rally ?? 0)),
+      deployCapacity:     Math.round(deployWA + deployGear + (cmdBase?.deploy ?? 0) + rcContrib.deploy),
+      rallyCapacityTotal: Math.round(rallyWA + (cmdBase?.rally ?? 0) + rcContrib.rally),
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profileVersion]);
+  }, [profileVersion, rcLevels]);
 
   // Construction Speed — reactive via prop from App.jsx (cloud-synced)
   const constructionSpeed = cpSpeedBuffProp !== undefined ? Number(cpSpeedBuffProp) : 0;
@@ -7201,11 +7203,11 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
 
         <Row label="Deployment Capacity"
           value={deployCapacity > 0 ? fmt(deployCapacity) : "—"}
-          source="Command Center base + War Academy (Flame Squad + Helios Training) × 3 troops + Chief Gear" />
+          source="Command Center base + War Academy (Flame Squad + Helios Training) × 3 troops + Chief Gear + Research Center" />
 
         <Row label="Rally Capacity"
           value={rallyCapacityTotal > 0 ? fmt(rallyCapacityTotal) : "—"}
-          source="Command Center base + War Academy Flame Legion × 3 troops"
+          source="Command Center base + War Academy Flame Legion × 3 troops + Research Center"
           dim={rallyCapacityTotal === 0} />
 
         <Row label="Reinforcement Cap"

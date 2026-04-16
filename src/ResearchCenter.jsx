@@ -1284,6 +1284,45 @@ function getRCPower(res, lv) {
 
 // Exported — called by CharacterProfilePage to add RC power into techPower
 // Accepts optional rcLevels prop so it can use reactive state instead of localStorage
+// Parse a buff string like "+320 Deployment Capacity" → { deploy: 320, rally: 0 }
+function parseDeployRallyBuff(buff) {
+  if (!buff) return { deploy: 0, rally: 0 };
+  const deployMatch = buff.match(/\+?([\d,]+)\s*Deployment Capacity/i);
+  const rallyMatch  = buff.match(/\+?([\d,]+)\s*Rally Capacity/i);
+  return {
+    deploy: deployMatch ? parseInt(deployMatch[1].replace(/,/g,"")) : 0,
+    rally:  rallyMatch  ? parseInt(rallyMatch[1].replace(/,/g,""))  : 0,
+  };
+}
+
+// Exported — sums Deployment and Rally Capacity from all RC researches at current levels
+export function getRCDeployRally(rcLevelsProp) {
+  try {
+    const saved = rcLevelsProp ?? (() => {
+      const raw = localStorage.getItem("rc-levels");
+      return raw ? JSON.parse(raw) : {};
+    })();
+    let deploy = 0, rally = 0;
+    ["Growth","Economy","Battle"].forEach(treeName => {
+      RC[treeName].tiers.forEach(tier => {
+        tier.researches.forEach(res => {
+          const cur = saved[res.id]?.cur ?? 0;
+          if (cur <= 0) return;
+          // Sum incremental buffs from level 1 up to cur
+          for (let i = 1; i <= cur; i++) {
+            const lv = res.levels[i];
+            if (!lv) continue;
+            const parsed = parseDeployRallyBuff(lv.buff);
+            deploy += parsed.deploy;
+            rally  += parsed.rally;
+          }
+        });
+      });
+    });
+    return { deploy, rally };
+  } catch { return { deploy: 0, rally: 0 }; }
+}
+
 export function getRCTechPower(rcLevelsProp) {
   try {
     const saved = rcLevelsProp ?? (() => {
