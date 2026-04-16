@@ -38,7 +38,53 @@ async function updateSubmission(id, updates) {
   return !error;
 }
 
-// Fetch current hero_stats_data row for matching hero/level/stars/widget
+// ── Issue reporting helpers ───────────────────────────────────────────────────
+async function submitIssue(payload) {
+  const { error } = await supabase.from("issue_reports").insert({
+    ...payload,
+    status: "acknowledged",
+    submitted_at: new Date().toISOString(),
+  });
+  return !error;
+}
+async function fetchIssues() {
+  const { data, error } = await supabase
+    .from("issue_reports")
+    .select("*")
+    .order("submitted_at", { ascending: false });
+  return error ? [] : data;
+}
+async function updateIssue(id, updates) {
+  const { error } = await supabase
+    .from("issue_reports")
+    .update(updates)
+    .eq("id", id);
+  return !error;
+}
+async function closeIssue(id, adminNote) {
+  const { error } = await supabase
+    .from("issue_reports")
+    .update({ status: "closed", admin_note: adminNote, closed_at: new Date().toISOString() })
+    .eq("id", id);
+  return !error;
+}
+async function fetchNotifications(userId) {
+  const { data, error } = await supabase
+    .from("issue_notifications")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+  return error ? [] : data;
+}
+async function markNotificationRead(id) {
+  const { error } = await supabase
+    .from("issue_notifications")
+    .update({ read: true })
+    .eq("id", id);
+  return !error;
+}
+
+
 // SR/R heroes cannot have widgets — always store/query widget as null for them
 function isSSRHero(heroName) {
   const h = HERO_ROSTER.find(h => h.name === heroName);
@@ -1730,16 +1776,205 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
   );
 }
 
-// ─── Admin Page ──────────────────────────────────────────────────────────────
+// ─── Report Issue Modal ───────────────────────────────────────────────────────
+const ISSUE_TYPES = [
+  "Incorrect Data",
+  "Calculation Incorrect",
+  "Formatting Issue",
+  "Feature Request",
+  "Other",
+];
+const ISSUE_MODULES = [
+  "Chief Profile", "Inventory", "Construction", "Chief Gear",
+  "Chief Charms", "Experts", "War Academy", "Research",
+  "Heroes", "Hero Gear", "Troops", "RFC Planner", "SvS Calendar", "General / Other",
+];
+
+function ReportIssueModal({ user, currentPage, onClose }) {
+  const C = COLORS;
+  const [type,    setType]    = useState("");
+  const [module,  setModule]  = useState(() => {
+    const pageToModule = {
+      "char-profile":"Chief Profile","inventory":"Inventory","construction":"Construction",
+      "chief-gear":"Chief Gear","chief-charms":"Chief Charms","experts":"Experts",
+      "war-academy":"War Academy","research-center":"Research","heroes":"Heroes",
+      "hero-gear":"Hero Gear","troops":"Troops","rfc-planner":"RFC Planner",
+      "svs-calendar":"SvS Calendar",
+    };
+    return pageToModule[currentPage] || "";
+  });
+  const [desc,    setDesc]    = useState("");
+  const [busy,    setBusy]    = useState(false);
+  const [done,    setDone]    = useState(false);
+
+  const selS = { width:"100%", background:C.card, border:`1px solid ${C.border}`,
+    borderRadius:7, color:C.textPri, padding:"8px 10px", fontSize:13,
+    fontFamily:"'Space Mono',monospace", outline:"none", cursor:"pointer" };
+  const labS = { fontSize:11, fontWeight:700, color:C.textDim,
+    letterSpacing:"1px", textTransform:"uppercase",
+    fontFamily:"'Space Mono',monospace", marginBottom:5, display:"block" };
+
+  const canSubmit = type && module && desc.trim().length >= 5;
+
+  const handleSubmit = async () => {
+    if (!canSubmit || busy) return;
+    setBusy(true);
+    const ok = await submitIssue({
+      user_id:      user?.id || null,
+      user_name:    user?.user_metadata?.full_name || user?.email || "Anonymous",
+      issue_type:   type,
+      module,
+      description:  desc.trim(),
+    });
+    setBusy(false);
+    if (ok) setDone(true);
+  };
+
+  return createPortal(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",zIndex:9999,
+      display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+      <div style={{background:C.card,border:`1px solid ${C.borderHi}`,borderRadius:14,
+        width:"100%",maxWidth:480,boxShadow:"0 24px 80px rgba(0,0,0,0.6)"}}>
+
+        {/* Header */}
+        <div style={{padding:"18px 22px 14px",borderBottom:`1px solid ${C.border}`,
+          display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div>
+            <div style={{fontSize:15,fontWeight:800,color:C.textPri}}>🚩 Report an Issue</div>
+            <div style={{fontSize:11,color:C.textDim,fontFamily:"'Space Mono',monospace",marginTop:2}}>
+              Help us improve — describe what you found
+            </div>
+          </div>
+          <button onClick={onClose} style={{background:"none",border:"none",
+            color:C.textDim,cursor:"pointer",fontSize:18,lineHeight:1}}>✕</button>
+        </div>
+
+        {done ? (
+          <div style={{padding:"32px 24px",textAlign:"center"}}>
+            <div style={{fontSize:28,marginBottom:12}}>✅</div>
+            <div style={{fontSize:15,fontWeight:700,color:C.textPri,marginBottom:6}}>Issue Submitted</div>
+            <div style={{fontSize:12,color:C.textSec,marginBottom:20}}>
+              Thanks for the report! We'll review it shortly.
+            </div>
+            <button onClick={onClose} style={{padding:"8px 24px",borderRadius:7,
+              background:C.accentBg,color:C.accent,border:`1px solid ${C.accentDim}`,
+              fontWeight:700,fontSize:12,cursor:"pointer",fontFamily:"'Space Mono',monospace"}}>
+              Close
+            </button>
+          </div>
+        ) : (
+          <div style={{padding:"20px 22px",display:"flex",flexDirection:"column",gap:16}}>
+            {/* Type */}
+            <div>
+              <label style={labS}>Type</label>
+              <select value={type} onChange={e=>setType(e.target.value)} style={selS}>
+                <option value="">— Select type —</option>
+                {ISSUE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            {/* Module */}
+            <div>
+              <label style={labS}>Module</label>
+              <select value={module} onChange={e=>setModule(e.target.value)} style={selS}>
+                <option value="">— Select module —</option>
+                {ISSUE_MODULES.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+            {/* Description */}
+            <div>
+              <label style={labS}>Brief Description</label>
+              <textarea value={desc} onChange={e=>setDesc(e.target.value.slice(0,240))}
+                rows={4} maxLength={240} placeholder="Describe the issue (max 240 chars)..."
+                style={{width:"100%",boxSizing:"border-box",background:C.card,
+                  border:`1px solid ${C.border}`,borderRadius:7,color:C.textPri,
+                  padding:"8px 10px",fontSize:12,fontFamily:"inherit",
+                  resize:"vertical",outline:"none"}} />
+              <div style={{fontSize:10,color:C.textDim,fontFamily:"'Space Mono',monospace",
+                textAlign:"right",marginTop:3}}>{desc.length}/240</div>
+            </div>
+            {/* Submit */}
+            <button onClick={handleSubmit} disabled={!canSubmit||busy}
+              style={{padding:"10px",borderRadius:7,fontWeight:700,fontSize:13,
+                cursor:canSubmit&&!busy?"pointer":"not-allowed",
+                fontFamily:"'Space Mono',monospace",transition:"all 0.15s",
+                background:canSubmit?C.accentBg:"transparent",
+                color:canSubmit?C.accent:C.textDim,
+                border:`1px solid ${canSubmit?C.accentDim:C.border}`}}>
+              {busy ? "Submitting…" : "Submit Report"}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// ─── Admin Page ───────────────────────────────────────────────────────────────
 
 function AdminPage({ onStatsUpdated }) {
   const C = COLORS;
+  const [adminTab,      setAdminTab]      = useState("submissions"); // "submissions" | "issues"
   const [submissions,   setSubmissions]   = useState([]);
   const [loading,       setLoading]       = useState(true);
   const [note,          setNote]          = useState({});
   const [busy,          setBusy]          = useState({});
-  const [validating,    setValidating]    = useState(null); // {sub, existing, diffs}
+  const [validating,    setValidating]    = useState(null);
   const [reviewedOpen,  setReviewedOpen]  = useState(true);
+
+  // Issues state
+  const [issues,        setIssues]        = useState([]);
+  const [issuesLoading, setIssuesLoading] = useState(false);
+  const [issueStatus,   setIssueStatus]   = useState({}); // {id: status}
+  const [closedOpen,    setClosedOpen]    = useState(false);
+  // Close ticket flow
+  const [closeTarget,   setCloseTarget]   = useState(null); // issue being closed
+  const [closeNote,     setCloseNote]     = useState("");
+  const [confirmClose,  setConfirmClose]  = useState(false); // show "are you sure" overlay
+
+  const loadIssues = async () => {
+    setIssuesLoading(true);
+    const data = await fetchIssues();
+    setIssues(data);
+    const statusMap = {};
+    data.forEach(i => { statusMap[i.id] = i.status || "acknowledged"; });
+    setIssueStatus(statusMap);
+    setIssuesLoading(false);
+  };
+
+  const handleIssueStatusChange = async (issue, newStatus) => {
+    setIssueStatus(p => ({...p, [issue.id]: newStatus}));
+    await updateIssue(issue.id, { status: newStatus });
+  };
+
+  const handleCloseClick = (issue) => {
+    setCloseTarget(issue);
+    setCloseNote("");
+    setConfirmClose(false);
+  };
+
+  const handleCloseConfirm = async () => {
+    if (!closeTarget) return;
+    const ok = await closeIssue(closeTarget.id, closeNote);
+    if (ok) {
+      // Send notification to the user who submitted
+      if (closeTarget.user_id) {
+        await supabase.from("issue_notifications").insert({
+          user_id:    closeTarget.user_id,
+          issue_id:   closeTarget.id,
+          issue_type: closeTarget.issue_type,
+          module:     closeTarget.module,
+          admin_note: closeNote || "Your issue has been resolved.",
+          read:       false,
+          created_at: new Date().toISOString(),
+        });
+      }
+      setCloseTarget(null);
+      setCloseNote("");
+      setConfirmClose(false);
+      loadIssues();
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -1764,7 +1999,7 @@ function AdminPage({ onStatsUpdated }) {
     URL.revokeObjectURL(url);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); loadIssues(); }, []);
 
   const [handleError, setHandleError] = useState("");
 
@@ -1888,7 +2123,31 @@ function AdminPage({ onStatsUpdated }) {
   return (
     <div className="fade-in" style={{maxWidth:900}}>
       <div className="page-title">Admin <span style={{color:C.accent}}>Panel</span></div>
-      <div className="page-sub" style={{marginBottom:20}}>Hero stat submissions pending review</div>
+
+      {/* Tab toggle */}
+      <div style={{display:"flex",gap:8,marginBottom:20}}>
+        {[
+          {id:"submissions", label:"📋 Stat Submissions"},
+          {id:"issues",      label:"🚩 Issue Tracking", count: issues.filter(i=>i.status!=="closed").length},
+        ].map(tab => (
+          <button key={tab.id} type="button"
+            onClick={() => setAdminTab(tab.id)}
+            style={{padding:"7px 16px",borderRadius:7,fontSize:12,fontWeight:700,
+              cursor:"pointer",fontFamily:"Syne,sans-serif",display:"flex",alignItems:"center",gap:6,
+              background: adminTab===tab.id ? C.accentBg : "transparent",
+              color:      adminTab===tab.id ? C.accent    : C.textSec,
+              border:     `1px solid ${adminTab===tab.id ? C.accentDim : C.border}`}}>
+            {tab.label}
+            {tab.count > 0 && (
+              <span style={{background:C.red,color:"#fff",borderRadius:10,
+                padding:"1px 6px",fontSize:10,fontWeight:800}}>{tab.count}</span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Stat Submissions ─────────────────────────────────────────── */}
+      {adminTab === "submissions" && (<>
 
       {/* Validation overlay */}
       {validating && createPortal(
@@ -2213,6 +2472,194 @@ function AdminPage({ onStatsUpdated }) {
           </>
         );
       })()}
+
+      </>)} {/* end adminTab === "submissions" */}
+
+      {/* ── Issue Tracking ───────────────────────────────────────────── */}
+      {adminTab === "issues" && (() => {
+        const open   = issues.filter(i => i.status !== "closed");
+        const closed = issues.filter(i => i.status === "closed");
+        const statusColors = {
+          acknowledged: { bg: C.blueBg,   color: C.blue,   border: C.blueDim },
+          in_progress:  { bg: C.amberBg,  color: C.amber,  border: "#7d5a0d" },
+          resolved:     { bg: C.greenBg,  color: C.green,  border: C.greenDim },
+          closed:       { bg: C.surface,  color: C.textDim,border: C.border },
+        };
+        const fmtDate = (s) => s ? new Date(s).toLocaleString() : "—";
+
+        return (<>
+          {issuesLoading ? (
+            <div style={{color:C.textDim,fontSize:12,fontFamily:"'Space Mono',monospace",padding:20}}>
+              Loading issues…
+            </div>
+          ) : open.length === 0 && closed.length === 0 ? (
+            <div style={{color:C.textDim,fontSize:12,fontFamily:"'Space Mono',monospace",padding:20}}>
+              No issues reported yet.
+            </div>
+          ) : (
+            <>
+              {/* Open issues */}
+              {open.map(issue => {
+                const st = issueStatus[issue.id] || issue.status || "acknowledged";
+                const sc = statusColors[st] || statusColors.acknowledged;
+                return (
+                  <div key={issue.id} style={{background:C.card,border:`1px solid ${C.border}`,
+                    borderRadius:10,marginBottom:12,overflow:"hidden"}}>
+                    {/* Issue header */}
+                    <div style={{padding:"12px 16px",borderBottom:`1px solid ${C.border}`,
+                      display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                      <span style={{fontSize:10,fontWeight:700,letterSpacing:"1px",textTransform:"uppercase",
+                        color:C.textDim,fontFamily:"'Space Mono',monospace"}}>
+                        {issue.issue_type}
+                      </span>
+                      <span style={{fontSize:11,background:C.accentBg,color:C.accent,
+                        border:`1px solid ${C.accentDim}`,borderRadius:4,padding:"1px 7px",fontFamily:"'Space Mono',monospace"}}>
+                        {issue.module}
+                      </span>
+                      <span style={{fontSize:11,color:C.textDim,fontFamily:"'Space Mono',monospace",marginLeft:"auto"}}>
+                        {issue.user_name} · {fmtDate(issue.submitted_at)}
+                      </span>
+                    </div>
+                    {/* Description */}
+                    <div style={{padding:"10px 16px 8px",fontSize:13,color:C.textPri,lineHeight:1.5}}>
+                      {issue.description}
+                    </div>
+                    {/* Status controls */}
+                    <div style={{padding:"8px 16px 12px",display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                      <span style={{fontSize:10,color:C.textDim,fontFamily:"'Space Mono',monospace"}}>STATUS</span>
+                      <select value={st}
+                        onChange={e => handleIssueStatusChange(issue, e.target.value)}
+                        style={{background:sc.bg,border:`1px solid ${sc.border}`,borderRadius:6,
+                          color:sc.color,padding:"4px 8px",fontSize:11,fontWeight:700,
+                          fontFamily:"'Space Mono',monospace",outline:"none",cursor:"pointer"}}>
+                        <option value="acknowledged">Acknowledged</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="resolved">Resolved</option>
+                      </select>
+                      {st === "resolved" && (
+                        <button onClick={() => handleCloseClick(issue)}
+                          style={{padding:"4px 14px",borderRadius:6,fontSize:11,fontWeight:700,
+                            cursor:"pointer",fontFamily:"'Space Mono',monospace",
+                            background:C.greenBg,color:C.green,border:`1px solid ${C.greenDim}`}}>
+                          ✓ Complete
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Closed issues — collapsible */}
+              {closed.length > 0 && (
+                <div style={{marginTop:16}}>
+                  <button onClick={() => setClosedOpen(o => !o)}
+                    style={{display:"flex",alignItems:"center",gap:8,background:"none",border:"none",
+                      cursor:"pointer",padding:"8px 0",marginBottom:8,width:"100%",textAlign:"left"}}>
+                    <span style={{fontSize:10,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase",
+                      color:C.textSec,fontFamily:"Space Mono,monospace"}}>
+                      📁 Closed Tickets ({closed.length})
+                    </span>
+                    <span style={{fontSize:12,color:C.textDim,marginLeft:"auto"}}>
+                      {closedOpen ? "▲ collapse" : "▼ expand"}
+                    </span>
+                  </button>
+                  {closedOpen && closed.map(issue => (
+                    <div key={issue.id} style={{background:C.surface,border:`1px solid ${C.border}`,
+                      borderRadius:8,marginBottom:8,padding:"10px 14px",opacity:0.75}}>
+                      <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",marginBottom:4}}>
+                        <span style={{fontSize:10,color:C.textDim,fontFamily:"'Space Mono',monospace",fontWeight:700}}>
+                          {issue.issue_type}
+                        </span>
+                        <span style={{fontSize:10,color:C.accent,fontFamily:"'Space Mono',monospace"}}>
+                          {issue.module}
+                        </span>
+                        <span style={{fontSize:10,color:C.textDim,fontFamily:"'Space Mono',monospace",marginLeft:"auto"}}>
+                          {issue.user_name} · {fmtDate(issue.submitted_at)}
+                        </span>
+                      </div>
+                      <div style={{fontSize:12,color:C.textSec,marginBottom:4}}>{issue.description}</div>
+                      {issue.admin_note && (
+                        <div style={{fontSize:11,color:C.green,fontFamily:"'Space Mono',monospace",
+                          background:C.greenBg,border:`1px solid ${C.greenDim}`,
+                          borderRadius:5,padding:"4px 8px",marginTop:4}}>
+                          Admin note: {issue.admin_note}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Close ticket — notes overlay */}
+          {closeTarget && !confirmClose && createPortal(
+            <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",zIndex:9999,
+              display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+              <div style={{background:C.card,border:`1px solid ${C.borderHi}`,borderRadius:12,
+                width:"100%",maxWidth:460,boxShadow:"0 24px 80px rgba(0,0,0,0.6)"}}>
+                <div style={{padding:"16px 20px 12px",borderBottom:`1px solid ${C.border}`,
+                  display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <div style={{fontSize:14,fontWeight:800,color:C.textPri}}>Close Ticket</div>
+                  <button onClick={() => setCloseTarget(null)}
+                    style={{background:"none",border:"none",color:C.textDim,cursor:"pointer",fontSize:18}}>✕</button>
+                </div>
+                <div style={{padding:"16px 20px",display:"flex",flexDirection:"column",gap:12}}>
+                  <label style={{fontSize:11,fontWeight:700,color:C.textDim,
+                    letterSpacing:"1px",textTransform:"uppercase",fontFamily:"'Space Mono',monospace"}}>
+                    Admin Notes
+                  </label>
+                  <textarea value={closeNote} onChange={e=>setCloseNote(e.target.value)}
+                    rows={4} placeholder="Add a comment about the resolution..."
+                    style={{width:"100%",boxSizing:"border-box",background:C.surface,
+                      border:`1px solid ${C.border}`,borderRadius:7,color:C.textPri,
+                      padding:"8px 10px",fontSize:12,fontFamily:"inherit",
+                      resize:"vertical",outline:"none"}} />
+                  <button onClick={() => setConfirmClose(true)}
+                    style={{padding:"9px",borderRadius:7,fontWeight:700,fontSize:13,
+                      cursor:"pointer",fontFamily:"'Space Mono',monospace",
+                      background:C.greenBg,color:C.green,border:`1px solid ${C.greenDim}`}}>
+                    Okay
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )}
+
+          {/* Confirm close overlay */}
+          {closeTarget && confirmClose && createPortal(
+            <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",zIndex:9999,
+              display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+              <div style={{background:C.card,border:`1px solid ${C.borderHi}`,borderRadius:12,
+                width:"100%",maxWidth:380,boxShadow:"0 24px 80px rgba(0,0,0,0.6)",padding:"24px 24px"}}>
+                <div style={{fontSize:15,fontWeight:800,color:C.textPri,marginBottom:10}}>
+                  Close this ticket?
+                </div>
+                <div style={{fontSize:12,color:C.textSec,marginBottom:20,lineHeight:1.6}}>
+                  Are you sure you want to close this ticket? The user will be notified with your note.
+                </div>
+                <div style={{display:"flex",gap:10}}>
+                  <button onClick={handleCloseConfirm}
+                    style={{flex:1,padding:"9px",borderRadius:7,fontWeight:700,fontSize:13,
+                      cursor:"pointer",fontFamily:"'Space Mono',monospace",
+                      background:C.greenBg,color:C.green,border:`1px solid ${C.greenDim}`}}>
+                    Yes, Close It
+                  </button>
+                  <button onClick={() => { setConfirmClose(false); }}
+                    style={{flex:1,padding:"9px",borderRadius:7,fontWeight:700,fontSize:13,
+                      cursor:"pointer",fontFamily:"'Space Mono',monospace",
+                      background:"transparent",color:C.textSec,border:`1px solid ${C.border}`}}>
+                    No, Go Back
+                  </button>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )}
+        </>);
+      })()}
+
     </div>
   );
 }
@@ -3293,6 +3740,7 @@ function ProfileModal({ open, onClose, initialSection="account",
   changePassword, requestDeleteAccount, confirmDeleteAccount,
   charError, clearCharError, authError, clearAuthError,
   theme, setTheme, resetToSystem,
+  notifications=[], setNotifications,
 }) {
   const [section, setSection]       = useState(initialSection);
   const [msg, setMsg]               = useState("");
@@ -3595,6 +4043,63 @@ function ProfileModal({ open, onClose, initialSection="account",
                     </div>
                   );
                 })()}
+              </div>
+
+              {/* Notifications from closed tickets */}
+              <div className="modal-section">
+                <div className="modal-section-title" style={{display:"flex",alignItems:"center",gap:8}}>
+                  Notifications
+                  {notifications.filter(n=>!n.read).length > 0 && (
+                    <span style={{background:C.red,color:"#fff",borderRadius:10,padding:"1px 7px",
+                      fontSize:10,fontWeight:800}}>{notifications.filter(n=>!n.read).length} new</span>
+                  )}
+                </div>
+                {notifications.length === 0 ? (
+                  <div style={{fontSize:12,color:C.textDim,fontFamily:"Space Mono,monospace"}}>No notifications.</div>
+                ) : (
+                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                    {notifications.map(notif => (
+                      <div key={notif.id} style={{
+                        background: notif.read ? C.surface : C.accentBg,
+                        border:`1px solid ${notif.read ? C.border : C.accentDim}`,
+                        borderRadius:8,padding:"10px 12px",
+                        opacity: notif.read ? 0.7 : 1,
+                      }}>
+                        <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4,flexWrap:"wrap"}}>
+                          <span style={{fontSize:10,fontWeight:700,color:notif.read?C.textDim:C.accent,
+                            fontFamily:"'Space Mono',monospace",textTransform:"uppercase"}}>
+                            {notif.issue_type}
+                          </span>
+                          <span style={{fontSize:10,color:C.textDim,fontFamily:"'Space Mono',monospace"}}>
+                            {notif.module}
+                          </span>
+                          {!notif.read && (
+                            <span style={{marginLeft:"auto",fontSize:9,fontWeight:800,color:C.accent,
+                              fontFamily:"'Space Mono',monospace",textTransform:"uppercase"}}>● NEW</span>
+                          )}
+                        </div>
+                        <div style={{fontSize:12,color:notif.read?C.textSec:C.textPri,marginBottom:6,lineHeight:1.5}}>
+                          {notif.admin_note}
+                        </div>
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+                          <span style={{fontSize:10,color:C.textDim,fontFamily:"'Space Mono',monospace"}}>
+                            {notif.created_at ? new Date(notif.created_at).toLocaleDateString() : "—"}
+                          </span>
+                          {!notif.read && (
+                            <button onClick={async () => {
+                              await markNotificationRead(notif.id);
+                              setNotifications(p => p.map(n => n.id===notif.id ? {...n,read:true} : n));
+                            }} style={{fontSize:10,fontWeight:700,cursor:"pointer",
+                              padding:"2px 8px",borderRadius:4,fontFamily:"'Space Mono',monospace",
+                              background:"transparent",color:C.textDim,border:`1px solid ${C.border}`}}>
+                              Mark as read
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="modal-section">
@@ -7203,6 +7708,8 @@ export default function App() {
   const [cpSpeedBuff, setCpSpeedBuff] = useLocalStorage("cp-speedbuff", 0);
   // Version counter — increments when cloud sync completes, triggers CharacterProfilePage re-read
   const [profileVersion, setProfileVersion] = useState(0);
+  const [reportIssueOpen, setReportIssueOpen] = useState(false);
+  const [notifications,   setNotifications]   = useState([]);
   const [savedAt,       setSavedAt]      = useState(null);
   const [loadedPlanKey, setLoadedPlanKey]= useState(null);
   const [syncing,       setSyncing]      = useState(false);
@@ -7306,6 +7813,8 @@ export default function App() {
         // Fire event — mounted hooks re-read from localStorage
         setSyncUserId(user.id);
         setTimeout(() => setProfileVersion(v => v + 1), 1500);
+        // Load notifications for this user
+        fetchNotifications(user.id).then(setNotifications);
       });
   }, [user]);
 
@@ -7453,6 +7962,17 @@ export default function App() {
           theme={theme}
           setTheme={setTheme}
           resetToSystem={resetToSystem}
+          notifications={notifications}
+          setNotifications={setNotifications}
+        />
+      )}
+
+      {/* Report Issue Modal */}
+      {reportIssueOpen && (
+        <ReportIssueModal
+          user={user}
+          currentPage={page}
+          onClose={() => setReportIssueOpen(false)}
         />
       )}
 
@@ -7588,7 +8108,13 @@ export default function App() {
           {/* Profile button — signed-in users */}
           {user && (
             <div className="profile-btn-wrap" onClick={() => { setProfileSection("account"); setProfileOpen(true); }}>
-              <div className="profile-avatar">{userInitial}</div>
+              <div style={{position:"relative",flexShrink:0}}>
+                <div className="profile-avatar">{userInitial}</div>
+                {notifications.filter(n => !n.read).length > 0 && (
+                  <div style={{position:"absolute",top:-3,right:-3,width:10,height:10,
+                    background:COLORS.red,borderRadius:"50%",border:`2px solid ${COLORS.bg}`}} />
+                )}
+              </div>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontSize:11,color:COLORS.textSec,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                   {user.user_metadata?.full_name || user.email}
@@ -7704,6 +8230,17 @@ export default function App() {
                     {activeCharacter.name}
                     {activeCharacter.state_number ? ` · State ${activeCharacter.state_number}` : ""}
                   </div>
+                )}
+                {user && (
+                  <button onClick={() => setReportIssueOpen(true)}
+                    style={{padding:"5px 12px",borderRadius:6,fontSize:11,fontWeight:700,
+                      cursor:"pointer",fontFamily:"'Space Mono',monospace",whiteSpace:"nowrap",
+                      background:"transparent",color:COLORS.red,
+                      border:`1px solid ${COLORS.redDim}`,transition:"all 0.15s"}}
+                    onMouseEnter={e=>{e.currentTarget.style.background=COLORS.redBg;}}
+                    onMouseLeave={e=>{e.currentTarget.style.background="transparent";}}>
+                    🚩 Report Issue
+                  </button>
                 )}
               </div>
             </div>
