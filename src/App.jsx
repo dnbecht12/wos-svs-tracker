@@ -233,46 +233,27 @@ function scheduleSync(key, value) {
 function useLocalStorage(key, initial) {
   const [val, setVal] = useState(() => {
     try {
-      // Always read from localStorage — even guests get local persistence.
-      // sessionStorage is only used as write target for guests (cleared on tab close).
       const s = localStorage.getItem(key);
       return s ? JSON.parse(s) : initial;
     } catch { return initial; }
   });
 
-  // Fetch latest value from Supabase for this key
-  const fetchFromCloud = useCallback((userId) => {
-    // Only skip for truly no-sync keys — do NOT bail on _isGuest here.
-    // _isGuest may still be true when this fires on a fresh device.
-    if (!userId || NO_SYNC_KEYS.has(key)) return;
-    supabase.from("user_data")
-      .select("value, updated_at")
-      .eq("user_id", userId)
-      .eq("key", key)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (!data?.value) return;
-        try {
-          const remote = JSON.parse(data.value);
-          const localTs = localStorage.getItem(`${key}__ts`) || "0";
-          if (data.updated_at > localTs) {
-            setVal(remote);
-            try {
-              localStorage.setItem(key, JSON.stringify(remote));
-              localStorage.setItem(`${key}__ts`, data.updated_at);
-            } catch {}
-          }
-        } catch {}
-      });
+  // Re-read from localStorage (which bulk sync already populated) and update state
+  const readFromLocal = useCallback(() => {
+    try {
+      const s = localStorage.getItem(key);
+      if (s) setVal(JSON.parse(s));
+    } catch {}
   }, [key]);
 
-  // On mount: try immediately (if auth already resolved), or wait for wos-user-ready
+  // On mount: if auth already resolved re-read local (bulk sync already ran),
+  // otherwise wait for wos-user-ready which fires after bulk sync completes
   useEffect(() => {
     if (NO_SYNC_KEYS.has(key)) return;
     if (_syncUserId) {
-      fetchFromCloud(_syncUserId);
+      readFromLocal();
     } else {
-      const handler = (e) => fetchFromCloud(e.detail.id);
+      const handler = () => readFromLocal();
       window.addEventListener("wos-user-ready", handler, { once: true });
       return () => window.removeEventListener("wos-user-ready", handler);
     }
@@ -283,7 +264,6 @@ function useLocalStorage(key, initial) {
     setVal(prev => {
       const next = typeof v === "function" ? v(prev) : v;
       try {
-        // Guests write to sessionStorage (cleared on tab close), logged-in to localStorage
         const store = _isGuest ? sessionStorage : localStorage;
         store.setItem(key, JSON.stringify(next));
         if (!_isGuest) {
@@ -7283,15 +7263,36 @@ export default function App() {
   // ── Reset when user signs out ────────────────────────────────────────────────
   useEffect(() => { if (!user) { invRef.current = INITIAL_INVENTORY; } }, [user]);
 
-  // Update guest flag whenever auth state changes
+  // Update guest flag and sync all data from cloud on login
   useEffect(() => {
     setGuestFlag(!user);
-    setSyncUserId(user?.id || null);
-    // After cloud sync completes (give it 2s), bump version so CharacterProfilePage re-reads localStorage
-    if (user?.id) {
-      const t = setTimeout(() => setProfileVersion(v => v + 1), 2000);
-      return () => clearTimeout(t);
+    if (!user?.id) {
+      setSyncUserId(null);
+      return;
     }
+    // Bulk-fetch ALL keys for this user in one query, write to localStorage,
+    // then fire wos-user-ready so individual hooks pick up their values.
+    // This ensures data lands in localStorage BEFORE hooks try to read it.
+    supabase.from("user_data")
+      .select("key, value, updated_at")
+      .eq("user_id", user.id)
+      .then(({ data, error }) => {
+        if (!error && data?.length) {
+          data.forEach(row => {
+            try {
+              const localTs = localStorage.getItem(`${row.key}__ts`) || "0";
+              if (row.updated_at > localTs) {
+                localStorage.setItem(row.key, row.value);
+                localStorage.setItem(`${row.key}__ts`, row.updated_at);
+              }
+            } catch {}
+          });
+        }
+        // Fire event — mounted hooks will re-read from localStorage (now populated)
+        setSyncUserId(user.id);
+        // Bump profileVersion after a short delay so CharacterProfilePage re-computes
+        setTimeout(() => setProfileVersion(v => v + 1), 500);
+      });
   }, [user]);
 
   // ── Debounced cloud save on inv change ────────────────────────────────────────
