@@ -195,18 +195,13 @@ const COLORS = new Proxy({}, {
 const css = (strings, ...vals) => strings.reduce((a, s, i) => a + s + (vals[i] ?? ""), "");
 
 // ─── Local Storage Hook ───────────────────────────────────────────────────────
-// Determine guest status synchronously before any component mounts.
-// Supabase persists the session in localStorage — if it exists, user is logged in.
-let _isGuest = (() => {
-  try {
-    const keys = Object.keys(localStorage);
-    const hasSession = keys.some(k => k.startsWith("sb-") && k.endsWith("-auth-token"));
-    return !hasSession;
-  } catch { return true; }
-})();
+// _isGuest gates cloud WRITES only — reads always come from localStorage.
+// We cannot reliably detect guest status synchronously on a fresh device because
+// the Supabase session token may not exist in localStorage until auth resolves.
+let _isGuest = true; // assume guest until auth resolves
 function setGuestFlag(isGuest) { _isGuest = isGuest; }
 
-// Module-level user ID — set when auth resolves, used by useSyncedStorage
+// Module-level user ID — set when auth resolves
 let _syncUserId = null;
 function setSyncUserId(id) {
   _syncUserId = id;
@@ -214,7 +209,7 @@ function setSyncUserId(id) {
   if (id) window.dispatchEvent(new CustomEvent("wos-user-ready", { detail: { id } }));
 }
 
-// Keys that should NOT sync to cloud (UI preferences, guest-only state)
+// Keys that should NOT sync to cloud (UI preferences only)
 const NO_SYNC_KEYS = new Set([
   "wos-page", "wos-theme", "heroes-sort", "hg-gen-filter",
 ]);
@@ -222,7 +217,7 @@ const NO_SYNC_KEYS = new Set([
 // Pending write queue — batches rapid updates into a single Supabase write
 const _writeTimers = {};
 function scheduleSync(key, value) {
-  if (!_syncUserId || _isGuest || NO_SYNC_KEYS.has(key)) return;
+  if (!_syncUserId || NO_SYNC_KEYS.has(key)) return; // only sync when logged in
   clearTimeout(_writeTimers[key]);
   _writeTimers[key] = setTimeout(async () => {
     try {
@@ -238,15 +233,18 @@ function scheduleSync(key, value) {
 function useLocalStorage(key, initial) {
   const [val, setVal] = useState(() => {
     try {
-      const store = _isGuest ? sessionStorage : localStorage;
-      const s = store.getItem(key);
+      // Always read from localStorage — even guests get local persistence.
+      // sessionStorage is only used as write target for guests (cleared on tab close).
+      const s = localStorage.getItem(key);
       return s ? JSON.parse(s) : initial;
     } catch { return initial; }
   });
 
   // Fetch latest value from Supabase for this key
   const fetchFromCloud = useCallback((userId) => {
-    if (!userId || _isGuest || NO_SYNC_KEYS.has(key)) return;
+    // Only skip for truly no-sync keys — do NOT bail on _isGuest here.
+    // _isGuest may still be true when this fires on a fresh device.
+    if (!userId || NO_SYNC_KEYS.has(key)) return;
     supabase.from("user_data")
       .select("value, updated_at")
       .eq("user_id", userId)
@@ -285,6 +283,7 @@ function useLocalStorage(key, initial) {
     setVal(prev => {
       const next = typeof v === "function" ? v(prev) : v;
       try {
+        // Guests write to sessionStorage (cleared on tab close), logged-in to localStorage
         const store = _isGuest ? sessionStorage : localStorage;
         store.setItem(key, JSON.stringify(next));
         if (!_isGuest) {
