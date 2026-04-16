@@ -1702,9 +1702,9 @@ export default function ResearchCenterPage({ inv }) {
                             {cur === 0 ? <span style={{color:C.textDim}}>—</span> : getBuff(res, cur)}
                           </td>
 
-                          {/* Goal level */}
+                          {/* Goal level — Max badge only when cur is also at max */}
                           <td style={{...tdS,textAlign:"center"}}>
-                            {goalIsMax ? (
+                            {goalIsMax && curIsMax ? (
                               <span style={{fontSize:10,color:C.green,fontFamily:"'Space Mono',monospace",fontWeight:700}}>Max</span>
                             ) : (
                               <select value={goal}
