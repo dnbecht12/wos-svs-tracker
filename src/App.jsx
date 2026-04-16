@@ -7558,7 +7558,6 @@ export default function App() {
                     className={clsx("nav-item", page === p.id && !loadedPlanKey && "active")}
                     onClick={() => { setLoadedPlanKey(null); setPage(p.id); setSidebarOpen(false); }}
                   >
-                    <span className="nav-icon">{p.icon}</span>
                     {p.label}
                     {p.id === "inventory" && <span className="nav-badge">HUB</span>}
                   </div>
@@ -7577,7 +7576,6 @@ export default function App() {
                     onClick={() => { handleLoadPlan(key); setSidebarOpen(false); }}
                   >
                     <span style={{display:"flex",alignItems:"center",gap:8,minWidth:0}}>
-                      <span className="nav-icon" style={{flexShrink:0}}>[P]</span>
                       <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:12}}>{key}</span>
                     </span>
                     <span onClick={e => { e.stopPropagation(); handleDeletePlan(key); }}
@@ -7595,7 +7593,6 @@ export default function App() {
                   className={clsx("nav-item", page === "admin" && "active")}
                   onClick={() => { setPage("admin"); setSidebarOpen(false); }}
                 >
-                  <span className="nav-icon">⚙</span>
                   Submissions
                 </div>
               </div>
