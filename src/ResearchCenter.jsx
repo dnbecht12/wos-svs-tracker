@@ -1244,6 +1244,37 @@ const RC = {
   }
 };
 
+// ─── Buff parser ─────────────────────────────────────────────────────────────
+// Parse a buff string like "+1.25% Infantry Attack" or "+320 Deployment Capacity"
+// Returns { stat: string, value: number, isPct: boolean }
+function parseBuff(buff) {
+  if (!buff || buff === "—") return null;
+  const m = buff.match(/^\+?([\d,]+\.?\d*)(%)?\s+(.+)$/);
+  if (!m) return null;
+  return {
+    stat:  m[3].trim(),
+    value: parseFloat(m[1].replace(/,/g, "")),
+    isPct: m[2] === "%",
+  };
+}
+
+// Compute summed stats for all researches in a tier at current levels
+function calcTierStats(tier, getLv) {
+  const stats = {}; // stat → { value, isPct }
+  tier.researches.forEach(res => {
+    const { cur } = getLv(res.id);
+    if (!cur || cur <= 0) return;
+    const maxLv = res.levels.length - 1;
+    const row = res.levels[Math.min(cur, maxLv)];
+    if (!row?.buff) return;
+    const p = parseBuff(row.buff);
+    if (!p) return;
+    if (!stats[p.stat]) stats[p.stat] = { value: 0, isPct: p.isPct };
+    stats[p.stat].value += p.value;
+  });
+  return stats;
+}
+
 // ─── Cost calculator ──────────────────────────────────────────────────────────
 
 function calcResearchCost(res, curLv, goalLv) {
@@ -1711,6 +1742,49 @@ export default function ResearchCenterPage({ inv, rcLevels, setRcLevels, rcColla
             </div>
 
             {/* Hide table when collapsed */}
+            {/* ── Tier Stats Summary ── always visible, even when collapsed ── */}
+            {(() => {
+              const tierStats = calcTierStats(tier, getLv);
+              const entries = Object.entries(tierStats).sort(([a],[b]) => a.localeCompare(b));
+              if (entries.length === 0) return null;
+              const statColor = (stat) => {
+                if (stat.includes("Attack"))      return C.red;
+                if (stat.includes("Defense"))     return C.blue;
+                if (stat.includes("Health"))      return C.green;
+                if (stat.includes("Lethality"))   return C.amber;
+                if (stat.includes("Deployment") || stat.includes("Rally") || stat.includes("March")) return C.accent;
+                if (stat.includes("Training") || stat.includes("Healing")) return C.green;
+                if (stat.includes("Construction") || stat.includes("Research")) return C.blue;
+                return C.textSec;
+              };
+              return (
+                <div style={{
+                  marginTop: isHiding ? 6 : 8, marginBottom: isHiding ? 0 : 8,
+                  padding: "7px 12px",
+                  background: C.surface, border: `1px solid ${C.border}`, borderRadius: 7,
+                  display: "flex", flexWrap: "wrap", gap: "4px 14px", alignItems: "center",
+                }}>
+                  <span style={{
+                    fontSize: 9, fontWeight: 700, color: C.textDim, textTransform: "uppercase",
+                    letterSpacing: "1.2px", fontFamily: "'Space Mono',monospace",
+                    flexShrink: 0, marginRight: 4,
+                  }}>
+                    Current Buffs
+                  </span>
+                  {entries.map(([stat, { value, isPct }]) => (
+                    <span key={stat} style={{
+                      fontSize: 11, fontFamily: "'Space Mono',monospace", color: statColor(stat),
+                    }}>
+                      +{isPct
+                        ? (parseFloat(value.toFixed(2))) + "%"
+                        : value.toLocaleString()
+                      }{" "}{stat}
+                    </span>
+                  ))}
+                </div>
+              );
+            })()}
+
             {!isHiding && (
               <div style={{overflowX:"auto"}}>
                 <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:720}}>
