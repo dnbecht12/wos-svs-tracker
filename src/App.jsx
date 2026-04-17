@@ -4959,11 +4959,11 @@ function ExpertsPage({ inv, setInv }) {
     Agnes:   [0,1000,240,260,270,280,290,320,340,360,390,410,440,460,480,510,530,560,580,600,630,650,680,700,720,750,770,800,820,840,880,920,950,990,1020,1060,1100,1130,1170,1210,1250,1300,1350,1400,1440,1490,1540,1590,1640,1680,1740,1800,1860,1920,1980,2040,2100,2160,2220,2280,2340,2400,2460,2520,2580,2640,2700,2760,2820,2880,2940,3000,3060,3120,3180,3240,3300,3360,3420,3480,3540,3600,3660,3720,3780,3840,3900,3960,4020,4080,4140,4200,4260,4320,4380,4440,4500,4560,4620,4680,4740],
     Romulus: [0,1000,1100,1160,1210,1270,1320,1430,1540,1650,1760,1870,1980,2090,2200,2310,2420,2530,2640,2750,2860,2970,3080,3190,3300,3520,3620,3720,3820,3920,4020,4180,4350,4510,4680,4840,5000,5170,5330,5500,5720,5940,6160,6380,6600,6820,7040,7260,7480,7700,7980,8250,8530,8800,9080,9350,9630,9900,10180,10450,10730,11000,11280,11560,11830,12110,12380,12660,12930,13210,13480,13750,14030,14300,14580,14850,15130,15400,15680,15950,16230,16500,16780,17050,17330,17600,17880,18150,18430,18700,18980,19250,19530,19800,20080,20350,20630,20900,21180,21450,21730],
     Holger:  [0,1000,600,630,660,690,720,780,840,900,960,1020,1080,1140,1200,1260,1320,1380,1440,1500,1560,1620,1680,1740,1800,1860,1920,1980,2040,2100,2190,2280,2370,2460,2550,2640,2730,2820,2910,3000,3120,3240,3360,3480,3600,3720,3840,3960,4080,4200,4350,4500,4650,4800,4950,5100,5250,5400,5550,5700,5850,6000,6150,6300,6450,6600,6750,6900,7050,7200,7350,7500,7650,7800,7950,8100,8250,8400,8550,8700,8850,9000,9150,9300,9450,9600,9750,9900,10050,10200,10350,10500,10650,10800,10950,11100,11250,11400,11550,11700,11850],
-    Fabian:  [0,1000,1000,1050,1100,1150,1200,1300,1400,1500,1600,1700,1800,1900,2000,2100,2200,2300,2400,5600,2600,2700,2800,2900,3000,3100,3200,3300,3400,3500,3650,3800,3950,4100,4250,4400,4550,4700,4850,5000,5200,5400,5600,5800,6000,6200,6400,6600,6800,7000,7250,7500,7750,8000,8250,8500,8750,9000,9250,9500,9750,10000,10250,10500,10750,11000,11250,11500,11750,12000,12250,12500,12750,13000,13250,13500,13750,14000,14250,14500,14750,15000,15250,15500,15750,16000,16250,16500,16750,17000,17250,17500,17750,18000,18250,18500,18750,19000,19250,19500,19750],
-    Baldur:  [0,1000,400,420,440,460,480,520,560,600,640,680,720,760,800,840,880,920,960,1000,1040,1080,1120,1160,1200,1240,1284,1320,1360,1400,1460,1520,1580,1640,1700,1760,1820,1880,1940,2000,2080,2160,2240,2320,2400,2480,2560,2640,2720,2800,2900,3000,3100,3200,3300,3400,3500,3600,3700,3800,3900,4000,4100,4200,4300,4400,4500,4600,4700,4800,4900,5000,5100,5200,5300,5400,5500,5600,5700,5800,5900,6000,6100,6200,6300,6400,6500,6600,6700,6800,6900,7000,7100,7200,7300,7400,7500,7600,7700,7800,7900],
-    Valeria: [0,1000,200,210,220,230,240,260,280,300,320,340,360,380,400,420,440,460,480,500,520,540,560,580,600,620,640,660,680,700,730,760,790,820,850,880,910,940,970,1000,1040,1080,1120,1160,1200,1240,1280,1320,1360,1400,1450,1500,1550,1600,1650,1700,1750,1800,1850,1900,1950,2000,2050,2100,2150,2200,2250,2300,2350,2400,2450,2500,2550,2600,2650,2700,2750,2800,2850,2900,2950,3000,3050,3100,3150,3200,3250,3300,3350,3400,3450,3500,3550,3600,3650,3700,3750,3800,3850,3900,3950],
-    Ronne:   [0,1000,200,210,220,230,240,260,280,300,320,340,360,380,400,420,440,460,480,500,520,540,560,580,600,620,640,660,680,700,730,760,790,820,850,880,910,940,970,1000,1040,1080,1120,1160,1200,1240,1280,1320,1360,1400,1450,1500,1550,1600,1650,1700,1750,1800,1850,1900,1950,2000,2050,2100,2150,2200,2250,2300,2350,2400,2450,2500,2550,2600,2650,2700,2750,2800,2850,2900,2950,3000,3050,3100,3150,3200,3250,3300,3350,3400,3450,3500,3550,3600,3650,3700,3750,3800,3850,3900,3950],
-    Kathy:   [],
+    Fabian:  [0,1000,1000,1050,1100,1150,1200,1300,1400,1500,1600,1700,1800,1900,2000,2100,2200,2300,2400,2500,2600,2700,2800,2900,3000,3100,3200,3300,3400,3500,3650,3800,3950,4100,4250,4400,4550,4700,4850,5000,5200,5400,5600,5800,6000,6200,6400,6600,6800,7000,7250,7500,7750,8000,8250,8500,8750,9000,9250,9500,9750,10000,10250,10500,10750,11000,11250,11500,11750,12000,12250,12500,12750,13000,13250,13500,13750,14000,14250,14500,14750,15000,15250,15500,15750,16000,16250,16500,16750,17000,17250,17500,17750,18000,18250,18500,18750,19000,19250,19500,19750],
+    Baldur:  [0,1000,400,420,440,460,480,520,560,600,640,680,720,760,800,840,880,920,960,1000,1040,1080,1120,1160,1200,1240,1280,1320,1360,1400,1460,1520,1580,1640,1700,1760,1820,1880,1940,2000,2080,2160,2240,2320,2400,2480,2560,2640,2720,2800,2900,3000,3100,3200,3300,3400,3500,3600,3700,3800,3900,4000,4100,4200,4300,4400,4500,4600,4700,4800,4900,5000,5100,5200,5300,5400,5500,5600,5700,5800,5900,6000,6100,6200,6300,6400,6500,6600,6700,6800,6900,7000,7100,7200,7300,7400,7500,7600,7700,7800,7900],
+    Valeria: [0,1000,1840,1940,2030,2120,2210,2400,2580,2760,2950,3130,3320,3500,3680,3870,4050,4240,4420,4600,4790,4970,5160,5340,5520,5710,5890,6080,6260,6440,6720,7000,7270,7550,7820,8100,8380,8650,8930,9200,9570,9940,10310,10680,11040,11410,11780,12150,12520,12880,13340,13800,14260,14720,15180,15640,16100,16560,17020,17480,17940,18400,18860,19320,19780,20240,20700,21160,21620,22080,22540,23000,23460,23920,24380,24840,25300,25760,26220,26680,27140,27600,28060,28520,28980,29440,29900,30360,30820,31280,31740,32200,32660,33120,33580,34040,34500,34960,34960,35880,36340],
+    Ronne:   [0,1000,600,630,660,690,720,780,840,900,960,1020,1080,1140,1200,1260,1320,1380,1440,1500,1560,1620,1680,1740,1800,1860,1920,1980,2040,2100,2190,2280,2370,2460,2550,2640,2730,2820,2910,3000,3120,3240,3360,3480,3600,3720,3840,3960,4080,4200,4350,4500,4650,4800,4950,5100,5250,5400,5550,5700,5850,6000,6150,6300,6450,6600,6750,6900,7050,7200,7350,7500,7650,7800,7950,8100,8250,8400,8550,8700,8850,9000,9150,9300,9450,9600,9750,9900,10050,10200,10350,10500,10650,10800,10950,11100,11250,11400,11550,11700,11850],
+    Kathy:   [0,1000,900,950,990,1040,1080,1170,1260,1350,1440,1530,1620,1710,1800,1890,1980,2070,2160,2250,2340,2430,2520,2610,2700,2790,2880,2970,3060,3150,3290,3420,3560,3690,3830,3960,4100,4230,4370,4500,4680,4860,5040,5220,5400,5580,5760,5940,6120,6300,6530,6750,6980,7200,7430,7650,7880,8100,8330,8550,8780,9000,9230,9450,9680,9900,10130,10350,10580,10800,11030,11250,11480,11700,11930,12150,12380,12600,12830,13050,13280,13500,13730,13950,14180,14400,14630,14850,15080,15300,15530,15750,15980,16200,16430,16650,16880,17100,17330,17550,17780],
   };
 
   // Skill book costs: [books_to_reach_S1, S2, S3, ... S20] — 0-indexed so index=skill level
@@ -4988,36 +4988,65 @@ function ExpertsPage({ inv, setInv }) {
       sk4: [0,0,800,1500,2200,3000,3800,4500,5200,6000,6800,7500,8200,9000,10500,12000,12000,13500,13500,15000,15000],
     },
     Holger: {
-      sk1: [0,0,600,1200,13800,2400,3000,3600,4200,4800,5400,null,null,null,null,null,null,null,null,null,null],
+      // Arena Elite (Lv 10) — wiki: 600/1200/1800/2400/3000/3600/4200/4800/5400
+      sk1: [0,0,600,1200,1800,2400,3000,3600,4200,4800,5400,null,null,null,null,null,null,null,null,null,null],
+      // Crowd Pleaser (Lv 10) — wiki: 300/600/900/1200/1500/1800/2100/2400/2700
       sk2: [0,0,300,600,900,1200,1500,1800,2100,2400,2700,null,null,null,null,null,null,null,null,null,null],
+      // Arena Star (Lv 10) — wiki: 300/600/900/1200/1500/1800/2100/2400/2700
       sk3: [0,0,300,600,900,1200,1500,1800,2100,2400,2700,null,null,null,null,null,null,null,null,null,null],
+      // Legacy (Lv 10) — wiki: 600/1200/1800/2400/3000/3600/4200/4800/5400
       sk4: [0,0,600,1200,1800,2400,3000,3600,4200,4800,5400,null,null,null,null,null,null,null,null,null,null],
     },
     Fabian: {
+      // Salvager (Lv 10) — wiki: 300/600/900/1200/1500/1800/2100/2400/2700
       sk1: [0,0,300,600,900,1200,1500,1800,2100,2400,2700,null,null,null,null,null,null,null,null,null,null],
+      // Crisis Rescue (Lv 10) — wiki: 500/1000/1500/2000/2500/3000/3500/4000/4500
       sk2: [0,0,500,1000,1500,2000,2500,3000,3500,4000,4500,null,null,null,null,null,null,null,null,null,null],
+      // Heightened Firepower (Lv 20) — wiki: 200/500/700/1000/1200/1500/1700/2000/2300/2500/2700/3000/3500/4000/4000/4500/4500/5100/5100
       sk3: [0,0,200,500,700,1000,1200,1500,1700,2000,2300,2500,2700,3000,3500,4000,4000,4500,4500,5100,5100],
+      // Battle Bulwark (Lv 20) — wiki: 300/700/1000/1400/1800/2100/2400/2800/3200/3500/3800/4200/4900/5700/5700/6400/6400/7100/7100
       sk4: [0,0,300,700,1000,1400,1800,2100,2400,2800,3200,3500,3800,4200,4900,5700,5700,6400,6400,7100,7100],
     },
     Baldur: {
+      // Blazing Sunrise (Lv 10) — wiki: 300/600/900/1200/1500/1800/2100/2400/2700
       sk1: [0,0,300,600,900,1200,1500,1800,2100,2400,2700,null,null,null,null,null,null,null,null,null,null],
+      // Honored Conquest (Lv 10) — wiki: 300/600/900/1200/1500/1800/2100/2400/2700
       sk2: [0,0,300,600,900,1200,1500,1800,2100,2400,2700,null,null,null,null,null,null,null,null,null,null],
+      // Bounty Hunter (Lv 10) — wiki: 300/600/900/1200/1500/1800/2100/2400/2700
       sk3: [0,0,300,600,900,1200,1500,1800,2100,2400,2700,null,null,null,null,null,null,null,null,null,null],
-      sk4: [0,0,300,600,900,1200,1500,1800,2100,2400,2700,null,null,null,null,null,null,null,null,null,null],
+      // Dawn Hymn (Lv 10) — wiki: 500/1000/1500/2000/2500/3000/3500/4000/4500
+      sk4: [0,0,500,1000,1500,2000,2500,3000,3500,4000,4500,null,null,null,null,null,null,null,null,null,null],
     },
     Valeria: {
+      // Well Prepared (Lv 10) — wiki: 500/1000/1500/2000/2500/3000/3500/4000/4500
       sk1: [0,0,500,1000,1500,2000,2500,3000,3500,4000,4500,null,null,null,null,null,null,null,null,null,null],
+      // Radiant Honor (Lv 10) — wiki: 500/1000/1500/2000/2500/3000/3500/4000/4500
       sk2: [0,0,500,1000,1500,2000,2500,3000,3500,4000,4500,null,null,null,null,null,null,null,null,null,null],
+      // Battle Concerto (Lv 20) — wiki: 800/1500/2200/3000/3800/4500/5200/6000/6800/7500/8200/9000/10500/12000/12000/13500/13500/15000/15000
       sk3: [0,0,800,1500,2200,3000,3800,4500,5200,6000,6800,7500,8200,9000,10500,12000,12000,13500,13500,15000,15000],
+      // Crushing Force (Lv 20) — wiki: 800/1500/2200/3000/3800/4500/5200/6000/6800/7500/8200/9000/10500/12000/12000/13500/13500/15000/15000
       sk4: [0,0,800,1500,2200,3000,3800,4500,5200,6000,6800,7500,8200,9000,10500,12000,12000,13500,13500,15000,15000],
     },
     Ronne: {
+      // Cartographic Memory (Lv 10)
       sk1: [0,0,300,600,900,1200,1500,1800,2100,2400,2700,null,null,null,null,null,null,null,null,null,null],
+      // Treasure Scent (Lv 10)
       sk2: [0,0,300,600,900,1200,1500,1800,2100,2400,2700,null,null,null,null,null,null,null,null,null,null],
-      sk3: null,
-      sk4: null,
+      // Giving Back (Lv 10)
+      sk3: [0,0,600,1200,1800,2400,3000,3600,4200,4800,5400,null,null,null,null,null,null,null,null,null,null],
+      // Gold Class (Lv 10)
+      sk4: [0,0,1200,2400,3600,4800,6000,7200,8400,9600,10800,null,null,null,null,null,null,null,null,null,null],
     },
-    Kathy: { sk1: null, sk2: null, sk3: null, sk4: null },
+    Kathy: {
+      // Icefire Hunter (Lv 10): books per level from wiki
+      sk1: [0,0,300,600,900,1200,1500,1800,2100,2400,2700,null,null,null,null,null,null,null,null,null,null],
+      // Valorous Cold (Lv 10): books per level from wiki
+      sk2: [0,0,300,600,900,1200,1500,1800,2100,2400,2700,null,null,null,null,null,null,null,null,null,null],
+      // Winter Treasures (Lv 10): books per level from wiki
+      sk3: [0,0,1000,2000,3000,4000,5000,6000,7000,8000,9000,null,null,null,null,null,null,null,null,null,null],
+      // Efficient Mining (Lv 10): books per level from wiki
+      sk4: [0,0,1200,2400,3600,4800,6000,7200,8400,9600,10800,null,null,null,null,null,null,null,null,null,null],
+    },
   };
 
   // Affinity (Bonus) levels — sigils needed to reach each B level
@@ -5029,8 +5058,8 @@ function ExpertsPage({ inv, setInv }) {
     Fabian:  [0,0,12,24,36,48,60,72,84,96,108,120],
     Baldur:  [0,0,6,12,18,24,30,36,42,48,54,60],
     Valeria: [0,0,20,40,60,80,100,120,140,160,180,200],
-    Ronne:   [0,0,20,40,60,80,100,120,140,160,180,200],
-    Kathy:   [0,0,20,40,60,80,100,120,140,160,180,200],
+    Ronne:   [0,0,8,16,24,32,40,48,56,64,72,80],
+    Kathy:   [0,0,10,20,30,40,50,60,70,80,90,100],
   };
 
   const AFFINITY_NAMES = ["0","1","2","3","4","5","6","7","8","9","10","11"];
@@ -5073,72 +5102,72 @@ function ExpertsPage({ inv, setInv }) {
     },
     {
       name: "Romulus", invKey: "romulusSigils", color: "#C0392B",
-      bonus: "Commander's Crest", bonusDesc: "Deployment capacity",
+      bonus: "Commander's Crest", bonusDesc: "Increases Expedition Army size (Deployment Capacity)",
       skills: [
-        { name: "Call of War",       desc: "Daily troops + Loyalty tags",      maxSk: 10 },
-        { name: "Last Line",         desc: "Troop attack & defense buff",       maxSk: 20 },
-        { name: "Spirit of Aeetes",  desc: "Troop lethality & health buff",    maxSk: 20 },
-        { name: "One Heart",         desc: "Rally cap",                        maxSk: 20 },
+        { name: "Call of War",      desc: "+600 free troops/day from Camp + 10 daily Loyalty Tags", maxSk: 10 },
+        { name: "Last Line",        desc: "Troops' Attack & Defense +10%",                          maxSk: 20 },
+        { name: "Spirit of Aeetes", desc: "Troops' Lethality & Health +10%",                       maxSk: 20 },
+        { name: "One Heart",        desc: "+100,000 Rally Capacity",                                maxSk: 20 },
       ],
     },
     {
       name: "Holger", invKey: "holgerSigils", color: "#8E44AD",
-      bonus: "Blade Dancing", bonusDesc: "Arena star chest chance",
+      bonus: "Blade Dancing", bonusDesc: "100% chance of 3 Arena Star Chests from audience",
       skills: [
-        { name: "Arena Elite",    desc: "Arena Escorts attack & health",     maxSk: 10 },
-        { name: "Crowd Pleaser",  desc: "Daily/Weekly Arena Tokens",         maxSk: 10 },
-        { name: "Arena Star",     desc: "Arena Shop extra items @ discount", maxSk: 10 },
-        { name: "Legacy",         desc: "Arena heroes attack & health",      maxSk: 10 },
+        { name: "Arena Elite",   desc: "Arena heroes Attack & Health +20%",              maxSk: 10 },
+        { name: "Crowd Pleaser", desc: "+50% daily & weekly Arena Tokens earned",        maxSk: 10 },
+        { name: "Arena Star",    desc: "+3 Arena Shop items at 50% discount",            maxSk: 10 },
+        { name: "Legacy",        desc: "Arena heroes Attack & Health +20% (in Arena)",   maxSk: 10 },
       ],
     },
     {
       name: "Fabian", invKey: "fabianSigils", color: "#D4A017",
-      bonus: "Craftsman of War", bonusDesc: "Foundry/TLA Attack & Defense",
+      bonus: "Craftsman of War", bonusDesc: "+30% Troops Attack & Defense in Foundry Battle & Hellfire",
       skills: [
-        { name: "Salvager",             desc: "Arsenal tokens",                    maxSk: 10 },
-        { name: "Crisis Rescue",        desc: "Foundry/TLA instant heal troops",   maxSk: 10 },
-        { name: "Heightened Firepower", desc: "Foundry/TLA troops lethality & health", maxSk: 20 },
-        { name: "Battle Bulwark",       desc: "Foundry/TLA rally cap",             maxSk: 20 },
+        { name: "Salvager",             desc: "+100% Arsenal Tokens",                                       maxSk: 10 },
+        { name: "Crisis Rescue",        desc: "Instant recovery of 1,000,000 troops per Foundry/Hellfire",  maxSk: 10 },
+        { name: "Heightened Firepower", desc: "+30% Troops Lethality & Health in Foundry/Hellfire",         maxSk: 20 },
+        { name: "Battle Bulwark",       desc: "+150,000 Rally Capacity in Foundry/Hellfire",                maxSk: 20 },
       ],
     },
     {
       name: "Baldur", invKey: "baldurSigils", color: "#16A085",
-      bonus: "Master Negotiator", bonusDesc: "Alliance Shop discount + Triumph Chests",
+      bonus: "Master Negotiator", bonusDesc: "-15% Alliance Shop prices, +100% Triumph Chest rewards",
       skills: [
-        { name: "Blazing Sunrise",  desc: "Alliance Mobilization points + tier", maxSk: 10 },
-        { name: "Honored Conquest", desc: "AC Badges + New AC Shop items",       maxSk: 10 },
-        { name: "Bounty Hunter",    desc: "Crazy Joe points + chests",           maxSk: 10 },
-        { name: "Dawn Hymn",        desc: "Alliance Showdown points + tier",     maxSk: 10 },
+        { name: "Blazing Sunrise",  desc: "+20% Alliance Mobilization Points, +3 milestone tiers", maxSk: 10 },
+        { name: "Honored Conquest", desc: "+50% Alliance Championship Badges, +3 AC Shop items",   maxSk: 10 },
+        { name: "Bounty Hunter",    desc: "+50% Crazy Joe points, +1 chest per 200K pts (max 10)", maxSk: 10 },
+        { name: "Dawn Hymn",        desc: "+50% Alliance Showdown points, +3 daily milestone tiers", maxSk: 10 },
       ],
     },
     {
       name: "Valeria", invKey: "valeriaSigils", color: "#E3731A",
-      bonus: "Conqueror's Spirit", bonusDesc: "SvS troops attack & defense",
+      bonus: "Conqueror's Spirit", bonusDesc: "Troops Attack & Defense +30% in SvS Battle Phase",
       skills: [
-        { name: "Well Prepared",   desc: "SvS prep points + personal point",       maxSk: 10 },
-        { name: "Radiant Honor",   desc: "Sunfire Tokens + SvS Shop item",         maxSk: 10 },
-        { name: "Battle Concerto", desc: "SvS troops lethality & health",          maxSk: 20 },
-        { name: "Crushing Force",  desc: "SvS rally cap",                          maxSk: 20 },
+        { name: "Well Prepared",   desc: "+20% SvS prep point gains, +3 Personal Point reward tiers", maxSk: 10 },
+        { name: "Radiant Honor",   desc: "+50 Sunfire Tokens from Medal Rewards, +3 SvS Shop items",  maxSk: 10 },
+        { name: "Battle Concerto", desc: "Troops Lethality & Health +30% in SvS Battle Phase",        maxSk: 20 },
+        { name: "Crushing Force",  desc: "Rally Capacity +150,000 in SvS Battle Phase",               maxSk: 20 },
       ],
     },
     {
       name: "Ronne", invKey: "ronneSigils", color: "#2980B9",
-      bonus: "Trade Dominion", bonusDesc: "Raiding Attack/Defense buff",
+      bonus: "Trade Dominion", bonusDesc: "+30% Troops Attack & Defense during raids",
       skills: [
-        { name: "Cartographic Memory", desc: "Accelerates truck arrivals",          maxSk: 10 },
-        { name: "Treasure Scent",      desc: "Chance of raiding extra cargo",       maxSk: 10 },
-        { name: "Giving Back",         desc: "Chance of recovering cargo",          maxSk: null },
-        { name: "Gold Class",          desc: "Legendary escorts after # missions",  maxSk: null },
+        { name: "Cartographic Memory", desc: "+20% arrival speed, +3 free refreshes/truck", maxSk: 10 },
+        { name: "Treasure Scent",      desc: "+100% chance of raiding 1 extra cargo",       maxSk: 10 },
+        { name: "Giving Back",         desc: "+50% chance recovering 1 cargo + 2 Elite Guardboxes", maxSk: 10 },
+        { name: "Gold Class",          desc: "Legendary escort every 4 missions, +1 truck at Lv 10", maxSk: 10 },
       ],
     },
     {
       name: "Kathy", invKey: "kathySigils", color: "#636e72",
-      bonus: "—", bonusDesc: "Increases Troop Lethality & Health",
+      bonus: "Child of Frost", bonusDesc: "Troops Lethality & Health in Frostfire Mine",
       skills: [
-        { name: "Icefire Hunter",  desc: "XP from defeating Mine Patrols",    maxSk: null },
-        { name: "Valorous Cold",   desc: "Troop cap + reduces recovery time", maxSk: null },
-        { name: "Winter Treasures",desc: "Additional charms",                 maxSk: null },
-        { name: "Efficient Mining",desc: "Orichalcum + Charm Guides",         maxSk: null },
+        { name: "Icefire Hunter",  desc: "50% extra XP from Mine Patrol defeats",         maxSk: 10 },
+        { name: "Valorous Cold",   desc: "+50,000 troop cap, -60% hero recovery time",    maxSk: 10 },
+        { name: "Winter Treasures",desc: "+60 Charm Designs per 200K Orichalcum",         maxSk: 10 },
+        { name: "Efficient Mining",desc: "5,000 Orichalcum/min + 100 Charm Guides",       maxSk: 10 },
       ],
     },
   ];
@@ -5220,7 +5249,7 @@ function ExpertsPage({ inv, setInv }) {
     return max;
   };
 
-  const isComingSoon = (expert) => expert.name === "Kathy" || expert.name === "Ronne";
+  const isComingSoon = (expert) => false; // All experts now have full data
 
   // ── Sigil inventory updater (syncs back to inv) ──────────────────────────────
   const updateSigils = (invKey, val) => {
@@ -5686,13 +5715,28 @@ function ExpertsPage({ inv, setInv }) {
 // ─── Expert Troop Stats Summary ──────────────────────────────────────────────
 
 const EXPERT_LEVEL_STATS = {
-  Cyrille: [0,0.0158,0.0165,0.0173,0.018,0.0188,0.0195,0.0203,0.021,0.0218,0.0225,0.0293,0.03,0.0308,0.0315,0.0323,0.033,0.0338,0.0345,0.0353,0.036,0.0428,0.0435,0.0443,0.045,0.0458,0.0465,0.0473,0.048,0.0488,0.0495,0.0563,0.057,0.0578,0.0585,0.0593,0.06,0.0608,0.0615,0.0623,0.063,0.0698,0.0705,0.0713,0.072,0.0728,0.0735,0.0743,0.075,0.0758,0.0765,0.0833,0.084,0.0848,0.0855,0.0863,0.087,0.0878,0.0885,0.0893,0.09,0.0968,0.0975,0.0983,0.099,0.0998,0.1005,0.1013,0.102,0.1028,0.1035,0.1103,0.111,0.1118,0.1125,0.1133,0.114,0.1148,0.1155,0.1163,0.117,0.1238,0.1245,0.1253,0.126,0.1268,0.1275,0.1283,0.129,0.1298,0.1305,0.1373,0.138,0.1388,0.1395,0.1403,0.141,0.1418,0.1425,0.1433,0.144],
+  // Cyrille: Troops' Attack % per level
+  Cyrille: [0,0.0158,0.0165,0.0173,0.018,0.0188,0.0195,0.0203,0.021,0.0218,0.0225,0.0293,0.03,0.0308,0.0315,0.0323,0.033,0.0338,0.0345,0.0353,0.036,0.0428,0.0435,0.0443,0.045,0.0458,0.0465,0.0473,0.048,0.0488,0.0495,0.0563,0.057,0.0578,0.0585,0.0593,0.06,0.0608,0.0615,0.0623,0.063,0.0698,0.0705,0.0713,0.072,0.0728,0.0735,0.0743,0.075,0.0758,0.0765,0.0833,0.084,0.0848,0.0855,0.0863,0.087,0.0878,0.0885,0.0893,0.09,0.0968,0.0975,0.0983,0.099,0.0998,0.1005,0.1013,0.102,0.1028,0.1035,0.1103,0.111,0.1118,0.1125,0.1133,0.114,0.1148,0.1155,0.1163,0.117,0.1238,0.1245,0.1253,0.126,0.1268,0.1275,0.1283,0.129,0.1298,0.1305,0.1373,0.138,0.1388,0.1395,0.1403,0.141,0.1418,0.1425,0.1433,0.15],
+  // Agnes: Troops' Defense % per level
   Agnes:   [0,0.0158,0.0165,0.0173,0.018,0.0188,0.0195,0.0203,0.021,0.0218,0.0228,0.0293,0.03,0.0308,0.0315,0.0323,0.033,0.0338,0.0345,0.0353,0.036,0.0428,0.0435,0.0443,0.045,0.0458,0.0465,0.0473,0.048,0.0488,0.0495,0.0563,0.057,0.0578,0.0585,0.0593,0.06,0.0608,0.0615,0.0623,0.063,0.0698,0.0705,0.0713,0.072,0.0728,0.0735,0.0743,0.075,0.0758,0.0765,0.0833,0.084,0.0848,0.0855,0.0863,0.087,0.0878,0.0885,0.0893,0.09,0.0968,0.0975,0.0983,0.099,0.0998,0.1005,0.1013,0.102,0.1028,0.1035,0.1103,0.111,0.1118,0.1125,0.1133,0.114,0.1148,0.1155,0.1163,0.117,0.1238,0.1245,0.1253,0.126,0.1268,0.1275,0.1283,0.129,0.1298,0.1305,0.1373,0.138,0.1388,0.1395,0.1403,0.141,0.1418,0.1425,0.1433,0.144],
+  // Romulus: Troops' Lethality & Health % per level
   Romulus: [0,0.021,0.022,0.023,0.024,0.025,0.026,0.027,0.028,0.029,0.03,0.039,0.04,0.041,0.042,0.043,0.044,0.045,0.046,0.047,0.048,0.057,0.058,0.059,0.06,0.061,0.062,0.063,0.064,0.065,0.066,0.075,0.076,0.077,0.078,0.079,0.08,0.081,0.082,0.083,0.084,0.093,0.094,0.095,0.096,0.097,0.098,0.099,0.1,0.101,0.102,0.111,0.112,0.113,0.114,0.115,0.116,0.117,0.118,0.119,0.12,0.129,0.13,0.131,0.132,0.133,0.134,0.135,0.136,0.137,0.138,0.147,0.148,0.149,0.15,0.151,0.152,0.153,0.154,0.155,0.156,0.165,0.166,0.167,0.168,0.169,0.17,0.171,0.172,0.173,0.174,0.183,0.184,0.185,0.186,0.187,0.188,0.189,0.19,0.191,0.192],
-  Fabian:  [0,0.0158,0.0165,0.0173,0.018,0.0188,0.0195,0.0203,0.021,0.0218,0.0225,0.0293,0.03,0.0308,0.0315,0.0323,0.033,0.0338,0.0345,0.0353,0.036,0.0428,0.0435,0.0443,0.045,0.0458,0.0465,0.0473,0.048,0.045,0.0758,0.0765,0.0832,0.084,0.0848,0.0855,0.0863,0.087,0.0878,0.0885,0.0892,0.09,0.0967,0.0975,0.0982,0.099,0.0997,0.1005,0.1012,0.102,0.1027,0.1035,0.1102,0.111,0.1117,0.1125,0.1132,0.114,0.1147,0.1155,0.1162,0.117,0.1237,0.1245,0.1252,0.126,0.1267,0.1275,0.1283,0.129,0.1297,0.1305,0.1372,0.138,0.1387,0.1395,0.1402,0.141,0.1417,0.1425,0.1432,0.144],
+  // Holger: Troops' Attack & Defense % per level (same curve as Cyrille per spreadsheet col F)
+  Holger:  [0,0.0158,0.0165,0.0173,0.018,0.0188,0.0195,0.0203,0.021,0.0218,0.0225,0.0293,0.03,0.0308,0.0315,0.0323,0.033,0.0338,0.0345,0.0353,0.036,0.0428,0.0435,0.0443,0.045,0.0458,0.0465,0.0473,0.048,0.0488,0.0495,0.0563,0.057,0.0578,0.0585,0.0593,0.06,0.0608,0.0615,0.0623,0.063,0.0698,0.0705,0.0713,0.072,0.0728,0.0735,0.0743,0.075,0.0758,0.0765,0.0833,0.084,0.0848,0.0855,0.0863,0.087,0.0878,0.0885,0.0893,0.09,0.0968,0.0975,0.0983,0.099,0.0998,0.1005,0.1013,0.102,0.1028,0.1035,0.1103,0.111,0.1118,0.1125,0.1133,0.114,0.1148,0.1155,0.1163,0.117,0.1238,0.1245,0.1253,0.126,0.1268,0.1275,0.1283,0.129,0.1298,0.1305,0.1373,0.138,0.1388,0.1395,0.1403,0.141,0.1418,0.1425,0.1433,0.144],
+  // Fabian: Troops' Lethality & Health % per level (wiki — same curve as Cyrille, max +15%)
+  Fabian:  [0,0.0158,0.0165,0.0173,0.018,0.0188,0.0195,0.0203,0.021,0.0218,0.0225,0.0293,0.03,0.0308,0.0315,0.0323,0.033,0.0338,0.0345,0.0353,0.036,0.0428,0.0435,0.0443,0.045,0.0458,0.0465,0.0473,0.048,0.0488,0.0495,0.0563,0.057,0.0578,0.0585,0.0593,0.06,0.0608,0.0615,0.0623,0.063,0.0698,0.0705,0.0713,0.072,0.0728,0.0735,0.0743,0.075,0.0758,0.0765,0.0833,0.084,0.0848,0.0855,0.0863,0.087,0.0878,0.0885,0.0893,0.09,0.0968,0.0975,0.0983,0.099,0.0998,0.1005,0.1013,0.102,0.1028,0.1035,0.1103,0.111,0.1118,0.1125,0.1133,0.114,0.1148,0.1155,0.1163,0.117,0.1238,0.1245,0.1253,0.126,0.1268,0.1275,0.1283,0.129,0.1298,0.1305,0.1373,0.138,0.1388,0.1395,0.1403,0.141,0.1418,0.1425,0.1433,0.15],
+  // Valeria: Troops' Lethality & Health % per level (wiki — unique curve, max +20%)
+  Valeria: [0,0.021,0.022,0.023,0.024,0.025,0.026,0.027,0.028,0.029,0.038,0.039,0.04,0.041,0.042,0.043,0.044,0.045,0.046,0.047,0.056,0.057,0.058,0.059,0.06,0.061,0.062,0.063,0.064,0.065,0.074,0.075,0.076,0.077,0.078,0.079,0.08,0.081,0.082,0.083,0.092,0.093,0.094,0.095,0.096,0.097,0.098,0.099,0.1,0.101,0.11,0.111,0.112,0.113,0.114,0.115,0.116,0.117,0.118,0.119,0.128,0.129,0.13,0.131,0.132,0.133,0.134,0.135,0.136,0.137,0.146,0.147,0.148,0.149,0.15,0.151,0.152,0.153,0.154,0.155,0.164,0.165,0.166,0.167,0.168,0.169,0.17,0.171,0.172,0.173,0.182,0.183,0.184,0.185,0.186,0.187,0.188,0.189,0.19,0.191,0.2],
+  // Ronne: Troops' Attack & Defense % per level (same stat curve as Cyrille per wiki, max +30% in raids)
+  Ronne:   [0,0.0158,0.0165,0.0173,0.018,0.0188,0.0195,0.0203,0.021,0.0218,0.0225,0.0293,0.03,0.0308,0.0315,0.0323,0.033,0.0338,0.0345,0.0353,0.036,0.0428,0.0435,0.0443,0.045,0.0458,0.0465,0.0473,0.048,0.0488,0.0495,0.0563,0.057,0.0578,0.0585,0.0593,0.06,0.0608,0.0615,0.0623,0.063,0.0698,0.0705,0.0713,0.072,0.0728,0.0735,0.0743,0.075,0.0758,0.0765,0.0833,0.084,0.0848,0.0855,0.0863,0.087,0.0878,0.0885,0.0893,0.09,0.0968,0.0975,0.0983,0.099,0.0998,0.1005,0.1013,0.102,0.1028,0.1035,0.1103,0.111,0.1118,0.1125,0.1133,0.114,0.1148,0.1155,0.1163,0.117,0.1238,0.1245,0.1253,0.126,0.1268,0.1275,0.1283,0.129,0.1298,0.1305,0.1373,0.138,0.1388,0.1395,0.1403,0.141,0.1418,0.1425,0.1433,0.15],
+  // Kathy: Troops' Lethality & Health % per level (same stat curve as Cyrille per wiki)
+  Kathy:   [0,0.0158,0.0165,0.0173,0.018,0.0188,0.0195,0.0203,0.021,0.0218,0.0225,0.0293,0.03,0.0308,0.0315,0.0323,0.033,0.0338,0.0345,0.0353,0.036,0.0428,0.0435,0.0443,0.045,0.0458,0.0465,0.0473,0.048,0.0488,0.0495,0.0563,0.057,0.0578,0.0585,0.0593,0.06,0.0608,0.0615,0.0623,0.063,0.0698,0.0705,0.0713,0.072,0.0728,0.0735,0.0743,0.075,0.0758,0.0765,0.0833,0.084,0.0848,0.0855,0.0863,0.087,0.0878,0.0885,0.0893,0.09,0.0968,0.0975,0.0983,0.099,0.0998,0.1005,0.1013,0.102,0.1028,0.1035,0.1103,0.111,0.1118,0.1125,0.1133,0.114,0.1148,0.1155,0.1163,0.117,0.1238,0.1245,0.1253,0.126,0.1268,0.1275,0.1283,0.129,0.1298,0.1305,0.1373,0.138,0.1388,0.1395,0.1403,0.141,0.1418,0.1425,0.1433,0.15],
+  // Baldur: Troops' Attack & Defense % per level (distinct lower curve)
+  // Baldur: Troops' Attack & Defense % per level (wiki — unique lower curve, max +10%)
+  Baldur:  [0,0.0105,0.011,0.0115,0.012,0.0125,0.013,0.0135,0.014,0.0145,0.019,0.0195,0.02,0.0205,0.021,0.0215,0.022,0.0225,0.023,0.0235,0.028,0.0285,0.029,0.0295,0.03,0.0305,0.031,0.0315,0.032,0.0325,0.037,0.0375,0.038,0.0385,0.039,0.0395,0.04,0.0405,0.041,0.0415,0.046,0.0465,0.047,0.0475,0.048,0.0485,0.049,0.0495,0.05,0.0505,0.055,0.0555,0.056,0.0565,0.057,0.0575,0.058,0.0585,0.059,0.0595,0.064,0.0645,0.065,0.0655,0.066,0.0665,0.067,0.0675,0.068,0.0685,0.073,0.0735,0.074,0.0745,0.075,0.0755,0.076,0.0765,0.077,0.0775,0.082,0.0825,0.083,0.0835,0.084,0.0845,0.085,0.0855,0.086,0.0865,0.091,0.0915,0.092,0.0925,0.093,0.0935,0.094,0.0945,0.095,0.0955,0.1],
 };
 
-const ROMULUS_BONUS_DEPLOY = [0,300,600,1000,1500,200,3000,4000,5500,7000,8500,10000];
+const ROMULUS_BONUS_DEPLOY = [0,300,600,1000,1500,2000,3000,4000,5500,7000,8500,10000]; // Commander's Crest: Expedition Army size per affinity level
 const ROMULUS_SK2_STAT  = [0,0.005,0.01,0.015,0.02,0.025,0.03,0.035,0.04,0.045,0.05,0.055,0.06,0.065,0.07,0.075,0.08,0.085,0.09,0.095,0.10];
 const ROMULUS_SK3_STAT  = [0,0.005,0.01,0.015,0.02,0.025,0.03,0.035,0.04,0.045,0.05,0.055,0.06,0.065,0.07,0.075,0.08,0.085,0.09,0.095,0.10];
 const ROMULUS_SK4_RALLY = [0,5000,10000,15000,20000,25000,30000,35000,40000,45000,50000,55000,60000,65000,70000,75000,80000,85000,90000,95000,100000];
@@ -5734,7 +5778,46 @@ function ExpertStatsSummary({ expertData }) {
       rows.push({ expert:"Romulus", stat:"Troops' Health",    value: v, source:`Sk3 (Spirit) Lv ${romSk3}` });
     }
     const fabLv = Number(getD("Fabian").level ?? 0);
-    if (fabLv > 0) rows.push({ expert:"Fabian", stat:"Troops' Attack", value: EXPERT_LEVEL_STATS.Fabian[fabLv] ?? 0, source:`Lv ${fabLv}` });
+    if (fabLv > 0) {
+      const fabVal = EXPERT_LEVEL_STATS.Fabian[fabLv] ?? 0;
+      rows.push({ expert:"Fabian", stat:"Troops' Lethality", value: fabVal, source:`Lv ${fabLv} (Foundry/Hellfire)` });
+      rows.push({ expert:"Fabian", stat:"Troops' Health",    value: fabVal, source:`Lv ${fabLv} (Foundry/Hellfire)` });
+    }
+    // Holger: Troops' Attack & Defense
+    const holLv = Number(getD("Holger").level ?? 0);
+    if (holLv > 0) {
+      const holVal = EXPERT_LEVEL_STATS.Holger[holLv] ?? 0;
+      rows.push({ expert:"Holger", stat:"Troops' Attack",  value: holVal, source:`Lv ${holLv}` });
+      rows.push({ expert:"Holger", stat:"Troops' Defense", value: holVal, source:`Lv ${holLv}` });
+    }
+    // Baldur: Troops' Attack & Defense (distinct curve, lower than others)
+    const balLv = Number(getD("Baldur").level ?? 0);
+    if (balLv > 0) {
+      const balVal = EXPERT_LEVEL_STATS.Baldur[balLv] ?? 0;
+      rows.push({ expert:"Baldur", stat:"Troops' Attack",  value: balVal, source:`Lv ${balLv}` });
+      rows.push({ expert:"Baldur", stat:"Troops' Defense", value: balVal, source:`Lv ${balLv}` });
+    }
+    // Valeria: Troops' Lethality & Health (applies during SvS Battle Phase)
+    const valLv = Number(getD("Valeria").level ?? 0);
+    if (valLv > 0) {
+      const valVal = EXPERT_LEVEL_STATS.Valeria[valLv] ?? 0;
+      rows.push({ expert:"Valeria", stat:"Troops' Lethality", value: valVal, source:`Lv ${valLv} (SvS Battle Phase)` });
+      rows.push({ expert:"Valeria", stat:"Troops' Health",    value: valVal, source:`Lv ${valLv} (SvS Battle Phase)` });
+    }
+    // Ronne: Troops' Attack & Defense (applies during raids/raiding)
+    const ronneLv = Number(getD("Ronne").level ?? 0);
+    if (ronneLv > 0) {
+      const ronneVal = EXPERT_LEVEL_STATS.Ronne[ronneLv] ?? 0;
+      rows.push({ expert:"Ronne", stat:"Troops' Attack",  value: ronneVal, source:`Lv ${ronneLv} (raid bonus)` });
+      rows.push({ expert:"Ronne", stat:"Troops' Defense", value: ronneVal, source:`Lv ${ronneLv} (raid bonus)` });
+    }
+    // Kathy: Troops' Lethality & Health
+    const kathyLv = Number(getD("Kathy").level ?? 0);
+    if (kathyLv > 0) {
+      const kathyVal = EXPERT_LEVEL_STATS.Kathy[kathyLv] ?? 0;
+      rows.push({ expert:"Kathy", stat:"Troops' Lethality", value: kathyVal, source:`Lv ${kathyLv}` });
+      rows.push({ expert:"Kathy", stat:"Troops' Health",    value: kathyVal, source:`Lv ${kathyLv}` });
+    }
     return rows;
   };
 
@@ -5838,7 +5921,7 @@ function ExpertStatsSummary({ expertData }) {
                   borderTop:`1px solid ${C.border}`, display:"flex", gap:16, flexWrap:"wrap" }}>
                   {romulusDeploy > 0 && (
                     <span style={{ fontSize:11, color:C.blue, fontFamily:"'Space Mono',monospace" }}>
-                      🔵 Romulus Bonus Deploy: +{romulusDeploy.toLocaleString()} → wired to Chief Profile
+                      🔵 Romulus Bonus (Expedition Army / Deploy Cap): +{romulusDeploy.toLocaleString()} → wired to Chief Profile
                     </span>
                   )}
                   {romulusRally > 0 && (
@@ -8242,7 +8325,7 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
 
         <Row label="Deployment Capacity"
           value={deployCapacity > 0 ? fmt(deployCapacity) : "—"}
-          source="Command Center base + War Academy (Flame Squad + Helios Training) × 3 troops + Chief Gear + Research Center + Romulus Bonus (Experts) + Daybreak Island" />
+          source="Command Center base + War Academy (Flame Squad + Helios Training) × 3 troops + Chief Gear + Research Center + Romulus Commander's Crest (Expedition Army, Experts) + Daybreak Island" />
 
         <Row label="Rally Capacity"
           value={rallyCapacityTotal > 0 ? fmt(rallyCapacityTotal) : "—"}
