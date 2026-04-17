@@ -5348,6 +5348,71 @@ function ExpertsPage({ inv, setInv }) {
     );
   };
 
+  const ExpertPowerDisplay = ({ expert, d, C }) => {
+    const name = expert.name;
+    const curLv = Number(d.level    ?? 0);
+    const curB  = Number(d.affinity ?? 0);
+
+    const lpCfg = EXPERT_LEVEL_POWER[name];
+    const levelPower    = lpCfg ? Math.round(lpCfg.rate * (curLv + lpCfg.offset)) : null;
+    const levelApprox   = lpCfg && !["Cyrille","Agnes","Romulus"].includes(name);
+    const affRate       = EXPERT_AFFINITY_POWER_RATE[name];
+    const affinityPower = affRate ? affRate * curB : null;
+    const talRate       = EXPERT_TALENT_POWER_RATE[name];
+    const talentPower   = talRate ? talRate * curB : null;
+
+    const skPower = EXPERT_SKILL_POWER[name];
+    let skillPower = 0, skillKnown = false;
+    if (skPower) {
+      skillKnown = true;
+      ["sk1","sk2","sk3","sk4"].forEach(sk => {
+        skillPower += (skPower[sk] ?? 0) * Number(d[`${sk}Level`] ?? 0);
+      });
+    }
+
+    const total = (levelPower ?? 0) + (affinityPower ?? 0) + (talentPower ?? 0) + skillPower;
+    if (!levelPower && !affinityPower) return null;
+    const fmt = n => Math.round(n).toLocaleString();
+    const PRow = ({ label, value, approx, unknown }) => (
+      <div style={{ display:"flex", justifyContent:"space-between", padding:"5px 0",
+        borderBottom:`1px solid ${C.border}` }}>
+        <span style={{ fontSize:12, color: unknown ? C.textDim : C.textSec }}>{label}</span>
+        <span style={{ fontSize:12, fontFamily:"'Space Mono',monospace", fontWeight:700,
+          color: unknown ? C.textDim : C.textPri }}>
+          {unknown ? "—" : fmt(value)}
+          {approx && !unknown && <span style={{ fontSize:9, color:C.amber, marginLeft:3 }}>~</span>}
+        </span>
+      </div>
+    );
+    return (
+      <div style={{ paddingTop:14, borderTop:`1px solid ${C.border}`, marginTop:10 }}>
+        <div style={{ fontSize:10, fontWeight:700, color:C.textDim, textTransform:"uppercase",
+          letterSpacing:"1.5px", fontFamily:"'Space Mono',monospace", marginBottom:8 }}>
+          Power Estimate
+        </div>
+        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
+          padding:"7px 10px", borderRadius:7, marginBottom:6,
+          background:(C.accentBg || C.surface), border:`1px solid ${C.accentDim || C.border}` }}>
+          <span style={{ fontSize:13, fontWeight:800, color:C.textPri, fontFamily:"Syne,sans-serif" }}>Total</span>
+          <span style={{ fontSize:14, fontWeight:800, color:C.accent, fontFamily:"'Space Mono',monospace" }}>
+            {fmt(total)}
+          </span>
+        </div>
+        <PRow label="Level Power"    value={levelPower}    approx={levelApprox} unknown={!levelPower} />
+        <PRow label="Affinity Power" value={affinityPower} unknown={!affinityPower} />
+        <PRow label="Talent Power"   value={talentPower}   unknown={!talentPower} />
+        <PRow label="Skill Power"    value={skillPower}    unknown={!skillKnown} />
+        {(levelApprox || !skillKnown) && (
+          <div style={{ fontSize:9, color:C.textDim, fontFamily:"'Space Mono',monospace",
+            paddingTop:4, lineHeight:1.5 }}>
+            {levelApprox && "~ Level power is approximate. "}
+            {!skillKnown && "Skill power formula pending in-game data."}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const ExpertDrawer = ({ expert }) => {
     const d = getExpert(expert.name);
     const curLv  = Number(d.level ?? 0);
@@ -5493,6 +5558,9 @@ function ExpertsPage({ inv, setInv }) {
             />
           ))}
         </div>
+
+        {/* ── Power Breakdown ── */}
+        <ExpertPowerDisplay expert={expert} d={d} C={C} />
 
         {/* ── Summary Footer ── */}
         {(totals.sigils > 0 || totals.books > 0) && (
@@ -5740,6 +5808,61 @@ const ROMULUS_BONUS_DEPLOY = [0,300,600,1000,1500,2000,3000,4000,5500,7000,8500,
 const ROMULUS_SK2_STAT  = [0,0.005,0.01,0.015,0.02,0.025,0.03,0.035,0.04,0.045,0.05,0.055,0.06,0.065,0.07,0.075,0.08,0.085,0.09,0.095,0.10];
 const ROMULUS_SK3_STAT  = [0,0.005,0.01,0.015,0.02,0.025,0.03,0.035,0.04,0.045,0.05,0.055,0.06,0.065,0.07,0.075,0.08,0.085,0.09,0.095,0.10];
 const ROMULUS_SK4_RALLY = [0,5000,10000,15000,20000,25000,30000,35000,40000,45000,50000,55000,60000,65000,70000,75000,80000,85000,90000,95000,100000];
+
+
+// ─── Expert Power Constants ───────────────────────────────────────────────────
+// Affinity Power per tier (B1–B11): power = rate × tier
+const EXPERT_AFFINITY_POWER_RATE = {
+  Cyrille:  43200,
+  Agnes:    43200,
+  Romulus:  144000,
+  Holger:   86400,
+  Fabian:   108000,
+  Baldur:   57600,
+  Valeria:  null,  // unknown
+  Ronne:    null,
+  Kathy:    null,
+};
+
+// Talent Power per bonus level: power = rate × talent_level
+const EXPERT_TALENT_POWER_RATE = {
+  Cyrille:  36000,
+  Agnes:    36000,
+  Romulus:  236000,
+  Holger:   58000,
+  Fabian:   86000,
+  Baldur:   43000,
+  Valeria:  null,
+  Ronne:    null,
+  Kathy:    null,
+};
+
+// Level Power formula: power = rate × (level + offset)
+// Confirmed exact: Cyrille, Agnes, Romulus. Others approximate.
+const EXPERT_LEVEL_POWER = {
+  Cyrille:  { rate: 6048,  offset: 0  },   // exact: 6,048 × level
+  Agnes:    { rate: 5400,  offset: 12 },   // exact: 5,400 × (level+12)
+  Romulus:  { rate: 20400, offset: 0  },   // exact: 20,400 × level
+  Holger:   { rate: 12380, offset: 0  },   // approx from L82 data
+  Fabian:   { rate: 16113, offset: 0  },   // approx from L62 data
+  Baldur:   { rate: 8434,  offset: 0  },   // approx from L70 data
+  Valeria:  null,
+  Ronne:    null,
+  Kathy:    null,
+};
+
+// Skill Power per skill per level (null = unknown, use stored total)
+const EXPERT_SKILL_POWER = {
+  Cyrille:  { sk1: 3000,  sk2: 13000, sk3: 20000, sk4: 7000   },
+  Agnes:    null,  // unknown per-skill; total at max = 285,000
+  Romulus:  { sk1: 18000, sk2: 108000, sk3: 135000, sk4: 150000 },
+  Holger:   { sk1: 42000, sk2: 18000,  sk3: 18000,  sk4: 42000  },
+  Fabian:   null,  // unknown per-skill; one data point insufficient
+  Baldur:   { sk1: 21000, sk2: 21000,  sk3: 21000,  sk4: 21000  },
+  Valeria:  null,
+  Ronne:    null,
+  Kathy:    null,
+};
 
 function ExpertStatsSummary({ expertData }) {
   const C = COLORS;
