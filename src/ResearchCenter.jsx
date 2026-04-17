@@ -1815,7 +1815,7 @@ export default function ResearchCenterPage({ inv, rcLevels, setRcLevels, rcColla
       })}
 
       {/* ── Per-Tree Stat Summary Tables ── */}
-      {["Growth","Economy","Battle"].map(treeName => {
+      {["Growth","Economy","Battle"].filter(treeName => treeName === tree).map(treeName => {
         // Sum buff values across ALL tiers and ALL researches in this tree at current levels
         const statTotals = {}; // stat → { value, isPct }
         RC[treeName].tiers.forEach(tier => {
