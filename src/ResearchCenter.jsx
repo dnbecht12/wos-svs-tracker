@@ -1813,7 +1813,6 @@ export default function ResearchCenterPage({ inv, rcLevels, setRcLevels, rcColla
           </div>
         );
       })}
-    </div>
 
       {/* ── Per-Tree Stat Summary Tables ── */}
       {["Growth","Economy","Battle"].map(treeName => {
@@ -1905,5 +1904,6 @@ export default function ResearchCenterPage({ inv, rcLevels, setRcLevels, rcColla
           </div>
         );
       })}
+    </div>
   );
 }
