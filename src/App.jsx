@@ -5033,7 +5033,7 @@ function ExpertsPage({ inv, setInv }) {
     Kathy:   [0,0,20,40,60,80,100,120,140,160,180,200],
   };
 
-  const AFFINITY_NAMES = ["B0","B1","B2","B3","B4","B5","B6","B7","B8","B9","B10","B11"];
+  const AFFINITY_NAMES = ["0","1","2","3","4","5","6","7","8","9","10","11"];
   const AFFINITY_LABELS = ["—","Stranger","Acquaintance 1","Acquaintance 2","Acquaintance 3","Casual 1","Casual 2","Casual 3","Close 1","Close 2","Close 3","Intimate"];
 
   // Bonus (affinity) skill values per expert per B-level
@@ -5286,7 +5286,7 @@ function ExpertsPage({ inv, setInv }) {
                 style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:5,
                   color:C.textPri, padding:"3px 4px", fontSize:12, fontFamily:"'Space Mono',monospace",
                   width:56, textAlign:"center" }}>
-                {skLevels.map(i => <option key={i} value={i}>S{i}</option>)}
+                {skLevels.map(i => <option key={i} value={i}>{i}</option>)}
               </select>
             </div>
             <span style={{ color:C.textDim, fontSize:14, marginTop:12 }}>→</span>
@@ -5297,7 +5297,7 @@ function ExpertsPage({ inv, setInv }) {
                   color: atMax ? C.green : C.textPri, padding:"3px 4px", fontSize:12,
                   fontFamily:"'Space Mono',monospace", width:56, textAlign:"center" }}>
                 {skLevels.filter(i => i >= curSk).map(i => (
-                  <option key={i} value={i}>{i === maxSk ? `S${i} ★` : `S${i}`}</option>
+                  <option key={i} value={i}>{i === maxSk ? `${i} ★` : `${i}`}</option>
                 ))}
               </select>
             </div>
