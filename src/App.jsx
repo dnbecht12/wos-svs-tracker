@@ -5959,15 +5959,15 @@ const RESEARCH_PATH_STATS = {
   Ultimate:   ["Health","Defense","Lethality"],
 };
 
-// Skill Power per skill per level (null = unknown, use stored total)
+// Skill Power per skill per level — all verified against in-game screenshots
 const EXPERT_SKILL_POWER = {
-  Cyrille:  { sk1: 3000,  sk2: 13000, sk3: 20000, sk4: 7000   },
-  Agnes:    null,  // unknown per-skill; total at max = 285,000
-  Romulus:  { sk1: 18000, sk2: 108000, sk3: 135000, sk4: 150000 },
-  Holger:   { sk1: 42000, sk2: 18000,  sk3: 18000,  sk4: 42000  },
-  Fabian:   null,  // unknown per-skill; one data point insufficient
-  Baldur:   { sk1: 21000, sk2: 21000,  sk3: 21000,  sk4: 21000  },
-  Valeria:  null,
+  Cyrille:  { sk1: 3000,   sk2: 13000,  sk3: 20000,  sk4: 7000   }, // spreadsheet ✅
+  Agnes:    { sk1: 20000,  sk2: 16000,  sk3: 7000,   sk4: 7000   }, // spreadsheet ✅ (maxed=285k)
+  Romulus:  { sk1: 18000,  sk2: 108000, sk3: 135000, sk4: 150000 }, // spreadsheet ✅
+  Holger:   { sk1: 42000,  sk2: 18000,  sk3: 18000,  sk4: 42000  }, // spreadsheet ✅ (maxed=1.2M)
+  Fabian:   { sk1: 18000,  sk2: 37000,  sk3: 52000,  sk4: 83000  }, // spreadsheet ✅ (2,099,000)
+  Baldur:   { sk1: 18000,  sk2: 18000,  sk3: 18000,  sk4: 35000  }, // spreadsheet ✅ (714,000)
+  Valeria:  null,  // no spreadsheet data
   Ronne:    null,
   Kathy:    null,
 };
