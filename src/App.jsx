@@ -5402,11 +5402,12 @@ function ExpertsPage({ inv, setInv }) {
         <PRow label="Affinity Power" value={affinityPower} unknown={!affinityPower} />
         <PRow label="Talent Power"   value={talentPower}   unknown={!talentPower} />
         <PRow label="Skill Power"    value={skillPower}    unknown={!skillKnown} />
-        {(levelApprox || !skillKnown) && (
+        {(levelApprox || !skillKnown || (curLv===100 && curB===11)) && (
           <div style={{ fontSize:9, color:C.textDim, fontFamily:"'Space Mono',monospace",
             paddingTop:4, lineHeight:1.5 }}>
             {levelApprox && "~ Level power is approximate. "}
-            {!skillKnown && "Skill power formula pending in-game data."}
+            {!skillKnown && "Skill power formula pending in-game data. "}
+            {curLv===100 && curB===11 && "Research Power unlocked at L100/B11/max skills — not yet tracked."}
           </div>
         )}
       </div>
@@ -8266,8 +8267,45 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileVersion]);
 
+  // Expert Power — reads experts-data from localStorage, refreshes on profileVersion
+  const expertPower = React.useMemo(() => {
+    try {
+      const raw = localStorage.getItem("experts-data");
+      if (!raw) return 0;
+      const ed = JSON.parse(raw);
+      let total = 0;
+      const EXPERTS_LIST = ["Cyrille","Agnes","Romulus","Holger","Fabian","Baldur","Valeria","Ronne","Kathy"];
+      EXPERTS_LIST.forEach(name => {
+        const d = ed[name] || {};
+        const lv  = Number(d.level    ?? 0);
+        const aff = Number(d.affinity ?? 0);
+        // Level Power
+        const lpCfg = EXPERT_LEVEL_POWER[name];
+        if (lpCfg && lv > 0) total += Math.round(lpCfg.rate * (lv + lpCfg.offset));
+        // Affinity Power
+        const affRate = EXPERT_AFFINITY_POWER_RATE[name];
+        if (affRate) total += affRate * aff;
+        // Talent Power (= affinity level in-game)
+        const talRate = EXPERT_TALENT_POWER_RATE[name];
+        if (talRate) total += talRate * aff;
+        // Skill Power
+        const skPwr = EXPERT_SKILL_POWER[name];
+        if (skPwr) {
+          ["sk1","sk2","sk3","sk4"].forEach(sk => {
+            total += (skPwr[sk] ?? 0) * Number(d[`${sk}Level`] ?? 0);
+          });
+        }
+        // Research Power — only available at L100, B11, all skills maxed
+        // Cannot calculate without knowing the research power values per expert
+        // (Cyrille showed 8,000 at research lv 7; formula TBD)
+      });
+      return Math.round(total);
+    } catch { return 0; }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileVersion]);
+
   // Grand total
-  const totalPower = techPower + chiefGearPower + chiefCharmsPower + heroPower + heroGearPower + troopsPower + buildingPower;
+  const totalPower = techPower + chiefGearPower + chiefCharmsPower + heroPower + heroGearPower + troopsPower + buildingPower + expertPower;
 
   // ── Styles ─────────────────────────────────────────────────────────────────
   const sectionHead = (label, sub) => (
@@ -8388,6 +8426,7 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
             ["Hero",         heroPower + heroGearPower],
             ["Troops",       troopsPower],
             ["Buildings",    buildingPower],
+            ["Experts",      expertPower],
           ].map(([lbl, val]) => (
             <div key={lbl} style={{ display:"flex", justifyContent:"space-between", gap:16 }}>
               <span style={{ color:C.textDim }}>{lbl}</span>
@@ -8427,8 +8466,10 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
         <Row label="Pet Power" value="—"
           source="Coming soon" dim />
 
-        <Row label="Expert Power" value="—"
-          source="Coming soon" dim />
+        <Row label="Expert Power"
+          value={expertPower > 0 ? fmt(expertPower) : "—"}
+          source="Sum of all expert Level, Affinity, Talent & Skill power (Experts tab) — Research power added manually when unlocked at L100/B11/max skills"
+          dim={expertPower === 0} />
 
         <Row label="Troops Power"
           value={fmt(troopsPower)}
