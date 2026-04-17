@@ -5675,6 +5675,183 @@ function ExpertsPage({ inv, setInv }) {
           );
         })}
       </div>
+
+      {/* ── Troop Stats Summary ── */}
+      <ExpertStatsSummary expertData={expertData} />
+
+    </div>
+  );
+}
+
+// ─── Expert Troop Stats Summary ──────────────────────────────────────────────
+
+const EXPERT_LEVEL_STATS = {
+  Cyrille: [0,0.0158,0.0165,0.0173,0.018,0.0188,0.0195,0.0203,0.021,0.0218,0.0225,0.0293,0.03,0.0308,0.0315,0.0323,0.033,0.0338,0.0345,0.0353,0.036,0.0428,0.0435,0.0443,0.045,0.0458,0.0465,0.0473,0.048,0.0488,0.0495,0.0563,0.057,0.0578,0.0585,0.0593,0.06,0.0608,0.0615,0.0623,0.063,0.0698,0.0705,0.0713,0.072,0.0728,0.0735,0.0743,0.075,0.0758,0.0765,0.0833,0.084,0.0848,0.0855,0.0863,0.087,0.0878,0.0885,0.0893,0.09,0.0968,0.0975,0.0983,0.099,0.0998,0.1005,0.1013,0.102,0.1028,0.1035,0.1103,0.111,0.1118,0.1125,0.1133,0.114,0.1148,0.1155,0.1163,0.117,0.1238,0.1245,0.1253,0.126,0.1268,0.1275,0.1283,0.129,0.1298,0.1305,0.1373,0.138,0.1388,0.1395,0.1403,0.141,0.1418,0.1425,0.1433,0.144],
+  Agnes:   [0,0.0158,0.0165,0.0173,0.018,0.0188,0.0195,0.0203,0.021,0.0218,0.0228,0.0293,0.03,0.0308,0.0315,0.0323,0.033,0.0338,0.0345,0.0353,0.036,0.0428,0.0435,0.0443,0.045,0.0458,0.0465,0.0473,0.048,0.0488,0.0495,0.0563,0.057,0.0578,0.0585,0.0593,0.06,0.0608,0.0615,0.0623,0.063,0.0698,0.0705,0.0713,0.072,0.0728,0.0735,0.0743,0.075,0.0758,0.0765,0.0833,0.084,0.0848,0.0855,0.0863,0.087,0.0878,0.0885,0.0893,0.09,0.0968,0.0975,0.0983,0.099,0.0998,0.1005,0.1013,0.102,0.1028,0.1035,0.1103,0.111,0.1118,0.1125,0.1133,0.114,0.1148,0.1155,0.1163,0.117,0.1238,0.1245,0.1253,0.126,0.1268,0.1275,0.1283,0.129,0.1298,0.1305,0.1373,0.138,0.1388,0.1395,0.1403,0.141,0.1418,0.1425,0.1433,0.144],
+  Romulus: [0,0.021,0.022,0.023,0.024,0.025,0.026,0.027,0.028,0.029,0.03,0.039,0.04,0.041,0.042,0.043,0.044,0.045,0.046,0.047,0.048,0.057,0.058,0.059,0.06,0.061,0.062,0.063,0.064,0.065,0.066,0.075,0.076,0.077,0.078,0.079,0.08,0.081,0.082,0.083,0.084,0.093,0.094,0.095,0.096,0.097,0.098,0.099,0.1,0.101,0.102,0.111,0.112,0.113,0.114,0.115,0.116,0.117,0.118,0.119,0.12,0.129,0.13,0.131,0.132,0.133,0.134,0.135,0.136,0.137,0.138,0.147,0.148,0.149,0.15,0.151,0.152,0.153,0.154,0.155,0.156,0.165,0.166,0.167,0.168,0.169,0.17,0.171,0.172,0.173,0.174,0.183,0.184,0.185,0.186,0.187,0.188,0.189,0.19,0.191,0.192],
+  Fabian:  [0,0.0158,0.0165,0.0173,0.018,0.0188,0.0195,0.0203,0.021,0.0218,0.0225,0.0293,0.03,0.0308,0.0315,0.0323,0.033,0.0338,0.0345,0.0353,0.036,0.0428,0.0435,0.0443,0.045,0.0458,0.0465,0.0473,0.048,0.045,0.0758,0.0765,0.0832,0.084,0.0848,0.0855,0.0863,0.087,0.0878,0.0885,0.0892,0.09,0.0967,0.0975,0.0982,0.099,0.0997,0.1005,0.1012,0.102,0.1027,0.1035,0.1102,0.111,0.1117,0.1125,0.1132,0.114,0.1147,0.1155,0.1162,0.117,0.1237,0.1245,0.1252,0.126,0.1267,0.1275,0.1283,0.129,0.1297,0.1305,0.1372,0.138,0.1387,0.1395,0.1402,0.141,0.1417,0.1425,0.1432,0.144],
+};
+
+const ROMULUS_BONUS_DEPLOY = [0,300,600,1000,1500,200,3000,4000,5500,7000,8500,10000];
+const ROMULUS_SK2_STAT  = [0,0.005,0.01,0.015,0.02,0.025,0.03,0.035,0.04,0.045,0.05,0.055,0.06,0.065,0.07,0.075,0.08,0.085,0.09,0.095,0.10];
+const ROMULUS_SK3_STAT  = [0,0.005,0.01,0.015,0.02,0.025,0.03,0.035,0.04,0.045,0.05,0.055,0.06,0.065,0.07,0.075,0.08,0.085,0.09,0.095,0.10];
+const ROMULUS_SK4_RALLY = [0,5000,10000,15000,20000,25000,30000,35000,40000,45000,50000,55000,60000,65000,70000,75000,80000,85000,90000,95000,100000];
+
+function ExpertStatsSummary({ expertData }) {
+  const C = COLORS;
+  const [collapsed, setCollapsed] = React.useState(false);
+  const getD = (name) => expertData[name] || {};
+
+  const expertColors = {
+    Cyrille:"#4A9EBF", Agnes:"#7B9E6B", Romulus:"#C0392B",
+    Holger:"#8E44AD", Fabian:"#D4A017", Baldur:"#16A085",
+    Valeria:"#E3731A", Ronne:"#2980B9", Kathy:"#636e72",
+  };
+
+  const getStatRows = () => {
+    const rows = [];
+    const cyrLv = Number(getD("Cyrille").level ?? 0);
+    if (cyrLv > 0) rows.push({ expert:"Cyrille", stat:"Troops' Attack",    value: EXPERT_LEVEL_STATS.Cyrille[cyrLv] ?? 0, source:`Lv ${cyrLv}` });
+    const agnLv = Number(getD("Agnes").level ?? 0);
+    if (agnLv > 0) rows.push({ expert:"Agnes",   stat:"Troops' Defense",   value: EXPERT_LEVEL_STATS.Agnes[agnLv]   ?? 0, source:`Lv ${agnLv}` });
+    const dRom  = getD("Romulus");
+    const romLv = Number(dRom.level  ?? 0);
+    const romSk2 = Number(dRom.sk2Level ?? 0);
+    const romSk3 = Number(dRom.sk3Level ?? 0);
+    if (romLv > 0) {
+      const v = EXPERT_LEVEL_STATS.Romulus[romLv] ?? 0;
+      rows.push({ expert:"Romulus", stat:"Troops' Lethality", value: v, source:`Lv ${romLv}` });
+      rows.push({ expert:"Romulus", stat:"Troops' Health",    value: v, source:`Lv ${romLv}` });
+    }
+    if (romSk2 > 0) {
+      const v = ROMULUS_SK2_STAT[romSk2] ?? 0;
+      rows.push({ expert:"Romulus", stat:"Troops' Attack",  value: v, source:`Sk2 (Last Line) Lv ${romSk2}` });
+      rows.push({ expert:"Romulus", stat:"Troops' Defense", value: v, source:`Sk2 (Last Line) Lv ${romSk2}` });
+    }
+    if (romSk3 > 0) {
+      const v = ROMULUS_SK3_STAT[romSk3] ?? 0;
+      rows.push({ expert:"Romulus", stat:"Troops' Lethality", value: v, source:`Sk3 (Spirit) Lv ${romSk3}` });
+      rows.push({ expert:"Romulus", stat:"Troops' Health",    value: v, source:`Sk3 (Spirit) Lv ${romSk3}` });
+    }
+    const fabLv = Number(getD("Fabian").level ?? 0);
+    if (fabLv > 0) rows.push({ expert:"Fabian", stat:"Troops' Attack", value: EXPERT_LEVEL_STATS.Fabian[fabLv] ?? 0, source:`Lv ${fabLv}` });
+    return rows;
+  };
+
+  const STAT_ORDER = ["Troops' Attack","Troops' Defense","Troops' Lethality","Troops' Health"];
+  const statRows = getStatRows();
+  const totals = {};
+  STAT_ORDER.forEach(s => { totals[s] = 0; });
+  statRows.forEach(r => { if (totals[r.stat] !== undefined) totals[r.stat] += r.value; });
+
+  const dRom = getD("Romulus");
+  const romulusDeploy = ROMULUS_BONUS_DEPLOY[Number(dRom.affinity ?? 0)] ?? 0;
+  const romulusRally  = ROMULUS_SK4_RALLY[Number(dRom.sk4Level ?? 0)] ?? 0;
+  const pct = v => `${(v * 100).toFixed(2)}%`;
+
+  return (
+    <div style={{ marginTop:20 }}>
+      <div
+        onClick={() => setCollapsed(c => !c)}
+        style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+          padding:"12px 16px", background:C.card, border:`1px solid ${C.border}`,
+          borderRadius: collapsed ? 10 : "10px 10px 0 0", cursor:"pointer", userSelect:"none" }}
+        onMouseEnter={e => e.currentTarget.style.background = C.surface}
+        onMouseLeave={e => e.currentTarget.style.background = C.card}
+      >
+        <div>
+          <div style={{ fontSize:14, fontWeight:800, color:C.textPri, fontFamily:"Syne,sans-serif" }}>
+            Troop Stat Contributions
+          </div>
+          <div style={{ fontSize:11, color:C.textSec, fontFamily:"'Space Mono',monospace", marginTop:2 }}>
+            Permanent buffs from expert levels & skills · feeds into Chief Profile
+          </div>
+        </div>
+        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          {collapsed && STAT_ORDER.filter(s => totals[s] > 0).map(s => (
+            <span key={s} style={{ fontSize:10, padding:"2px 8px", borderRadius:8,
+              background:C.green+"22", color:C.green, border:`1px solid ${C.green}44`,
+              fontFamily:"'Space Mono',monospace" }}>
+              {s.replace("Troops' ","")}: +{pct(totals[s])}
+            </span>
+          ))}
+          <span style={{ color:C.textDim, fontSize:14 }}>{collapsed ? "▼" : "▲"}</span>
+        </div>
+      </div>
+
+      {!collapsed && (
+        <div style={{ background:C.card, border:`1px solid ${C.border}`,
+          borderTop:"none", borderRadius:"0 0 10px 10px", overflow:"hidden" }}>
+
+          {statRows.length === 0 ? (
+            <div style={{ padding:"20px 16px", textAlign:"center", color:C.textDim,
+              fontSize:12, fontFamily:"'Space Mono',monospace" }}>
+              Set expert levels above to see stat contributions
+            </div>
+          ) : (
+            <>
+              <table style={{ borderCollapse:"collapse", width:"100%" }}>
+                <thead>
+                  <tr style={{ background:C.surface }}>
+                    {["Expert","Stat","Value","Source"].map(h => (
+                      <th key={h} style={{ padding:"8px 12px", fontSize:10, fontWeight:700,
+                        color:C.textDim, textAlign:"left", borderBottom:`1px solid ${C.border}`,
+                        fontFamily:"'Space Mono',monospace", textTransform:"uppercase", letterSpacing:"1px" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {statRows.map((r, i) => (
+                    <tr key={i} style={{ background: i % 2 === 0 ? "transparent" : C.surface }}>
+                      <td style={{ padding:"8px 12px", fontSize:12, fontWeight:700,
+                        color: expertColors[r.expert] ?? C.textPri }}>{r.expert}</td>
+                      <td style={{ padding:"8px 12px", fontSize:12, color:C.textPri }}>{r.stat}</td>
+                      <td style={{ padding:"8px 12px", fontSize:12, fontWeight:700,
+                        color:C.green, fontFamily:"'Space Mono',monospace" }}>+{pct(r.value)}</td>
+                      <td style={{ padding:"8px 12px", fontSize:11, color:C.textDim,
+                        fontFamily:"'Space Mono',monospace" }}>{r.source}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <div style={{ padding:"12px 16px", background:C.surface, borderTop:`2px solid ${C.border}` }}>
+                <div style={{ fontSize:10, fontWeight:700, color:C.textDim, textTransform:"uppercase",
+                  letterSpacing:"1.5px", fontFamily:"'Space Mono',monospace", marginBottom:8 }}>Totals</div>
+                <div style={{ display:"flex", flexWrap:"wrap", gap:10 }}>
+                  {STAT_ORDER.map(s => (
+                    <div key={s} style={{ display:"flex", flexDirection:"column", padding:"8px 14px",
+                      borderRadius:8, background: totals[s] > 0 ? C.green+"15" : C.card,
+                      border:`1px solid ${totals[s] > 0 ? C.green+"44" : C.border}` }}>
+                      <span style={{ fontSize:10, color:C.textDim, fontFamily:"'Space Mono',monospace" }}>{s}</span>
+                      <span style={{ fontSize:16, fontWeight:800, fontFamily:"Syne,sans-serif",
+                        color: totals[s] > 0 ? C.green : C.textDim }}>
+                        {totals[s] > 0 ? `+${pct(totals[s])}` : "—"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {(romulusDeploy > 0 || romulusRally > 0) && (
+                <div style={{ padding:"10px 16px", background:C.card,
+                  borderTop:`1px solid ${C.border}`, display:"flex", gap:16, flexWrap:"wrap" }}>
+                  {romulusDeploy > 0 && (
+                    <span style={{ fontSize:11, color:C.blue, fontFamily:"'Space Mono',monospace" }}>
+                      🔵 Romulus Bonus Deploy: +{romulusDeploy.toLocaleString()} → wired to Chief Profile
+                    </span>
+                  )}
+                  {romulusRally > 0 && (
+                    <span style={{ fontSize:11, color:C.blue, fontFamily:"'Space Mono',monospace" }}>
+                      🔵 Romulus Sk4 Rally: +{romulusRally.toLocaleString()} → wired to Chief Profile
+                    </span>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -7455,6 +7632,170 @@ function ChiefCharmsPage({ inv }) {
   );
 }
 
+
+// ─── Daybreak Island Page ─────────────────────────────────────────────────────
+
+const DAYBREAK_BUFFS = [
+  { key:"infantryAtk",     label:"Infantry Attack",            suffix:"%" },
+  { key:"infantryDef",     label:"Infantry Defense",           suffix:"%" },
+  { key:"lancerAtk",       label:"Lancer Attack",              suffix:"%" },
+  { key:"lancerDef",       label:"Lancer Defense",             suffix:"%" },
+  { key:"marksmanAtk",     label:"Marksman Attack",            suffix:"%" },
+  { key:"marksmanDef",     label:"Marksman Defense",           suffix:"%" },
+  { key:"troopsAtk",       label:"Troops' Attack",             suffix:"%" },
+  { key:"troopsDef",       label:"Troops' Defense",            suffix:"%" },
+  { key:"troopsLethality", label:"Troops' Lethality",          suffix:"%" },
+  { key:"troopsHealth",    label:"Troops' Health",             suffix:"%" },
+  { key:"huntingMarch",    label:"Hunting March Speed",        suffix:"%" },
+  { key:"researchSpeed",   label:"Research Speed",             suffix:"%" },
+  { key:"constructionSpd", label:"Construction Speed",         suffix:"%" },
+  { key:"healingSpeed",    label:"Healing Speed",              suffix:"%" },
+  { key:"trainingSpeed",   label:"Training Speed",             suffix:"%" },
+  { key:"resourceGather",  label:"Resource Gathering Speed",   suffix:"%" },
+  { key:"meatGather",      label:"Meat Gathering Speed",       suffix:"%" },
+  { key:"woodGather",      label:"Wood Gathering Speed",       suffix:"%" },
+  { key:"coalGather",      label:"Coal Gathering Speed",       suffix:"%" },
+  { key:"ironGather",      label:"Iron Gathering Speed",       suffix:"%" },
+  { key:"troopsMarch",     label:"Troops March Speed",         suffix:"%" },
+  { key:"deployCap",       label:"Troops Deployment Capacity", suffix:""  },
+];
+
+const DAYBREAK_DEFAULTS = Object.fromEntries(DAYBREAK_BUFFS.map(b => [b.key, ""]));
+
+function DaybreakNumberInput({ value, onChange, suffix, isLarge, isInteger }) {
+  const inputRef = React.useRef(null);
+  const cursorRef = React.useRef(null);
+
+  const handleChange = (e) => {
+    const el = e.target;
+    const raw = el.value;
+    if (isInteger) {
+      const digits = raw.replace(/[^\d]/g, "");
+      const formatted = digits ? Number(digits).toLocaleString() : "";
+      const charsFromEnd = raw.length - el.selectionStart;
+      cursorRef.current = Math.max(0, formatted.length - charsFromEnd);
+      onChange(formatted);
+    } else {
+      let clean = raw.replace(/[^\d.]/g, "");
+      const parts = clean.split(".");
+      if (parts.length > 2) clean = parts[0] + "." + parts.slice(1).join("");
+      if (parts.length === 2 && parts[1].length > 1) clean = parts[0] + "." + parts[1].slice(0, 1);
+      onChange(clean);
+    }
+  };
+
+  React.useEffect(() => {
+    if (cursorRef.current !== null && inputRef.current) {
+      inputRef.current.setSelectionRange(cursorRef.current, cursorRef.current);
+      cursorRef.current = null;
+    }
+  });
+
+  const C = COLORS;
+  return (
+    <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+      <input
+        ref={inputRef}
+        type="text"
+        inputMode="decimal"
+        value={value}
+        onChange={handleChange}
+        placeholder="0"
+        style={{
+          width: isLarge ? 130 : 90,
+          textAlign:"right",
+          background:C.card,
+          border:`1px solid ${C.border}`,
+          borderRadius:5,
+          color:C.textPri,
+          padding:"5px 8px",
+          fontSize:12,
+          outline:"none",
+          fontFamily:"'Space Mono',monospace",
+        }}
+      />
+      {suffix && <span style={{ fontSize:11, color:C.textDim }}>{suffix}</span>}
+    </div>
+  );
+}
+
+function DaybreakIslandPage() {
+  const C = COLORS;
+  const [buffs, setBuffs] = useLocalStorage("daybreak-buffs", DAYBREAK_DEFAULTS);
+  const [prosperityPoints, setProsperityPoints] = useLocalStorage("daybreak-prosperity", "");
+
+  const setField = (key, val) => setBuffs(prev => ({ ...prev, [key]: val }));
+
+  const tdLabel = {
+    padding:"10px 14px", fontSize:13, fontWeight:600, color:C.textPri,
+    borderBottom:`1px solid ${C.border}`, verticalAlign:"middle",
+  };
+  const tdVal = {
+    padding:"10px 14px", textAlign:"right",
+    borderBottom:`1px solid ${C.border}`, verticalAlign:"middle",
+  };
+
+  return (
+    <div className="fade-in" style={{ maxWidth:580 }}>
+      <div style={{
+        background:C.card, border:`1px solid ${C.accentDim || C.border}`,
+        borderRadius:10, padding:"18px 20px", marginBottom:20,
+        display:"flex", alignItems:"center", justifyContent:"space-between", gap:16,
+      }}>
+        <div>
+          <div style={{ fontSize:15, fontWeight:800, color:C.textPri, fontFamily:"Syne,sans-serif" }}>
+            Prosperity Points
+          </div>
+          <div style={{ fontSize:11, color:C.textSec, marginTop:3, fontFamily:"'Space Mono',monospace" }}>
+            Your island's current prosperity level (0 – 250,000)
+          </div>
+        </div>
+        <DaybreakNumberInput
+          value={prosperityPoints}
+          onChange={val => setProsperityPoints(val)}
+          suffix=""
+          isLarge={true}
+          isInteger={true}
+        />
+      </div>
+
+      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, overflow:"hidden", marginBottom:16 }}>
+        <div style={{ padding:"14px 20px 12px", borderBottom:`1px solid ${C.border}` }}>
+          <div style={{ fontSize:15, fontWeight:800, color:C.textPri, fontFamily:"Syne,sans-serif" }}>
+            Island Buffs
+          </div>
+          <div style={{ fontSize:11, color:C.textSec, marginTop:3, fontFamily:"'Space Mono',monospace" }}>
+            Enter your current Daybreak Island bonus values
+          </div>
+        </div>
+        <table style={{ borderCollapse:"collapse", width:"100%" }}>
+          <tbody>
+            {DAYBREAK_BUFFS.map((b, i) => (
+              <tr key={b.key} style={{ background: i % 2 === 0 ? "transparent" : C.surface }}>
+                <td style={tdLabel}>{b.label}</td>
+                <td style={tdVal}>
+                  <DaybreakNumberInput
+                    value={buffs[b.key] ?? ""}
+                    onChange={val => setField(b.key, val)}
+                    suffix={b.suffix}
+                    isLarge={b.key === "deployCap"}
+                    isInteger={b.key === "deployCap"}
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div style={{ fontSize:10, color:C.textDim, fontFamily:"'Space Mono',monospace",
+        textAlign:"center", paddingBottom:8 }}>
+        Deployment Capacity bonus is included in the Chief Profile Military calculation
+      </div>
+    </div>
+  );
+}
+
 // ─── Character Profile Page ───────────────────────────────────────────────────
 
 // Embassy Reinforcement Cap by level (F30 = index 0, FC1-FC10 = index 1-10)
@@ -7628,9 +7969,29 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
     const cmdBase = COMMAND_CENTER_STATS[getBuildingLevel("Command")] ?? null;
     // Research Center contributions
     const rcContrib = getRCDeployRally(rcLevels);
+    // Romulus expert contributions — Bonus (Commander's Crest) for deploy, Skill 4 (One Heart) for rally
+    let romulusExpertDeploy = 0, romulusExpertRally = 0;
+    try {
+      const ed = localStorage.getItem("experts-data");
+      if (ed) {
+        const parsed = JSON.parse(ed);
+        const rom = parsed["Romulus"] || {};
+        const romB   = Number(rom.affinity  ?? 0);
+        const romSk4 = Number(rom.sk4Level  ?? 0);
+        const ROMULUS_B_DEPLOY  = [0,300,600,1000,1500,200,3000,4000,5500,7000,8500,10000];
+        const ROMULUS_SK4_RALLY = [0,5000,10000,15000,20000,25000,30000,35000,40000,45000,50000,55000,60000,65000,70000,75000,80000,85000,90000,95000,100000];
+        romulusExpertDeploy = ROMULUS_B_DEPLOY[romB]   ?? 0;
+        romulusExpertRally  = ROMULUS_SK4_RALLY[romSk4] ?? 0;
+      }
+    } catch {}
+    let daybreakDeploy = 0;
+    try {
+      const dbRaw = localStorage.getItem("daybreak-buffs");
+      if (dbRaw) daybreakDeploy = Number(String(JSON.parse(dbRaw).deployCap ?? "").replace(/,/g, "")) || 0;
+    } catch {}
     return {
-      deployCapacity:     Math.round(deployWA + deployGear + (cmdBase?.deploy ?? 0) + rcContrib.deploy),
-      rallyCapacityTotal: Math.round(rallyWA + (cmdBase?.rally ?? 0) + rcContrib.rally),
+      deployCapacity:     Math.round(deployWA + deployGear + (cmdBase?.deploy ?? 0) + rcContrib.deploy + romulusExpertDeploy + daybreakDeploy),
+      rallyCapacityTotal: Math.round(rallyWA + (cmdBase?.rally ?? 0) + rcContrib.rally + romulusExpertRally),
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileVersion, rcLevels]);
@@ -7881,11 +8242,11 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
 
         <Row label="Deployment Capacity"
           value={deployCapacity > 0 ? fmt(deployCapacity) : "—"}
-          source="Command Center base + War Academy (Flame Squad + Helios Training) × 3 troops + Chief Gear + Research Center" />
+          source="Command Center base + War Academy (Flame Squad + Helios Training) × 3 troops + Chief Gear + Research Center + Romulus Bonus (Experts) + Daybreak Island" />
 
         <Row label="Rally Capacity"
           value={rallyCapacityTotal > 0 ? fmt(rallyCapacityTotal) : "—"}
-          source="Command Center base + War Academy Flame Legion × 3 troops + Research Center"
+          source="Command Center base + War Academy Flame Legion × 3 troops + Research Center + Romulus Skill 4 (Experts)"
           dim={rallyCapacityTotal === 0} />
 
         <Row label="Reinforcement Cap"
@@ -8532,6 +8893,7 @@ const PAGES = [
   { id:"chief-gear",    label:"Chief Gear",    icon:"[C]", section:"Chief"      },
   { id:"chief-charms",  label:"Chief Charms",  icon:"[K]", section:"Chief"      },
   { id:"experts",       label:"Experts",       icon:"[E]", section:"Chief"      },
+  { id:"daybreak-island", label:"Daybreak Island", icon:"[D]", section:"Chief"      },
   { id:"war-academy",  label:"War Academy",   icon:"[W]", section:"Resources"   },
   { id:"research-center", label:"Research", icon:"⚗", section:"Resources" },
   { id:"heroes",        label:"Heroes",        icon:"[H]", section:"Combat"      },
@@ -8550,6 +8912,7 @@ const PAGE_TITLES = {
   "chief-gear":   { title: "Chief Gear",    sub: "Chief gear upgrade planner — track level upgrades, material costs and stat gains" },
   "chief-charms": { title: "Chief Charms",  sub: "Charm upgrade planner — 18 independent charms across 6 gear pieces, material costs and stat gains" },
   experts:      { title: "Expert Planner", sub: "Skill levels, sigil costs, and per-day SVS contributions" },
+  "daybreak-island": { title: "Daybreak Island", sub: "Island buff tracker — prosperity points, troop bonuses, deployment capacity and more" },
   "war-academy":{ title: "War Academy", sub: "Research upgrade planner — track shards, steel, time costs and stat gains across all three troop types" },
   "research-center": { title: "Research Center", sub: "Growth, Economy & Battle research trees — track per-level costs, buffs and time across all tiers" },
   "troops":     { title: "Troops", sub: "Troop inventory — track your Infantry, Lancer and Marksman counts by tier" },
@@ -9194,6 +9557,7 @@ export default function App() {
             {page === "chief-gear"   && <ChiefGearPage   inv={inv} />}
             {page === "chief-charms" && <ChiefCharmsPage inv={inv} />}
             {page === "experts"      && <ExpertsPage      inv={inv} setInv={setInv} />}
+            {page === "daybreak-island" && <DaybreakIslandPage />}
             {page === "war-academy"  && <WarAcademyPage   inv={inv} setInv={setInv} />}
             {page === "research-center" && <ResearchCenterPage inv={inv} rcLevels={rcLevels} setRcLevels={setRcLevels} rcCollapse={rcCollapse} setRcCollapse={setRcCollapse} />}
             {page === "svs-calendar" && <SvSCalendar />}
