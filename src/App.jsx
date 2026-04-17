@@ -7587,14 +7587,18 @@ function defaultCharmSlots() {
   );
 }
 
-// Compute cost between two level indices (exclusive of current)
-function calcCharmCost(curIdx, goalIdx) {
+// Compute cost between two stored values (1-based; 0=None)
+// curVal and goalVal are 1-based indices into CHIEF_CHARM_LEVELS
+function calcCharmCost(curVal, goalVal) {
   let guides=0, designs=0, secrets=0;
-  for (let i = curIdx+1; i <= goalIdx; i++) {
+  if (!curVal || !goalVal || goalVal <= curVal) return { guides, designs, secrets };
+  // stored value N → array index N-1; we sum from curVal to goalVal-1 (0-based)
+  for (let i = curVal; i < goalVal; i++) {
     const r = CHIEF_CHARM_LEVELS[i];
-    guides  += r.guides;
-    designs += r.designs;
-    secrets += r.secrets;
+    if (!r) break; // safety: out-of-bounds guard
+    guides  += r.guides  ?? 0;
+    designs += r.designs ?? 0;
+    secrets += r.secrets ?? 0;
   }
   return { guides, designs, secrets };
 }
@@ -7729,7 +7733,7 @@ function ChiefCharmsPage({ inv }) {
 
   // Totals across all 18 charms
   const totals = slots.reduce((acc, s) => {
-    if (s.current === s.goal) return acc;
+    if (s.current >= s.goal) return acc;
     const c = calcCharmCost(s.current, s.goal);
     acc.guides  += c.guides;
     acc.designs += c.designs;
@@ -7797,7 +7801,7 @@ function ChiefCharmsPage({ inv }) {
             {slots.map((s, idx) => {
               const curLvl  = s.current > 0 ? CHIEF_CHARM_LEVELS[s.current - 1] : null;
               const goalLvl = s.goal    > 0 ? CHIEF_CHARM_LEVELS[s.goal    - 1] : null;
-              const cost = calcCharmCost(s.current, s.goal);
+              const cost = (s.current < s.goal) ? calcCharmCost(s.current, s.goal) : { guides:0, designs:0, secrets:0 };
               const changed = s.current !== s.goal;
 
               // Track grouping labels
