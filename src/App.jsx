@@ -6807,17 +6807,33 @@ const DAYBREAK_BUFFS = [
 
 const DAYBREAK_DEFAULTS = Object.fromEntries(DAYBREAK_BUFFS.map(b => [b.key, ""]));
 
-function DaybreakNumberInput({ value, onChange, suffix, isLarge }) {
+function DaybreakNumberInput({ value, onChange, suffix, isLarge, isInteger }) {
   const inputRef = React.useRef(null);
   const cursorRef = React.useRef(null);
 
   const handleChange = (e) => {
     const el = e.target;
-    const raw = el.value.replace(/[^\d]/g, "");
-    const formatted = raw ? Number(raw).toLocaleString() : "";
-    const charsFromEnd = el.value.length - el.selectionStart;
-    cursorRef.current = Math.max(0, formatted.length - charsFromEnd);
-    onChange(formatted);
+    const raw = el.value;
+
+    if (isInteger) {
+      // Deployment Capacity — integers only, format with commas
+      const digits = raw.replace(/[^\d]/g, "");
+      const formatted = digits ? Number(digits).toLocaleString() : "";
+      const charsFromEnd = raw.length - el.selectionStart;
+      cursorRef.current = Math.max(0, formatted.length - charsFromEnd);
+      onChange(formatted);
+    } else {
+      // Percentage fields — allow digits and one decimal point
+      // Strip anything that isn't a digit or dot, collapse multiple dots
+      let clean = raw.replace(/[^\d.]/g, "");
+      const parts = clean.split(".");
+      if (parts.length > 2) clean = parts[0] + "." + parts.slice(1).join("");
+      // Limit to one decimal place
+      if (parts.length === 2 && parts[1].length > 1) {
+        clean = parts[0] + "." + parts[1].slice(0, 1);
+      }
+      onChange(clean);
+    }
   };
 
   React.useEffect(() => {
@@ -6833,7 +6849,7 @@ function DaybreakNumberInput({ value, onChange, suffix, isLarge }) {
       <input
         ref={inputRef}
         type="text"
-        inputMode="numeric"
+        inputMode="decimal"
         value={value}
         onChange={handleChange}
         placeholder="0"
@@ -6893,6 +6909,7 @@ function DaybreakIslandPage() {
           onChange={val => setProsperityPoints(val)}
           suffix=""
           isLarge={true}
+          isInteger={true}
         />
       </div>
 
@@ -6917,6 +6934,7 @@ function DaybreakIslandPage() {
                     onChange={val => setField(b.key, val)}
                     suffix={b.suffix}
                     isLarge={b.key === "deployCap"}
+                    isInteger={b.key === "deployCap"}
                   />
                 </td>
               </tr>
