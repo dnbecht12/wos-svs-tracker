@@ -6798,6 +6798,161 @@ function ChiefCharmsPage({ inv }) {
   );
 }
 
+// ─── Daybreak Island Page ────────────────────────────────────────────────────
+
+const DAYBREAK_BUFFS = [
+  { key:"infantryAtk",     label:"Infantry Attack",            suffix:"%" },
+  { key:"infantryDef",     label:"Infantry Defense",           suffix:"%" },
+  { key:"lancerAtk",       label:"Lancer Attack",              suffix:"%" },
+  { key:"lancerDef",       label:"Lancer Defense",             suffix:"%" },
+  { key:"marksmanAtk",     label:"Marksman Attack",            suffix:"%" },
+  { key:"marksmanDef",     label:"Marksman Defense",           suffix:"%" },
+  { key:"troopsAtk",       label:"Troops' Attack",             suffix:"%" },
+  { key:"troopsDef",       label:"Troops' Defense",            suffix:"%" },
+  { key:"troopsLethality", label:"Troops' Lethality",          suffix:"%" },
+  { key:"troopsHealth",    label:"Troops' Health",             suffix:"%" },
+  { key:"huntingMarch",    label:"Hunting March Speed",        suffix:"%" },
+  { key:"researchSpeed",   label:"Research Speed",             suffix:"%" },
+  { key:"constructionSpd", label:"Construction Speed",         suffix:"%" },
+  { key:"healingSpeed",    label:"Healing Speed",              suffix:"%" },
+  { key:"trainingSpeed",   label:"Training Speed",             suffix:"%" },
+  { key:"resourceGather",  label:"Resource Gathering Speed",   suffix:"%" },
+  { key:"meatGather",      label:"Meat Gathering Speed",       suffix:"%" },
+  { key:"woodGather",      label:"Wood Gathering Speed",       suffix:"%" },
+  { key:"coalGather",      label:"Coal Gathering Speed",       suffix:"%" },
+  { key:"ironGather",      label:"Iron Gathering Speed",       suffix:"%" },
+  { key:"troopsMarch",     label:"Troops March Speed",         suffix:"%" },
+  { key:"deployCap",       label:"Troops Deployment Capacity", suffix:""  },
+];
+
+const DAYBREAK_DEFAULTS = Object.fromEntries(DAYBREAK_BUFFS.map(b => [b.key, ""]));
+
+function DaybreakNumberInput({ value, onChange, suffix, isLarge }) {
+  const inputRef = React.useRef(null);
+  const cursorRef = React.useRef(null);
+
+  const handleChange = (e) => {
+    const el = e.target;
+    const raw = el.value.replace(/[^\d]/g, "");
+    const formatted = raw ? Number(raw).toLocaleString() : "";
+    const charsFromEnd = el.value.length - el.selectionStart;
+    cursorRef.current = Math.max(0, formatted.length - charsFromEnd);
+    onChange(formatted);
+  };
+
+  React.useEffect(() => {
+    if (cursorRef.current !== null && inputRef.current) {
+      inputRef.current.setSelectionRange(cursorRef.current, cursorRef.current);
+      cursorRef.current = null;
+    }
+  });
+
+  const C = COLORS;
+  return (
+    <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+      <input
+        ref={inputRef}
+        type="text"
+        inputMode="numeric"
+        value={value}
+        onChange={handleChange}
+        placeholder="0"
+        style={{
+          width: isLarge ? 130 : 90,
+          textAlign:"right",
+          background:C.card,
+          border:`1px solid ${C.border}`,
+          borderRadius:5,
+          color:C.textPri,
+          padding:"5px 8px",
+          fontSize:12,
+          outline:"none",
+          fontFamily:"'Space Mono',monospace",
+        }}
+      />
+      {suffix && <span style={{ fontSize:11, color:C.textDim }}>{suffix}</span>}
+    </div>
+  );
+}
+
+function DaybreakIslandPage() {
+  const C = COLORS;
+  const [buffs, setBuffs] = useLocalStorage("daybreak-buffs", DAYBREAK_DEFAULTS);
+  const [prosperityPoints, setProsperityPoints] = useLocalStorage("daybreak-prosperity", "");
+
+  const setField = (key, val) => setBuffs(prev => ({ ...prev, [key]: val }));
+
+  const tdLabel = {
+    padding:"10px 14px", fontSize:13, fontWeight:600, color:C.textPri,
+    borderBottom:`1px solid ${C.border}`, verticalAlign:"middle",
+  };
+  const tdVal = {
+    padding:"10px 14px", textAlign:"right",
+    borderBottom:`1px solid ${C.border}`, verticalAlign:"middle",
+  };
+
+  return (
+    <div className="fade-in" style={{ maxWidth:580 }}>
+
+      {/* Prosperity Points */}
+      <div style={{
+        background:C.card, border:`1px solid ${C.accentDim || C.border}`,
+        borderRadius:10, padding:"18px 20px", marginBottom:20,
+        display:"flex", alignItems:"center", justifyContent:"space-between", gap:16,
+      }}>
+        <div>
+          <div style={{ fontSize:15, fontWeight:800, color:C.textPri, fontFamily:"Syne,sans-serif" }}>
+            Prosperity Points
+          </div>
+          <div style={{ fontSize:11, color:C.textSec, marginTop:3, fontFamily:"'Space Mono',monospace" }}>
+            Your island's current prosperity level (0 – 250,000)
+          </div>
+        </div>
+        <DaybreakNumberInput
+          value={prosperityPoints}
+          onChange={val => setProsperityPoints(val)}
+          suffix=""
+          isLarge={true}
+        />
+      </div>
+
+      {/* Buffs Table */}
+      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, overflow:"hidden", marginBottom:16 }}>
+        <div style={{ padding:"14px 20px 12px", borderBottom:`1px solid ${C.border}` }}>
+          <div style={{ fontSize:15, fontWeight:800, color:C.textPri, fontFamily:"Syne,sans-serif" }}>
+            Island Buffs
+          </div>
+          <div style={{ fontSize:11, color:C.textSec, marginTop:3, fontFamily:"'Space Mono',monospace" }}>
+            Enter your current Daybreak Island bonus values
+          </div>
+        </div>
+        <table style={{ borderCollapse:"collapse", width:"100%" }}>
+          <tbody>
+            {DAYBREAK_BUFFS.map((b, i) => (
+              <tr key={b.key} style={{ background: i % 2 === 0 ? "transparent" : C.surface }}>
+                <td style={tdLabel}>{b.label}</td>
+                <td style={tdVal}>
+                  <DaybreakNumberInput
+                    value={buffs[b.key] ?? ""}
+                    onChange={val => setField(b.key, val)}
+                    suffix={b.suffix}
+                    isLarge={b.key === "deployCap"}
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div style={{ fontSize:10, color:C.textDim, fontFamily:"'Space Mono',monospace",
+        textAlign:"center", paddingBottom:8 }}>
+        Deployment Capacity bonus is included in the Chief Profile Military calculation
+      </div>
+    </div>
+  );
+}
+
 // ─── Character Profile Page ───────────────────────────────────────────────────
 
 // Embassy Reinforcement Cap by level (F30 = index 0, FC1-FC10 = index 1-10)
@@ -6973,17 +7128,23 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
       if (raw) JSON.parse(raw).forEach(s => { deployGear += CHIEF_GEAR_LEVELS[s.current ?? 0]?.[9] ?? 0; });
     } catch {}
     const cmdBase = COMMAND_CENTER_STATS[getBuildingLevel("Command")] ?? null;
+    let daybreakDeploy = 0;
+    try {
+      const dbRaw = localStorage.getItem("daybreak-buffs");
+      if (dbRaw) daybreakDeploy = Number(String(JSON.parse(dbRaw).deployCap ?? "").replace(/,/g,"")) || 0;
+    } catch {}
     const cmdDeploy = cmdBase?.deploy ?? 0;
     const cmdRally  = cmdBase?.rally  ?? 0;
     const rcContrib = getRCDeployRally(rcLevels);
     return {
-      deployCapacity:     Math.round(deployWA + deployGear + cmdDeploy + rcContrib.deploy),
+      deployCapacity:     Math.round(deployWA + deployGear + cmdDeploy + rcContrib.deploy + daybreakDeploy),
       rallyCapacityTotal: Math.round(rallyWA  + cmdRally   + rcContrib.rally),
       deployBreakdown: [
         { label: "Command Center",   value: cmdDeploy },
         { label: "War Academy (Flame Squad + Helios Training × 3)", value: Math.round(deployWA) },
         { label: "Chief Gear",       value: Math.round(deployGear) },
         { label: "Research Center",  value: Math.round(rcContrib.deploy) },
+        { label: "Daybreak Island",  value: daybreakDeploy },
       ],
       rallyBreakdown: [
         { label: "Command Center",   value: cmdRally },
@@ -7937,6 +8098,7 @@ const PAGES = [
   { id:"chief-gear",    label:"Chief Gear",    icon:"[C]", section:"Chief"      },
   { id:"chief-charms",  label:"Chief Charms",  icon:"[K]", section:"Chief"      },
   { id:"experts",       label:"Experts",       icon:"[E]", section:"Chief"      },
+  { id:"daybreak-island", label:"Daybreak Island", icon:"[D]", section:"Chief"      },
   { id:"war-academy",  label:"War Academy",   icon:"[W]", section:"Resources"   },
   { id:"research-center", label:"Research", icon:"⚗", section:"Resources" },
   { id:"heroes",        label:"Heroes",        icon:"[H]", section:"Combat"      },
@@ -7954,7 +8116,8 @@ const PAGE_TITLES = {
   "hero-gear":    { title: "Hero Gear",     sub: "Gear upgrade tracker with material costs and SVS points" },
   "chief-gear":   { title: "Chief Gear",    sub: "Chief gear upgrade planner — track level upgrades, material costs and stat gains" },
   "chief-charms": { title: "Chief Charms",  sub: "Charm upgrade planner — 18 independent charms across 6 gear pieces, material costs and stat gains" },
-  experts:      { title: "Expert Planner", sub: "Skill levels, sigil costs, and per-day SVS contributions" },
+  experts:      { title: "Expert Planner",
+  "daybreak-island": { title: "Daybreak Island", sub: "Island buff tracker — prosperity points, troop bonuses, deployment capacity" }, sub: "Skill levels, sigil costs, and per-day SVS contributions" },
   "war-academy":{ title: "War Academy", sub: "Research upgrade planner — track shards, steel, time costs and stat gains across all three troop types" },
   "research-center": { title: "Research Center", sub: "Growth, Economy & Battle research trees — track per-level costs, buffs and time across all tiers" },
   "troops":     { title: "Troops", sub: "Troop inventory — track your Infantry, Lancer and Marksman counts by tier" },
@@ -8598,6 +8761,7 @@ export default function App() {
             {page === "troops"       && <TroopsPage />}
             {page === "chief-gear"   && <ChiefGearPage   inv={inv} />}
             {page === "chief-charms" && <ChiefCharmsPage inv={inv} />}
+            {page === "daybreak-island" && <DaybreakIslandPage />}
             {page === "experts"      && <ExpertsPage      inv={inv} />}
             {page === "war-academy"  && <WarAcademyPage   inv={inv} setInv={setInv} />}
             {page === "research-center" && <ResearchCenterPage inv={inv} rcLevels={rcLevels} setRcLevels={setRcLevels} rcCollapse={rcCollapse} setRcCollapse={setRcCollapse} />}
