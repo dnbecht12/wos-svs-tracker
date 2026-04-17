@@ -5370,7 +5370,9 @@ function ExpertsPage({ inv, setInv }) {
       });
     }
 
-    const total = (levelPower ?? 0) + (affinityPower ?? 0) + (talentPower ?? 0) + skillPower;
+    const resProg   = Number(d.researchProgress ?? 0);
+    const resPower   = (curLv >= 100 && curB >= 11) ? RESEARCH_POWER(resProg) : 0;
+    const total = (levelPower ?? 0) + (affinityPower ?? 0) + (talentPower ?? 0) + skillPower + resPower;
     if (!levelPower && !affinityPower) return null;
     const fmt = n => Math.round(n).toLocaleString();
     const PRow = ({ label, value, approx, unknown }) => (
@@ -5402,12 +5404,15 @@ function ExpertsPage({ inv, setInv }) {
         <PRow label="Affinity Power" value={affinityPower} unknown={!affinityPower} />
         <PRow label="Talent Power"   value={talentPower}   unknown={!talentPower} />
         <PRow label="Skill Power"    value={skillPower}    unknown={!skillKnown} />
+        {resPower > 0 && (
+          <PRow label="Research Power" value={resPower} />
+        )}
         {(levelApprox || !skillKnown || (curLv===100 && curB===11)) && (
           <div style={{ fontSize:9, color:C.textDim, fontFamily:"'Space Mono',monospace",
             paddingTop:4, lineHeight:1.5 }}>
             {levelApprox && "~ Level power is approximate. "}
             {!skillKnown && "Skill power formula pending in-game data. "}
-            {curLv===100 && curB===11 && "Research Power unlocked at L100/B11/max skills — not yet tracked."}
+            {resPower === 0 && curLv===100 && curB===11 && "Research Power available — set class & progress in Research section above."}
           </div>
         )}
       </div>
@@ -5559,6 +5564,99 @@ function ExpertsPage({ inv, setInv }) {
             />
           ))}
         </div>
+
+        {/* ── Research (unlocks at L100 + B11 + all skills maxed) ── */}
+        {(() => {
+          const allSkillsMaxed = expert.skills.every((sk, i) => {
+            const skKey = `sk${i+1}`;
+            const max = getSkillMax(expert, skKey);
+            return max !== null && Number(d[`${skKey}Level`] ?? 0) >= max;
+          });
+          const researchUnlocked = curLv >= 100 && curB >= 11 && allSkillsMaxed;
+          if (!researchUnlocked) return null;
+
+          const resClass = d.researchClass || "Proficient";
+          const resProg  = Number(d.researchProgress ?? 0);
+
+          // Compute path stat bonuses earned so far
+          const pathCycle = RESEARCH_PATH_STATS[resClass];
+          const pathBonuses = {};
+          for (let m = 20; m <= resProg; m += 20) {
+            const stat = pathCycle[((m / 20) - 1) % 3];
+            pathBonuses[stat] = (pathBonuses[stat] || 0) + 0.006;
+          }
+
+          const selStyle = {
+            background: C.card, border: `1px solid ${C.border}`, borderRadius: 6,
+            color: C.textPri, padding: "5px 8px", fontSize: 12,
+            fontFamily: "'Space Mono',monospace", cursor: "pointer",
+          };
+
+          return (
+            <div style={{ padding:"12px 0 0", borderTop:`1px solid ${C.border}`, marginTop:4 }}>
+              <div style={{ fontSize:12, fontWeight:700, color:C.textPri, marginBottom:10 }}>
+                🔬 Research
+              </div>
+              <div style={{ display:"flex", gap:10, flexWrap:"wrap", marginBottom:10 }}>
+                {/* Class */}
+                <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                  <span style={{ fontSize:9, color:C.textDim, textTransform:"uppercase",
+                    letterSpacing:"0.5px", fontFamily:"'Space Mono',monospace" }}>Class</span>
+                  <select value={resClass}
+                    onChange={e => setExpert(expert.name, { researchClass: e.target.value })}
+                    style={selStyle}>
+                    <option value="Proficient">Proficient</option>
+                    <option value="Expert">Expert</option>
+                    <option value="Ultimate">Ultimate</option>
+                  </select>
+                </div>
+                {/* Progress */}
+                <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                  <span style={{ fontSize:9, color:C.textDim, textTransform:"uppercase",
+                    letterSpacing:"0.5px", fontFamily:"'Space Mono',monospace" }}>Progress</span>
+                  <select value={resProg}
+                    onChange={e => setExpert(expert.name, { researchProgress: Number(e.target.value) })}
+                    style={selStyle}>
+                    {Array.from({length:201},(_,i)=>i).map(i => (
+                      <option key={i} value={i}>{i}{i===200?" ★":""}</option>
+                    ))}
+                  </select>
+                </div>
+                {/* Power badge */}
+                {resProg > 0 && (
+                  <div style={{ display:"flex", flexDirection:"column", gap:3 }}>
+                    <span style={{ fontSize:9, color:C.textDim, textTransform:"uppercase",
+                      letterSpacing:"0.5px", fontFamily:"'Space Mono',monospace" }}>Power</span>
+                    <div style={{ padding:"5px 10px", borderRadius:6,
+                      background: C.accentBg || C.surface, border:`1px solid ${C.accentDim || C.border}`,
+                      fontSize:13, fontWeight:800, color:C.accent,
+                      fontFamily:"'Space Mono',monospace" }}>
+                      {RESEARCH_POWER(resProg).toLocaleString()}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Stats summary */}
+              {resProg > 0 && (
+                <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:7,
+                  padding:"8px 10px", fontSize:11, fontFamily:"'Space Mono',monospace" }}>
+                  <div style={{ color:C.textDim, marginBottom:4, fontSize:10 }}>
+                    Accumulated bonuses at progress {resProg}:
+                  </div>
+                  <div style={{ color:C.green }}>
+                    +{(resProg * 0.01).toFixed(2)}% Troops' Attack (base)
+                  </div>
+                  {Object.entries(pathBonuses).map(([stat, val]) => (
+                    <div key={stat} style={{ color:C.blue }}>
+                      +{(val * 100).toFixed(2)}% Troops' {stat} (path)
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* ── Power Breakdown ── */}
         <ExpertPowerDisplay expert={expert} d={d} C={C} />
@@ -5850,6 +5948,15 @@ const EXPERT_LEVEL_POWER = {
   Valeria:  null,
   Ronne:    null,
   Kathy:    null,
+};
+
+// Research Power formula: n*1000 + floor(n/20)*60000  (verified all 200 data points)
+// Path stats every 20 levels: +0.60% to cycling stat per class
+const RESEARCH_POWER = n => n * 1000 + Math.floor(n / 20) * 60000;
+const RESEARCH_PATH_STATS = {
+  Proficient: ["Defense","Lethality","Health"],   // cycle starts at milestone 1 (level 20)
+  Expert:     ["Lethality","Health","Defense"],
+  Ultimate:   ["Health","Defense","Lethality"],
 };
 
 // Skill Power per skill per level (null = unknown, use stored total)
@@ -8295,9 +8402,11 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
             total += (skPwr[sk] ?? 0) * Number(d[`${sk}Level`] ?? 0);
           });
         }
-        // Research Power — only available at L100, B11, all skills maxed
-        // Cannot calculate without knowing the research power values per expert
-        // (Cyrille showed 8,000 at research lv 7; formula TBD)
+        // Research Power — unlocks at L100, B11, all skills maxed
+        const resProg = Number(d.researchProgress ?? 0);
+        if (lv >= 100 && aff >= 11 && resProg > 0) {
+          total += RESEARCH_POWER(resProg);
+        }
       });
       return Math.round(total);
     } catch { return 0; }
