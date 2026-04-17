@@ -6928,26 +6928,30 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
   }, [profileVersion]);
 
   // Tech power — WA from localStorage + RC from rcLevels prop, refreshes on profileVersion
-  const techPower = React.useMemo(() => {
-    let total = 0;
+  const { techPower, waTechPower, rcTechPower } = React.useMemo(() => {
+    let waTotal = 0;
     try {
       const raw = localStorage.getItem("wa-levels");
       if (raw) {
         const levels = JSON.parse(raw);
         ["Infantry","Lancer","Marksman"].forEach(troop => {
           WA_RESEARCH.forEach(res => {
-            total += waPower(res, levels[troop]?.[res.id]?.cur ?? 0);
+            waTotal += waPower(res, levels[troop]?.[res.id]?.cur ?? 0);
           });
         });
       }
     } catch {}
-    total += getRCTechPower(rcLevels);
-    return Math.round(total);
+    const rcTotal = getRCTechPower(rcLevels);
+    return {
+      techPower: Math.round(waTotal + rcTotal),
+      waTechPower: Math.round(waTotal),
+      rcTechPower: Math.round(rcTotal),
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileVersion, rcLevels]);
 
   // Deployment + Rally capacity — WA research + Chief Gear + Command Center + RC research
-  const { deployCapacity, rallyCapacityTotal } = React.useMemo(() => {
+  const { deployCapacity, rallyCapacityTotal, deployBreakdown, rallyBreakdown } = React.useMemo(() => {
     let deployWA = 0, rallyWA = 0;
     try {
       const raw = localStorage.getItem("wa-levels");
@@ -6969,11 +6973,23 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
       if (raw) JSON.parse(raw).forEach(s => { deployGear += CHIEF_GEAR_LEVELS[s.current ?? 0]?.[9] ?? 0; });
     } catch {}
     const cmdBase = COMMAND_CENTER_STATS[getBuildingLevel("Command")] ?? null;
-    // Research Center contributions
+    const cmdDeploy = cmdBase?.deploy ?? 0;
+    const cmdRally  = cmdBase?.rally  ?? 0;
     const rcContrib = getRCDeployRally(rcLevels);
     return {
-      deployCapacity:     Math.round(deployWA + deployGear + (cmdBase?.deploy ?? 0) + rcContrib.deploy),
-      rallyCapacityTotal: Math.round(rallyWA + (cmdBase?.rally ?? 0) + rcContrib.rally),
+      deployCapacity:     Math.round(deployWA + deployGear + cmdDeploy + rcContrib.deploy),
+      rallyCapacityTotal: Math.round(rallyWA  + cmdRally   + rcContrib.rally),
+      deployBreakdown: [
+        { label: "Command Center",   value: cmdDeploy },
+        { label: "War Academy (Flame Squad + Helios Training × 3)", value: Math.round(deployWA) },
+        { label: "Chief Gear",       value: Math.round(deployGear) },
+        { label: "Research Center",  value: Math.round(rcContrib.deploy) },
+      ],
+      rallyBreakdown: [
+        { label: "Command Center",   value: cmdRally },
+        { label: "War Academy (Flame Legion × 3)", value: Math.round(rallyWA) },
+        { label: "Research Center",  value: Math.round(rcContrib.rally) },
+      ],
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileVersion, rcLevels]);
@@ -7081,11 +7097,20 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
     );
   };
 
-  const Row = ({ label, value, source, isEntry, onEntry, entryVal, accent, dim, suffix="" }) => (
+  const Row = ({ label, value, source, breakdown, isEntry, onEntry, entryVal, accent, dim, suffix="" }) => {
+    const [hovered, setHovered] = React.useState(false);
+    return (
     <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
-      padding:"11px 0", borderBottom:`1px solid ${C.border}` }}>
+      padding:"11px 0", borderBottom:`1px solid ${C.border}`, position:"relative" }}
+      onMouseEnter={() => breakdown && setHovered(true)}
+      onMouseLeave={() => setHovered(false)}>
       <div style={{ flex:1, paddingRight:12 }}>
-        <div style={{ fontSize:13, fontWeight:700, color: dim ? C.textSec : C.textPri }}>{label}</div>
+        <div style={{ fontSize:13, fontWeight:700, color: dim ? C.textSec : C.textPri,
+          display:"flex", alignItems:"center", gap:6 }}>
+          {label}
+          {breakdown && <span style={{ fontSize:9, color:C.textDim, fontFamily:"'Space Mono',monospace",
+            cursor:"default", userSelect:"none" }}>ⓘ</span>}
+        </div>
         {source && <div style={{ fontSize:11, color:C.textSec, fontFamily:"'Space Mono',monospace",
           marginTop:2, lineHeight:1.4 }}>{source}</div>}
       </div>
@@ -7097,8 +7122,34 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
           {value}{suffix}
         </div>
       )}
+      {breakdown && hovered && (
+        <div style={{
+          position:"absolute", bottom:"calc(100% + 4px)", right:0, zIndex:200,
+          background:C.card, border:`1px solid ${C.border}`, borderRadius:8,
+          padding:"10px 14px", minWidth:280, maxWidth:360,
+          boxShadow:"0 4px 16px rgba(0,0,0,0.5)",
+          pointerEvents:"none",
+        }}>
+          <div style={{ fontSize:10, fontWeight:700, color:C.textDim, textTransform:"uppercase",
+            letterSpacing:"1.2px", fontFamily:"'Space Mono',monospace", marginBottom:8 }}>
+            {label} Breakdown
+          </div>
+          {breakdown.map((item, i) => (
+            <div key={i} style={{ display:"flex", justifyContent:"space-between",
+              alignItems:"baseline", padding:"3px 0",
+              borderBottom: i < breakdown.length-1 ? `1px solid ${C.border}` : "none", gap:12 }}>
+              <span style={{ fontSize:11, color:C.textSec, lineHeight:1.3 }}>{item.label}</span>
+              <span style={{ fontSize:11, fontFamily:"'Space Mono',monospace", fontWeight:700,
+                color: item.value > 0 ? C.textPri : C.textDim, whiteSpace:"nowrap", flexShrink:0 }}>
+                {typeof item.value === "number" ? item.value.toLocaleString() : item.value}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
-  );
+    );
+  };
 
   const SectionCard = ({ children, style }) => (
     <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10,
@@ -7186,7 +7237,11 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
         {sectionHead("Power Breakdown", "Current levels across all tracked categories")}
 
         <Row label="Tech Power" value={fmt(techPower)}
-          source="War Academy (current levels) · Research Center (current levels)" />
+          source="War Academy (current levels) · Research Center (current levels)"
+          breakdown={[
+            { label: "War Academy",     value: waTechPower },
+            { label: "Research Center", value: rcTechPower },
+          ]} />
 
         <Row label="Chief Gear Power" value={fmt(chiefGearPower)}
           source="Chief Gear tab · current levels" />
@@ -7208,7 +7263,12 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
 
         <Row label="Troops Power"
           value={fmt(troopsPower)}
-          source="Calculated from Troops tab · count × power per troop at Training Camp FC level" />
+          source="Calculated from Troops tab · count × power per troop at Training Camp FC level"
+          breakdown={[
+            { label: "Infantry (count × tier power at FC level)",  value: "→ Troops tab" },
+            { label: "Lancer (count × tier power at FC level)",    value: "→ Troops tab" },
+            { label: "Marksman (count × tier power at FC level)",  value: "→ Troops tab" },
+          ]} />
 
         <Row label="Buildings Power"
           value={fmt(buildingPower)}
@@ -7224,11 +7284,13 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
 
         <Row label="Deployment Capacity"
           value={deployCapacity > 0 ? fmt(deployCapacity) : "—"}
-          source="Command Center base + War Academy (Flame Squad + Helios Training) × 3 troops + Chief Gear + Research Center" />
+          source="Command Center base + War Academy (Flame Squad + Helios Training) × 3 troops + Chief Gear + Research Center"
+          breakdown={deployBreakdown} />
 
         <Row label="Rally Capacity"
           value={rallyCapacityTotal > 0 ? fmt(rallyCapacityTotal) : "—"}
           source="Command Center base + War Academy Flame Legion × 3 troops + Research Center"
+          breakdown={rallyBreakdown}
           dim={rallyCapacityTotal === 0} />
 
         <Row label="Reinforcement Cap"
