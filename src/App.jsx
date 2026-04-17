@@ -399,6 +399,7 @@ const INITIAL_INVENTORY = {
   baldurSigils:    0,
   valeriaSigils:   0,
   ronneSigils:     0,
+  kathySigils:     0,
   // Chief gear & charms
   chiefPlans:      0,
   chiefPolish:     0,
@@ -4789,6 +4790,7 @@ function InventoryPage({ inv, setInv }) {
         <ResInput label="Baldur Sigils"      icon="BA" field="baldurSigils"   value={inv.baldurSigils   ?? 0}  onChange={update} color={COLORS.amber} tabIndex={25} />
         <ResInput label="Valeria Sigils"     icon="VA" field="valeriaSigils"  value={inv.valeriaSigils  ?? 0}  onChange={update} color={COLORS.amber} tabIndex={26} />
         <ResInput label="Ronne Sigils"       icon="RN" field="ronneSigils"    value={inv.ronneSigils    ?? 0}  onChange={update} color={COLORS.amber} tabIndex={27} />
+        <ResInput label="Kathy Sigils"       icon="KT" field="kathySigils"    value={inv.kathySigils    ?? 0}  onChange={update} color={COLORS.amber} tabIndex={28} />
       </Section>
 
       <Section title="Raw Materials" sub="Basic resources — Meat, Wood, Coal, Iron">
@@ -4946,56 +4948,732 @@ function ConstructionPage({ inv }) {
   );
 }
 
-function ExpertsPage({ inv }) {
-  return (
-    <div className="fade-in">
-      <div className="stat-grid">
-        <StatCard label="General Sigils" value={inv.generalSigils} sub="available" color="accent" />
-        <StatCard label="Books" value={inv.books} sub="available" color="accent" />
-        <StatCard label="SVS pts (experts)" value={25700} sub="Tue+Wed total" />
-        <StatCard label="Valeria bonus" value="18%" sub="point skill" />
-      </div>
-      <div className="expert-grid">
-        {EXPERTS.map(e => (
-          <div className="expert-card" key={e.name}>
-            <div className="expert-head">
-              <div className="expert-avatar">{e.name.slice(0,2).toUpperCase()}</div>
-              <div>
-                <div className="expert-name">{e.name}</div>
-                <div className="expert-bonus">{e.bonus}</div>
-              </div>
-              <div style={{marginLeft:"auto"}}>
-                <span className={`badge ${e.level >= 90 ? "badge-green" : e.level > 0 ? "badge-blue" : "badge-accent"}`}>
-                  Lv {e.level}
-                </span>
-              </div>
+function ExpertsPage({ inv, setInv }) {
+  const C = COLORS;
+
+  // ── Expert Data Tables ──────────────────────────────────────────────────────
+
+  // Per-level sigil costs for each expert (index = level, value = sigils to reach that level)
+  const EXPERT_LEVEL_SIGILS = {
+    Cyrille: [0,1000,200,210,220,230,240,260,280,300,320,340,360,380,400,420,440,460,480,500,520,540,560,580,600,620,640,660,680,700,730,760,790,820,850,880,910,940,970,1000,1040,1080,1120,1160,1200,1240,1280,1320,1360,1400,1450,1500,1550,1600,1650,1700,1750,1800,1850,1900,1950,2000,2050,2100,2150,2200,2250,2300,2350,2400,2450,2500,2550,2600,2650,2700,2750,2800,2850,2900,2950,3000,3050,3100,3150,3200,3250,3300,3350,3400,3450,3500,3550,3600,3650,3700,3750,3800,3850,3900,3950],
+    Agnes:   [0,1000,240,260,270,280,290,320,340,360,390,410,440,460,480,510,530,560,580,600,630,650,680,700,720,750,770,800,820,840,880,920,950,990,1020,1060,1100,1130,1170,1210,1250,1300,1350,1400,1440,1490,1540,1590,1640,1680,1740,1800,1860,1920,1980,2040,2100,2160,2220,2280,2340,2400,2460,2520,2580,2640,2700,2760,2820,2880,2940,3000,3060,3120,3180,3240,3300,3360,3420,3480,3540,3600,3660,3720,3780,3840,3900,3960,4020,4080,4140,4200,4260,4320,4380,4440,4500,4560,4620,4680,4740],
+    Romulus: [0,1000,1100,1160,1210,1270,1320,1430,1540,1650,1760,1870,1980,2090,2200,2310,2420,2530,2640,2750,2860,2970,3080,3190,3300,3520,3620,3720,3820,3920,4020,4180,4350,4510,4680,4840,5000,5170,5330,5500,5720,5940,6160,6380,6600,6820,7040,7260,7480,7700,7980,8250,8530,8800,9080,9350,9630,9900,10180,10450,10730,11000,11280,11560,11830,12110,12380,12660,12930,13210,13480,13750,14030,14300,14580,14850,15130,15400,15680,15950,16230,16500,16780,17050,17330,17600,17880,18150,18430,18700,18980,19250,19530,19800,20080,20350,20630,20900,21180,21450,21730],
+    Holger:  [0,1000,600,630,660,690,720,780,840,900,960,1020,1080,1140,1200,1260,1320,1380,1440,1500,1560,1620,1680,1740,1800,1860,1920,1980,2040,2100,2190,2280,2370,2460,2550,2640,2730,2820,2910,3000,3120,3240,3360,3480,3600,3720,3840,3960,4080,4200,4350,4500,4650,4800,4950,5100,5250,5400,5550,5700,5850,6000,6150,6300,6450,6600,6750,6900,7050,7200,7350,7500,7650,7800,7950,8100,8250,8400,8550,8700,8850,9000,9150,9300,9450,9600,9750,9900,10050,10200,10350,10500,10650,10800,10950,11100,11250,11400,11550,11700,11850],
+    Fabian:  [0,1000,1000,1050,1100,1150,1200,1300,1400,1500,1600,1700,1800,1900,2000,2100,2200,2300,2400,5600,2600,2700,2800,2900,3000,3100,3200,3300,3400,3500,3650,3800,3950,4100,4250,4400,4550,4700,4850,5000,5200,5400,5600,5800,6000,6200,6400,6600,6800,7000,7250,7500,7750,8000,8250,8500,8750,9000,9250,9500,9750,10000,10250,10500,10750,11000,11250,11500,11750,12000,12250,12500,12750,13000,13250,13500,13750,14000,14250,14500,14750,15000,15250,15500,15750,16000,16250,16500,16750,17000,17250,17500,17750,18000,18250,18500,18750,19000,19250,19500,19750],
+    Baldur:  [0,1000,400,420,440,460,480,520,560,600,640,680,720,760,800,840,880,920,960,1000,1040,1080,1120,1160,1200,1240,1284,1320,1360,1400,1460,1520,1580,1640,1700,1760,1820,1880,1940,2000,2080,2160,2240,2320,2400,2480,2560,2640,2720,2800,2900,3000,3100,3200,3300,3400,3500,3600,3700,3800,3900,4000,4100,4200,4300,4400,4500,4600,4700,4800,4900,5000,5100,5200,5300,5400,5500,5600,5700,5800,5900,6000,6100,6200,6300,6400,6500,6600,6700,6800,6900,7000,7100,7200,7300,7400,7500,7600,7700,7800,7900],
+    Valeria: [0,1000,200,210,220,230,240,260,280,300,320,340,360,380,400,420,440,460,480,500,520,540,560,580,600,620,640,660,680,700,730,760,790,820,850,880,910,940,970,1000,1040,1080,1120,1160,1200,1240,1280,1320,1360,1400,1450,1500,1550,1600,1650,1700,1750,1800,1850,1900,1950,2000,2050,2100,2150,2200,2250,2300,2350,2400,2450,2500,2550,2600,2650,2700,2750,2800,2850,2900,2950,3000,3050,3100,3150,3200,3250,3300,3350,3400,3450,3500,3550,3600,3650,3700,3750,3800,3850,3900,3950],
+    Ronne:   [0,1000,200,210,220,230,240,260,280,300,320,340,360,380,400,420,440,460,480,500,520,540,560,580,600,620,640,660,680,700,730,760,790,820,850,880,910,940,970,1000,1040,1080,1120,1160,1200,1240,1280,1320,1360,1400,1450,1500,1550,1600,1650,1700,1750,1800,1850,1900,1950,2000,2050,2100,2150,2200,2250,2300,2350,2400,2450,2500,2550,2600,2650,2700,2750,2800,2850,2900,2950,3000,3050,3100,3150,3200,3250,3300,3350,3400,3450,3500,3550,3600,3650,3700,3750,3800,3850,3900,3950],
+    Kathy:   [],
+  };
+
+  // Skill book costs: [books_to_reach_S1, S2, S3, ... S20] — 0-indexed so index=skill level
+  // null = that level doesn't exist for this expert/skill
+  const SKILL_BOOK_COSTS = {
+    Cyrille: {
+      sk1: [0,0,70,140,210,280,350,420,490,560,630,null,null,null,null,null,null,null,null,null,null],
+      sk2: [0,0,400,800,1600,3200,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],
+      sk3: [0,0,500,1000,2000,4000,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],
+      sk4: [0,0,100,200,300,400,500,600,700,800,900,null,null,null,null,null,null,null,null,null,null],
+    },
+    Agnes: {
+      sk1: [0,0,500,1000,2000,4000,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],
+      sk2: [0,0,400,800,1600,3200,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],
+      sk3: [0,0,200,400,800,1600,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],
+      sk4: [0,0,100,200,300,400,500,600,700,800,900,null,null,null,null,null,null,null,null,null,null],
+    },
+    Romulus: {
+      sk1: [0,0,300,600,900,1200,1500,1800,2100,2400,2700,null,null,null,null,null,null,null,null,null,null],
+      sk2: [0,0,500,1000,1500,2000,2500,3000,3500,4000,4500,5000,5500,6000,7000,8000,8000,9000,9000,10000,10000],
+      sk3: [0,0,800,1500,2200,3000,3800,4500,5200,6000,6800,7500,8200,9000,10500,12000,12000,13500,13500,15000,15000],
+      sk4: [0,0,800,1500,2200,3000,3800,4500,5200,6000,6800,7500,8200,9000,10500,12000,12000,13500,13500,15000,15000],
+    },
+    Holger: {
+      sk1: [0,0,600,1200,13800,2400,3000,3600,4200,4800,5400,null,null,null,null,null,null,null,null,null,null],
+      sk2: [0,0,300,600,900,1200,1500,1800,2100,2400,2700,null,null,null,null,null,null,null,null,null,null],
+      sk3: [0,0,300,600,900,1200,1500,1800,2100,2400,2700,null,null,null,null,null,null,null,null,null,null],
+      sk4: [0,0,600,1200,1800,2400,3000,3600,4200,4800,5400,null,null,null,null,null,null,null,null,null,null],
+    },
+    Fabian: {
+      sk1: [0,0,300,600,900,1200,1500,1800,2100,2400,2700,null,null,null,null,null,null,null,null,null,null],
+      sk2: [0,0,500,1000,1500,2000,2500,3000,3500,4000,4500,null,null,null,null,null,null,null,null,null,null],
+      sk3: [0,0,200,500,700,1000,1200,1500,1700,2000,2300,2500,2700,3000,3500,4000,4000,4500,4500,5100,5100],
+      sk4: [0,0,300,700,1000,1400,1800,2100,2400,2800,3200,3500,3800,4200,4900,5700,5700,6400,6400,7100,7100],
+    },
+    Baldur: {
+      sk1: [0,0,300,600,900,1200,1500,1800,2100,2400,2700,null,null,null,null,null,null,null,null,null,null],
+      sk2: [0,0,300,600,900,1200,1500,1800,2100,2400,2700,null,null,null,null,null,null,null,null,null,null],
+      sk3: [0,0,300,600,900,1200,1500,1800,2100,2400,2700,null,null,null,null,null,null,null,null,null,null],
+      sk4: [0,0,300,600,900,1200,1500,1800,2100,2400,2700,null,null,null,null,null,null,null,null,null,null],
+    },
+    Valeria: {
+      sk1: [0,0,500,1000,1500,2000,2500,3000,3500,4000,4500,null,null,null,null,null,null,null,null,null,null],
+      sk2: [0,0,500,1000,1500,2000,2500,3000,3500,4000,4500,null,null,null,null,null,null,null,null,null,null],
+      sk3: [0,0,800,1500,2200,3000,3800,4500,5200,6000,6800,7500,8200,9000,10500,12000,12000,13500,13500,15000,15000],
+      sk4: [0,0,800,1500,2200,3000,3800,4500,5200,6000,6800,7500,8200,9000,10500,12000,12000,13500,13500,15000,15000],
+    },
+    Ronne: {
+      sk1: [0,0,300,600,900,1200,1500,1800,2100,2400,2700,null,null,null,null,null,null,null,null,null,null],
+      sk2: [0,0,300,600,900,1200,1500,1800,2100,2400,2700,null,null,null,null,null,null,null,null,null,null],
+      sk3: null,
+      sk4: null,
+    },
+    Kathy: { sk1: null, sk2: null, sk3: null, sk4: null },
+  };
+
+  // Affinity (Bonus) levels — sigils needed to reach each B level
+  const AFFINITY_SIGILS = {
+    Cyrille: [0,0,5,10,15,20,25,30,35,40,45,50],
+    Agnes:   [0,0,5,10,15,20,25,30,35,40,45,50],
+    Romulus: [0,0,20,40,80,120,160,200,240,280,320,360],
+    Holger:  [0,0,8,16,24,32,40,48,56,64,72,80],
+    Fabian:  [0,0,12,24,36,48,60,72,84,96,108,120],
+    Baldur:  [0,0,6,12,18,24,30,36,42,48,54,60],
+    Valeria: [0,0,20,40,60,80,100,120,140,160,180,200],
+    Ronne:   [0,0,20,40,60,80,100,120,140,160,180,200],
+    Kathy:   [0,0,20,40,60,80,100,120,140,160,180,200],
+  };
+
+  const AFFINITY_NAMES = ["B0","B1","B2","B3","B4","B5","B6","B7","B8","B9","B10","B11"];
+  const AFFINITY_LABELS = ["—","Stranger","Acquaintance 1","Acquaintance 2","Acquaintance 3","Casual 1","Casual 2","Casual 3","Close 1","Close 2","Close 3","Intimate"];
+
+  // Bonus (affinity) skill values per expert per B-level
+  const BONUS_VALUES = {
+    Cyrille: ["0%","2%","4%","6%","9%","12%","15%","18%","21%","24%","27%","30%"],
+    Agnes:   ["—","1 (max 10)","1 (max 12)","1 (max 14)","2 (max 16)","2 (max 18)","3 (max 20)","3 (max 22)","4 (max 24)","4 (max 26)","5 (max 28)","5 (max 30)"],
+    Romulus: ["—","+300","+600","+1,000","+1,500","+200","+3,000","+4,000","+5,500","+7,000","+8,500","+10,000"],
+    Holger:  ["—","50% | 1","55% | 1","60% | 1","65% | 1","70% | 1","75% | 2","80% | 2","85% | 2","90% | 2","95% | 2","100% | 3"],
+    Fabian:  ["0%","2%","4%","6%","9%","12%","15%","18%","21%","24%","27%","30%"],
+    Baldur:  ["5% | 20%","5% | 20%","5% | 28%","5% | 36%","5% | 44%","5% | 52%","10% | 60%","10% | 68%","10% | 76%","10% | 84%","10% | 92%","15% | 100%"],
+    Valeria: ["0%","2%","4%","6%","9%","12%","15%","18%","21%","24%","27%","30%"],
+    Ronne:   ["0%","2%","4%","6%","9%","12%","15%","18%","21%","24%","27%","30%"],
+    Kathy:   ["—","—","—","—","—","—","—","—","—","—","—","—"],
+  };
+
+  // Expert roster definition
+  const EXPERTS = [
+    {
+      name: "Cyrille", invKey: "cyrilleSigils", color: "#4A9EBF",
+      bonus: "Hunter's Heart", bonusDesc: "Increases Bear Damage",
+      skills: [
+        { name: "Entrapment",    desc: "Bear trap rally cap",          maxSk: 10 },
+        { name: "Scavenging",    desc: "Additional XP components",     maxSk: 5  },
+        { name: "Weapon Master", desc: "Additional Essence Stones",    maxSk: 5  },
+        { name: "Ursa's Bane",   desc: "Deployment capacity",          maxSk: 10 },
+      ],
+    },
+    {
+      name: "Agnes", invKey: "agnesSigils", color: "#7B9E6B",
+      bonus: "Earthbreaker", bonusDesc: "Chests from gathering",
+      skills: [
+        { name: "Efficient Recon",  desc: "Extra Intel missions/day",          maxSk: 5  },
+        { name: "Optimization",     desc: "Additional Stamina",                maxSk: 5  },
+        { name: "Project Mgmt",     desc: "Construction speed on new builds",  maxSk: 5  },
+        { name: "Covert Knowledge", desc: "Mystery Badges + Shop refreshes",   maxSk: 10 },
+      ],
+    },
+    {
+      name: "Romulus", invKey: "romulusSigils", color: "#C0392B",
+      bonus: "Commander's Crest", bonusDesc: "Deployment capacity",
+      skills: [
+        { name: "Call of War",       desc: "Daily troops + Loyalty tags",      maxSk: 10 },
+        { name: "Last Line",         desc: "Troop attack & defense buff",       maxSk: 20 },
+        { name: "Spirit of Aeetes",  desc: "Troop lethality & health buff",    maxSk: 20 },
+        { name: "One Heart",         desc: "Rally cap",                        maxSk: 20 },
+      ],
+    },
+    {
+      name: "Holger", invKey: "holgerSigils", color: "#8E44AD",
+      bonus: "Blade Dancing", bonusDesc: "Arena star chest chance",
+      skills: [
+        { name: "Arena Elite",    desc: "Arena Escorts attack & health",     maxSk: 10 },
+        { name: "Crowd Pleaser",  desc: "Daily/Weekly Arena Tokens",         maxSk: 10 },
+        { name: "Arena Star",     desc: "Arena Shop extra items @ discount", maxSk: 10 },
+        { name: "Legacy",         desc: "Arena heroes attack & health",      maxSk: 10 },
+      ],
+    },
+    {
+      name: "Fabian", invKey: "fabianSigils", color: "#D4A017",
+      bonus: "Craftsman of War", bonusDesc: "Foundry/TLA Attack & Defense",
+      skills: [
+        { name: "Salvager",             desc: "Arsenal tokens",                    maxSk: 10 },
+        { name: "Crisis Rescue",        desc: "Foundry/TLA instant heal troops",   maxSk: 10 },
+        { name: "Heightened Firepower", desc: "Foundry/TLA troops lethality & health", maxSk: 20 },
+        { name: "Battle Bulwark",       desc: "Foundry/TLA rally cap",             maxSk: 20 },
+      ],
+    },
+    {
+      name: "Baldur", invKey: "baldurSigils", color: "#16A085",
+      bonus: "Master Negotiator", bonusDesc: "Alliance Shop discount + Triumph Chests",
+      skills: [
+        { name: "Blazing Sunrise",  desc: "Alliance Mobilization points + tier", maxSk: 10 },
+        { name: "Honored Conquest", desc: "AC Badges + New AC Shop items",       maxSk: 10 },
+        { name: "Bounty Hunter",    desc: "Crazy Joe points + chests",           maxSk: 10 },
+        { name: "Dawn Hymn",        desc: "Alliance Showdown points + tier",     maxSk: 10 },
+      ],
+    },
+    {
+      name: "Valeria", invKey: "valeriaSigils", color: "#E3731A",
+      bonus: "Conqueror's Spirit", bonusDesc: "SvS troops attack & defense",
+      skills: [
+        { name: "Well Prepared",   desc: "SvS prep points + personal point",       maxSk: 10 },
+        { name: "Radiant Honor",   desc: "Sunfire Tokens + SvS Shop item",         maxSk: 10 },
+        { name: "Battle Concerto", desc: "SvS troops lethality & health",          maxSk: 20 },
+        { name: "Crushing Force",  desc: "SvS rally cap",                          maxSk: 20 },
+      ],
+    },
+    {
+      name: "Ronne", invKey: "ronneSigils", color: "#2980B9",
+      bonus: "Trade Dominion", bonusDesc: "Raiding Attack/Defense buff",
+      skills: [
+        { name: "Cartographic Memory", desc: "Accelerates truck arrivals",          maxSk: 10 },
+        { name: "Treasure Scent",      desc: "Chance of raiding extra cargo",       maxSk: 10 },
+        { name: "Giving Back",         desc: "Chance of recovering cargo",          maxSk: null },
+        { name: "Gold Class",          desc: "Legendary escorts after # missions",  maxSk: null },
+      ],
+    },
+    {
+      name: "Kathy", invKey: "kathySigils", color: "#636e72",
+      bonus: "—", bonusDesc: "Increases Troop Lethality & Health",
+      skills: [
+        { name: "Icefire Hunter",  desc: "XP from defeating Mine Patrols",    maxSk: null },
+        { name: "Valorous Cold",   desc: "Troop cap + reduces recovery time", maxSk: null },
+        { name: "Winter Treasures",desc: "Additional charms",                 maxSk: null },
+        { name: "Efficient Mining",desc: "Orichalcum + Charm Guides",         maxSk: null },
+      ],
+    },
+  ];
+
+  // ── State ────────────────────────────────────────────────────────────────────
+  const [expertData, setExpertData] = useLocalStorage("experts-data", {});
+  const [openCard, setOpenCard] = React.useState(null);
+
+  const getExpert = (name) => expertData[name] || {};
+  const setExpert = (name, updates) => {
+    setExpertData(prev => ({ ...prev, [name]: { ...(prev[name] || {}), ...updates } }));
+  };
+
+  // ── Calculation helpers ──────────────────────────────────────────────────────
+
+  const calcLevelSigils = (expertName, curLv, goalLv) => {
+    const costs = EXPERT_LEVEL_SIGILS[expertName];
+    if (!costs || goalLv <= curLv) return 0;
+    let total = 0;
+    for (let i = curLv + 1; i <= goalLv; i++) {
+      total += costs[i] ?? 0;
+    }
+    return total;
+  };
+
+  const calcSkillBooks = (expertName, skKey, curSk, goalSk) => {
+    const skCosts = SKILL_BOOK_COSTS[expertName]?.[skKey];
+    if (!skCosts || goalSk <= curSk) return 0;
+    let total = 0;
+    for (let i = curSk + 1; i <= goalSk; i++) {
+      total += skCosts[i] ?? 0;
+    }
+    return total;
+  };
+
+  const calcAffinitySigils = (expertName, curB, goalB) => {
+    const costs = AFFINITY_SIGILS[expertName];
+    if (!costs || goalB <= curB) return 0;
+    let total = 0;
+    for (let i = curB + 1; i <= goalB; i++) {
+      total += costs[i] ?? 0;
+    }
+    return total;
+  };
+
+  const getExpertTotals = (expert) => {
+    const d = getExpert(expert.name);
+    const curLv = Number(d.level ?? 0);
+    const goalLv = Number(d.goalLevel ?? curLv);
+    const curB   = Number(d.affinity ?? 0);
+    const goalB  = Number(d.goalAffinity ?? curB);
+
+    const levelSigils = calcLevelSigils(expert.name, curLv, goalLv);
+    const affinitySigils = calcAffinitySigils(expert.name, curB, goalB);
+
+    let skillBooks = 0;
+    ['sk1','sk2','sk3','sk4'].forEach((sk, i) => {
+      const curSk  = Number(d[`${sk}Level`]  ?? 0);
+      const goalSk = Number(d[`${sk}Goal`]   ?? curSk);
+      skillBooks += calcSkillBooks(expert.name, sk, curSk, goalSk);
+    });
+
+    return {
+      sigils: levelSigils + affinitySigils,
+      books: skillBooks,
+      levelSigils,
+      affinitySigils,
+    };
+  };
+
+  const getSkillMax = (expert, skKey) => {
+    const costs = SKILL_BOOK_COSTS[expert.name]?.[skKey];
+    if (!costs) return null;
+    // Find last non-null index
+    let max = 0;
+    for (let i = costs.length - 1; i >= 0; i--) {
+      if (costs[i] !== null) { max = i; break; }
+    }
+    return max;
+  };
+
+  const isComingSoon = (expert) => expert.name === "Kathy" || expert.name === "Ronne";
+
+  // ── Sigil inventory updater (syncs back to inv) ──────────────────────────────
+  const updateSigils = (invKey, val) => {
+    const numVal = Math.max(0, Number(val) || 0);
+    setInv(prev => ({ ...prev, [invKey]: numVal }));
+  };
+
+  // ── Sub-components ───────────────────────────────────────────────────────────
+
+  const AffinityTag = ({ level }) => {
+    const labels = ["—","Stranger","Acq. 1","Acq. 2","Acq. 3","Casual 1","Casual 2","Casual 3","Close 1","Close 2","Close 3","Intimate"];
+    const colors = ["#444","#666","#2980B9","#2980B9","#2980B9","#16A085","#16A085","#16A085","#8E44AD","#8E44AD","#8E44AD","#E3731A"];
+    return (
+      <span style={{
+        fontSize:10, fontWeight:700, padding:"2px 7px", borderRadius:10,
+        background: colors[level] + "33", color: colors[level] || "#888",
+        border:`1px solid ${colors[level] || "#888"}55`,
+        fontFamily:"'Space Mono',monospace", letterSpacing:"0.3px",
+      }}>{labels[level] || "—"}</span>
+    );
+  };
+
+  const SkillRow = ({ expert, skKey, label, desc, skIdx }) => {
+    const d = getExpert(expert.name);
+    const maxSk = getSkillMax(expert, skKey);
+    if (maxSk === null) {
+      return (
+        <div style={{ padding:"10px 0", borderBottom:`1px solid ${C.border}`, opacity:0.5 }}>
+          <div style={{ fontSize:12, fontWeight:700, color:C.textSec }}>{label}</div>
+          <div style={{ fontSize:11, color:C.textDim, fontFamily:"'Space Mono',monospace" }}>{desc} — coming soon</div>
+        </div>
+      );
+    }
+
+    const curSk = Number(d[`${skKey}Level`] ?? 0);
+    const goalSk = Number(d[`${skKey}Goal`] ?? curSk);
+    const booksNeeded = calcSkillBooks(expert.name, skKey, curSk, goalSk);
+    const atMax = curSk >= maxSk;
+
+    const setCur = (v) => {
+      const newCur = Math.min(maxSk, Math.max(0, Number(v)));
+      const newGoal = Math.max(newCur, Math.min(maxSk, goalSk));
+      setExpert(expert.name, { [`${skKey}Level`]: newCur, [`${skKey}Goal`]: newGoal });
+    };
+    const setGoal = (v) => {
+      const newGoal = Math.min(maxSk, Math.max(curSk, Number(v)));
+      setExpert(expert.name, { [`${skKey}Goal`]: newGoal });
+    };
+
+    const skLevels = Array.from({ length: maxSk + 1 }, (_, i) => i);
+
+    return (
+      <div style={{ padding:"10px 0", borderBottom:`1px solid ${C.border}` }}>
+        <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:8 }}>
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ fontSize:12, fontWeight:700, color:C.textPri }}>{label}</div>
+            <div style={{ fontSize:10, color:C.textDim, fontFamily:"'Space Mono',monospace", marginTop:1 }}>{desc}</div>
+          </div>
+          <div style={{ display:"flex", alignItems:"center", gap:6, flexShrink:0 }}>
+            <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:1 }}>
+              <span style={{ fontSize:9, color:C.textDim, textTransform:"uppercase", letterSpacing:"0.5px" }}>Current</span>
+              <select value={curSk} onChange={e => setCur(e.target.value)}
+                style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:5,
+                  color:C.textPri, padding:"3px 4px", fontSize:12, fontFamily:"'Space Mono',monospace",
+                  width:56, textAlign:"center" }}>
+                {skLevels.map(i => <option key={i} value={i}>S{i}</option>)}
+              </select>
             </div>
-            <div className="expert-body">
-              <div className="expert-row">
-                <span>Current sigils</span>
-                <span className="expert-val">{e.sigils}</span>
-              </div>
-              <div className="expert-row">
-                <span>Books needed</span>
-                <span className="expert-val" style={{color: e.booksNeeded > inv.books ? COLORS.red : COLORS.green}}>
-                  {e.booksNeeded > 0 ? fmtFull(e.booksNeeded) : "MAX"}
-                </span>
-              </div>
-              <div className="expert-row">
-                <span>Sigils needed</span>
-                <span className="expert-val" style={{color: e.sigilsNeeded > inv.generalSigils ? COLORS.red : COLORS.green}}>
-                  {e.sigilsNeeded > 0 ? fmtFull(e.sigilsNeeded) : "MAX"}
-                </span>
-              </div>
-              <div className="expert-row">
-                <span>SVS day</span>
-                <span className="expert-val" style={{color: e.sigilsNeeded > 0 ? COLORS.amber : COLORS.textDim}}>
-                  {e.sigilsNeeded > 0 ? "Tue/Wed" : "—"}
-                </span>
-              </div>
+            <span style={{ color:C.textDim, fontSize:14, marginTop:12 }}>→</span>
+            <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:1 }}>
+              <span style={{ fontSize:9, color:C.textDim, textTransform:"uppercase", letterSpacing:"0.5px" }}>Goal</span>
+              <select value={goalSk} onChange={e => setGoal(e.target.value)}
+                style={{ background:C.surface, border:`1px solid ${atMax ? C.green : C.border}`, borderRadius:5,
+                  color: atMax ? C.green : C.textPri, padding:"3px 4px", fontSize:12,
+                  fontFamily:"'Space Mono',monospace", width:56, textAlign:"center" }}>
+                {skLevels.filter(i => i >= curSk).map(i => (
+                  <option key={i} value={i}>{i === maxSk ? `S${i} ★` : `S${i}`}</option>
+                ))}
+              </select>
             </div>
           </div>
+        </div>
+        {goalSk > curSk && (
+          <div style={{ marginTop:6, display:"flex", alignItems:"center", gap:6 }}>
+            <span style={{ fontSize:10, color:C.amber, fontFamily:"'Space Mono',monospace" }}>
+              📚 {booksNeeded.toLocaleString()} Books needed
+            </span>
+          </div>
+        )}
+        {atMax && (
+          <div style={{ marginTop:4 }}>
+            <span style={{ fontSize:10, color:C.green, fontFamily:"'Space Mono',monospace" }}>✓ MAX</span>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const ExpertDrawer = ({ expert }) => {
+    const d = getExpert(expert.name);
+    const curLv  = Number(d.level ?? 0);
+    const goalLv = Number(d.goalLevel ?? curLv);
+    const curB   = Number(d.affinity ?? 0);
+    const goalB  = Number(d.goalAffinity ?? curB);
+    const totals = getExpertTotals(expert);
+    const ownSigils = inv[expert.invKey] ?? 0;
+    const sigShortfall = totals.sigils - ownSigils;
+    const bookShortfall = totals.books - (inv.books ?? 0);
+
+    const MAX_LEVEL = 100;
+    const MAX_AFFINITY = 11;
+    const levels = Array.from({ length: MAX_LEVEL + 1 }, (_, i) => i);
+    const bLevels = Array.from({ length: MAX_AFFINITY + 1 }, (_, i) => i);
+
+    const comingSoon = isComingSoon(expert);
+
+    return (
+      <div style={{
+        background:C.surface, border:`1px solid ${expert.color}44`,
+        borderTop:`3px solid ${expert.color}`,
+        borderRadius:"0 0 10px 10px", padding:"0 16px 16px",
+        marginTop:-1,
+      }}>
+        {comingSoon && (
+          <div style={{ padding:"16px 0 8px", textAlign:"center", color:C.textDim,
+            fontSize:12, fontFamily:"'Space Mono',monospace" }}>
+            ⏳ Full data coming soon — basic tracking only
+          </div>
+        )}
+
+        {/* ── Sigil Inventory for this expert ── */}
+        <div style={{ padding:"14px 0 10px", borderBottom:`1px solid ${C.border}`,
+          display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+          <div>
+            <div style={{ fontSize:12, fontWeight:700, color:C.textPri }}>Expert Sigils (Owned)</div>
+            <div style={{ fontSize:10, color:C.textDim, fontFamily:"'Space Mono',monospace" }}>
+              Synced with Inventory tab
+            </div>
+          </div>
+          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+            <input
+              type="number" min={0}
+              value={ownSigils}
+              onChange={e => updateSigils(expert.invKey, e.target.value)}
+              style={{ width:80, textAlign:"right", background:C.card,
+                border:`1px solid ${C.border}`, borderRadius:5,
+                color:C.textPri, padding:"4px 8px", fontSize:13, outline:"none",
+                fontFamily:"'Space Mono',monospace" }}
+            />
+            <span style={{ fontSize:11, color:C.textDim }}>sigils</span>
+          </div>
+        </div>
+
+        {/* ── Expert Level ── */}
+        <div style={{ padding:"12px 0 10px", borderBottom:`1px solid ${C.border}` }}>
+          <div style={{ fontSize:12, fontWeight:700, color:C.textPri, marginBottom:8 }}>Expert Level</div>
+          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+            <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
+              <span style={{ fontSize:9, color:C.textDim, textTransform:"uppercase", letterSpacing:"0.5px" }}>Current</span>
+              <select value={curLv} onChange={e => {
+                  const nv = Math.min(MAX_LEVEL, Number(e.target.value));
+                  setExpert(expert.name, { level: nv, goalLevel: Math.max(nv, goalLv) });
+                }}
+                style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:5,
+                  color:C.textPri, padding:"4px 6px", fontSize:13, fontFamily:"'Space Mono',monospace", width:70 }}>
+                {levels.map(i => <option key={i} value={i}>{i}</option>)}
+              </select>
+            </div>
+            <span style={{ color:C.textDim, fontSize:18, marginTop:14 }}>→</span>
+            <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
+              <span style={{ fontSize:9, color:C.textDim, textTransform:"uppercase", letterSpacing:"0.5px" }}>Goal</span>
+              <select value={goalLv} onChange={e => setExpert(expert.name, { goalLevel: Number(e.target.value) })}
+                style={{ background:C.card, border:`1px solid ${goalLv === MAX_LEVEL ? C.green : C.border}`, borderRadius:5,
+                  color: goalLv === MAX_LEVEL ? C.green : C.textPri, padding:"4px 6px", fontSize:13,
+                  fontFamily:"'Space Mono',monospace", width:70 }}>
+                {levels.filter(i => i >= curLv).map(i => (
+                  <option key={i} value={i}>{i === MAX_LEVEL ? "100 ★" : i}</option>
+                ))}
+              </select>
+            </div>
+            {goalLv > curLv && (
+              <div style={{ marginLeft:8, fontSize:12, color:C.amber, fontFamily:"'Space Mono',monospace" }}>
+                🔶 {totals.levelSigils.toLocaleString()} sigils
+              </div>
+            )}
+            {curLv === MAX_LEVEL && (
+              <span style={{ marginLeft:8, fontSize:11, color:C.green, fontFamily:"'Space Mono',monospace" }}>✓ MAX</span>
+            )}
+          </div>
+        </div>
+
+        {/* ── Affinity Level ── */}
+        <div style={{ padding:"12px 0 10px", borderBottom:`1px solid ${C.border}` }}>
+          <div style={{ fontSize:12, fontWeight:700, color:C.textPri, marginBottom:8 }}>Affinity (Bonus) Level</div>
+          <div style={{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap" }}>
+            <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
+              <span style={{ fontSize:9, color:C.textDim, textTransform:"uppercase", letterSpacing:"0.5px" }}>Current</span>
+              <select value={curB} onChange={e => {
+                  const nv = Math.min(MAX_AFFINITY, Number(e.target.value));
+                  setExpert(expert.name, { affinity: nv, goalAffinity: Math.max(nv, goalB) });
+                }}
+                style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:5,
+                  color:C.textPri, padding:"4px 6px", fontSize:12, fontFamily:"'Space Mono',monospace", width:110 }}>
+                {bLevels.map(i => <option key={i} value={i}>{AFFINITY_NAMES[i]} — {AFFINITY_LABELS[i]}</option>)}
+              </select>
+            </div>
+            <span style={{ color:C.textDim, fontSize:18, marginTop:14 }}>→</span>
+            <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
+              <span style={{ fontSize:9, color:C.textDim, textTransform:"uppercase", letterSpacing:"0.5px" }}>Goal</span>
+              <select value={goalB} onChange={e => setExpert(expert.name, { goalAffinity: Number(e.target.value) })}
+                style={{ background:C.card, border:`1px solid ${goalB === MAX_AFFINITY ? C.green : C.border}`, borderRadius:5,
+                  color: goalB === MAX_AFFINITY ? C.green : C.textPri, padding:"4px 6px", fontSize:12,
+                  fontFamily:"'Space Mono',monospace", width:110 }}>
+                {bLevels.filter(i => i >= curB).map(i => (
+                  <option key={i} value={i}>{AFFINITY_NAMES[i]}{i === MAX_AFFINITY ? " ★" : ""} — {AFFINITY_LABELS[i]}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          {goalB > curB && (
+            <div style={{ marginTop:6, fontSize:12, color:C.amber, fontFamily:"'Space Mono',monospace" }}>
+              🔶 {totals.affinitySigils.toLocaleString()} affinity sigils · Bonus: {BONUS_VALUES[expert.name]?.[curB]} → {BONUS_VALUES[expert.name]?.[goalB]}
+            </div>
+          )}
+          {curB === MAX_AFFINITY && (
+            <div style={{ marginTop:4, fontSize:11, color:C.green, fontFamily:"'Space Mono',monospace" }}>✓ INTIMATE (MAX)</div>
+          )}
+        </div>
+
+        {/* ── Skills ── */}
+        <div style={{ padding:"12px 0 0" }}>
+          <div style={{ fontSize:12, fontWeight:700, color:C.textPri, marginBottom:4 }}>Skills</div>
+          {expert.skills.map((sk, i) => (
+            <SkillRow
+              key={sk.name}
+              expert={expert}
+              skKey={`sk${i+1}`}
+              label={sk.name}
+              desc={sk.desc}
+              skIdx={i}
+            />
+          ))}
+        </div>
+
+        {/* ── Summary Footer ── */}
+        {(totals.sigils > 0 || totals.books > 0) && (
+          <div style={{
+            marginTop:14, padding:"12px 14px", borderRadius:8,
+            background:C.card, border:`1px solid ${C.border}`,
+          }}>
+            <div style={{ fontSize:11, fontWeight:700, color:C.textSec,
+              textTransform:"uppercase", letterSpacing:"1.5px",
+              fontFamily:"'Space Mono',monospace", marginBottom:10 }}>
+              Upgrade Summary
+            </div>
+            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+              {totals.sigils > 0 && (
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                  <span style={{ fontSize:12, color:C.textPri }}>🔶 Sigils needed</span>
+                  <div style={{ textAlign:"right" }}>
+                    <span style={{ fontSize:13, fontWeight:700, fontFamily:"'Space Mono',monospace",
+                      color: sigShortfall > 0 ? C.red : C.green }}>
+                      {totals.sigils.toLocaleString()}
+                    </span>
+                    {sigShortfall > 0 && (
+                      <div style={{ fontSize:10, color:C.red, fontFamily:"'Space Mono',monospace" }}>
+                        ({sigShortfall.toLocaleString()} short)
+                      </div>
+                    )}
+                    {sigShortfall <= 0 && (
+                      <div style={{ fontSize:10, color:C.green, fontFamily:"'Space Mono',monospace" }}>
+                        ✓ Enough sigils
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              {totals.books > 0 && (
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                  <span style={{ fontSize:12, color:C.textPri }}>📚 Books needed</span>
+                  <div style={{ textAlign:"right" }}>
+                    <span style={{ fontSize:13, fontWeight:700, fontFamily:"'Space Mono',monospace",
+                      color: bookShortfall > 0 ? C.red : C.green }}>
+                      {totals.books.toLocaleString()}
+                    </span>
+                    {bookShortfall > 0 && (
+                      <div style={{ fontSize:10, color:C.red, fontFamily:"'Space Mono',monospace" }}>
+                        ({bookShortfall.toLocaleString()} short)
+                      </div>
+                    )}
+                    {bookShortfall <= 0 && (
+                      <div style={{ fontSize:10, color:C.green, fontFamily:"'Space Mono',monospace" }}>
+                        ✓ Enough books
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // ── Main render ──────────────────────────────────────────────────────────────
+
+  // Total costs across all experts
+  const grandTotalBooks  = EXPERTS.reduce((sum, e) => sum + getExpertTotals(e).books, 0);
+  const grandTotalSigils = EXPERTS.reduce((sum, e) => sum + getExpertTotals(e).sigils, 0);
+  const generalSigils = inv.generalSigils ?? 0;
+  const books = inv.books ?? 0;
+
+  return (
+    <div className="fade-in">
+
+      {/* ── Resource Summary Bar ── */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:20 }}>
+        {[
+          { label:"Books of Knowledge", value:books, sub:"Available", icon:"📚", color:C.blue,
+            field:"books", invKey:"books" },
+          { label:"General Sigils", value:generalSigils, sub:"Available", icon:"🔶", color:C.amber,
+            field:"generalSigils", invKey:"generalSigils" },
+        ].map(item => (
+          <div key={item.label} style={{ background:C.card, border:`1px solid ${C.border}`,
+            borderRadius:10, padding:"14px 16px", display:"flex", alignItems:"center",
+            justifyContent:"space-between", gap:12 }}>
+            <div>
+              <div style={{ fontSize:11, fontWeight:700, color:C.textDim,
+                textTransform:"uppercase", letterSpacing:"1.5px",
+                fontFamily:"'Space Mono',monospace" }}>{item.icon} {item.label}</div>
+              <input
+                type="number" min={0}
+                value={item.value}
+                onChange={e => setInv(prev => ({ ...prev, [item.invKey]: Math.max(0, Number(e.target.value) || 0) }))}
+                style={{ marginTop:4, background:"transparent", border:"none", outline:"none",
+                  fontSize:24, fontWeight:800, color:item.color,
+                  fontFamily:"Syne,sans-serif", width:"100%", padding:0 }}
+              />
+            </div>
+            {(grandTotalBooks > 0 || grandTotalSigils > 0) && (
+              <div style={{ textAlign:"right", flexShrink:0 }}>
+                <div style={{ fontSize:10, color:C.textDim, fontFamily:"'Space Mono',monospace" }}>All goals</div>
+                <div style={{ fontSize:13, fontWeight:700, fontFamily:"'Space Mono',monospace",
+                  color: (item.label.includes("Books") ? grandTotalBooks > books : grandTotalSigils > generalSigils) ? C.red : C.green }}>
+                  {item.label.includes("Books") ? grandTotalBooks.toLocaleString() : grandTotalSigils.toLocaleString()} needed
+                </div>
+              </div>
+            )}
+          </div>
         ))}
+      </div>
+
+      {/* ── Expert Cards ── */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(280px, 1fr))", gap:12 }}>
+        {EXPERTS.map(expert => {
+          const d = getExpert(expert.name);
+          const curLv  = Number(d.level ?? 0);
+          const curB   = Number(d.affinity ?? 0);
+          const totals = getExpertTotals(expert);
+          const ownSigils = inv[expert.invKey] ?? 0;
+          const pct = Math.round((curLv / 100) * 100);
+          const comingSoon = isComingSoon(expert);
+          const isOpen = openCard === expert.name;
+
+          return (
+            <div key={expert.name} style={{ borderRadius:10, overflow:"hidden",
+              border:`1px solid ${isOpen ? expert.color : C.border}`,
+              transition:"border-color 0.2s" }}>
+
+              {/* Card Header */}
+              <div
+                onClick={() => setOpenCard(isOpen ? null : expert.name)}
+                style={{ background:C.card, padding:"14px 16px", cursor:"pointer",
+                  borderBottom: isOpen ? `1px solid ${expert.color}44` : "none",
+                  display:"flex", alignItems:"center", gap:12,
+                  transition:"background 0.15s",
+                  userSelect:"none" }}
+                onMouseEnter={e => e.currentTarget.style.background = C.surface}
+                onMouseLeave={e => e.currentTarget.style.background = C.card}
+              >
+                {/* Avatar */}
+                <div style={{
+                  width:42, height:42, borderRadius:8, flexShrink:0,
+                  background:expert.color + "22", border:`2px solid ${expert.color}66`,
+                  display:"flex", alignItems:"center", justifyContent:"center",
+                  fontSize:14, fontWeight:800, color:expert.color,
+                  fontFamily:"Syne,sans-serif",
+                }}>
+                  {expert.name.slice(0,2).toUpperCase()}
+                </div>
+
+                {/* Info */}
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:2 }}>
+                    <span style={{ fontSize:14, fontWeight:800, color:C.textPri, fontFamily:"Syne,sans-serif" }}>
+                      {expert.name}
+                    </span>
+                    {comingSoon && (
+                      <span style={{ fontSize:9, padding:"1px 6px", borderRadius:8,
+                        background:"#444", color:"#aaa", fontFamily:"'Space Mono',monospace" }}>
+                        SOON
+                      </span>
+                    )}
+                    <AffinityTag level={curB} />
+                  </div>
+                  <div style={{ fontSize:10, color:C.textDim, fontFamily:"'Space Mono',monospace",
+                    overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                    {expert.bonus} · {expert.bonusDesc}
+                  </div>
+                  {/* Level bar */}
+                  <div style={{ marginTop:6, display:"flex", alignItems:"center", gap:6 }}>
+                    <div style={{ flex:1, height:4, borderRadius:2, background:C.border, overflow:"hidden" }}>
+                      <div style={{ height:"100%", width:`${pct}%`,
+                        background: curLv >= 100 ? C.green : expert.color,
+                        borderRadius:2, transition:"width 0.3s" }} />
+                    </div>
+                    <span style={{ fontSize:10, color:expert.color, fontFamily:"'Space Mono',monospace",
+                      fontWeight:700, flexShrink:0 }}>
+                      Lv {curLv}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Right column: sigils + cost chip */}
+                <div style={{ textAlign:"right", flexShrink:0 }}>
+                  <div style={{ fontSize:11, fontWeight:700, color:C.amber,
+                    fontFamily:"'Space Mono',monospace" }}>
+                    {ownSigils.toLocaleString()} 🔶
+                  </div>
+                  {totals.sigils > 0 && (
+                    <div style={{ fontSize:9, color: totals.sigils > ownSigils ? C.red : C.green,
+                      fontFamily:"'Space Mono',monospace", marginTop:1 }}>
+                      {totals.sigils.toLocaleString()} needed
+                    </div>
+                  )}
+                  {totals.books > 0 && (
+                    <div style={{ fontSize:9, color:C.blue,
+                      fontFamily:"'Space Mono',monospace" }}>
+                      📚 {totals.books.toLocaleString()} bks
+                    </div>
+                  )}
+                  <div style={{ fontSize:14, color:C.textDim, marginTop:4 }}>
+                    {isOpen ? "▲" : "▼"}
+                  </div>
+                </div>
+              </div>
+
+              {/* Drawer */}
+              {isOpen && <ExpertDrawer expert={expert} />}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -6777,180 +7455,6 @@ function ChiefCharmsPage({ inv }) {
   );
 }
 
-
-// ─── Daybreak Island Page ─────────────────────────────────────────────────────
-
-const DAYBREAK_BUFFS = [
-  { key:"infantryAtk",     label:"Infantry Attack",            suffix:"%" },
-  { key:"infantryDef",     label:"Infantry Defense",           suffix:"%" },
-  { key:"lancerAtk",       label:"Lancer Attack",              suffix:"%" },
-  { key:"lancerDef",       label:"Lancer Defense",             suffix:"%" },
-  { key:"marksmanAtk",     label:"Marksman Attack",            suffix:"%" },
-  { key:"marksmanDef",     label:"Marksman Defense",           suffix:"%" },
-  { key:"troopsAtk",       label:"Troops' Attack",             suffix:"%" },
-  { key:"troopsDef",       label:"Troops' Defense",            suffix:"%" },
-  { key:"troopsLethality", label:"Troops' Lethality",          suffix:"%" },
-  { key:"troopsHealth",    label:"Troops' Health",             suffix:"%" },
-  { key:"huntingMarch",    label:"Hunting March Speed",        suffix:"%" },
-  { key:"researchSpeed",   label:"Research Speed",             suffix:"%" },
-  { key:"constructionSpd", label:"Construction Speed",         suffix:"%" },
-  { key:"healingSpeed",    label:"Healing Speed",              suffix:"%" },
-  { key:"trainingSpeed",   label:"Training Speed",             suffix:"%" },
-  { key:"resourceGather",  label:"Resource Gathering Speed",   suffix:"%" },
-  { key:"meatGather",      label:"Meat Gathering Speed",       suffix:"%" },
-  { key:"woodGather",      label:"Wood Gathering Speed",       suffix:"%" },
-  { key:"coalGather",      label:"Coal Gathering Speed",       suffix:"%" },
-  { key:"ironGather",      label:"Iron Gathering Speed",       suffix:"%" },
-  { key:"troopsMarch",     label:"Troops March Speed",         suffix:"%" },
-  { key:"deployCap",       label:"Troops Deployment Capacity", suffix:""  },
-];
-
-const DAYBREAK_DEFAULTS = Object.fromEntries(DAYBREAK_BUFFS.map(b => [b.key, ""]));
-
-function DaybreakNumberInput({ value, onChange, suffix, isLarge, isInteger }) {
-  const inputRef = React.useRef(null);
-  const cursorRef = React.useRef(null);
-
-  const handleChange = (e) => {
-    const el = e.target;
-    const raw = el.value;
-
-    if (isInteger) {
-      // Deployment Capacity — integers only, format with commas
-      const digits = raw.replace(/[^\d]/g, "");
-      const formatted = digits ? Number(digits).toLocaleString() : "";
-      const charsFromEnd = raw.length - el.selectionStart;
-      cursorRef.current = Math.max(0, formatted.length - charsFromEnd);
-      onChange(formatted);
-    } else {
-      // Percentage fields — allow digits and one decimal point
-      // Strip anything that isn't a digit or dot, collapse multiple dots
-      let clean = raw.replace(/[^\d.]/g, "");
-      const parts = clean.split(".");
-      if (parts.length > 2) clean = parts[0] + "." + parts.slice(1).join("");
-      // Limit to one decimal place
-      if (parts.length === 2 && parts[1].length > 1) {
-        clean = parts[0] + "." + parts[1].slice(0, 1);
-      }
-      onChange(clean);
-    }
-  };
-
-  React.useEffect(() => {
-    if (cursorRef.current !== null && inputRef.current) {
-      inputRef.current.setSelectionRange(cursorRef.current, cursorRef.current);
-      cursorRef.current = null;
-    }
-  });
-
-  const C = COLORS;
-  return (
-    <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-      <input
-        ref={inputRef}
-        type="text"
-        inputMode="decimal"
-        value={value}
-        onChange={handleChange}
-        placeholder="0"
-        style={{
-          width: isLarge ? 130 : 90,
-          textAlign:"right",
-          background:C.card,
-          border:`1px solid ${C.border}`,
-          borderRadius:5,
-          color:C.textPri,
-          padding:"5px 8px",
-          fontSize:12,
-          outline:"none",
-          fontFamily:"'Space Mono',monospace",
-        }}
-      />
-      {suffix && <span style={{ fontSize:11, color:C.textDim }}>{suffix}</span>}
-    </div>
-  );
-}
-
-function DaybreakIslandPage() {
-  const C = COLORS;
-  const [buffs, setBuffs] = useLocalStorage("daybreak-buffs", DAYBREAK_DEFAULTS);
-  const [prosperityPoints, setProsperityPoints] = useLocalStorage("daybreak-prosperity", "");
-
-  const setField = (key, val) => setBuffs(prev => ({ ...prev, [key]: val }));
-
-  const tdLabel = {
-    padding:"10px 14px", fontSize:13, fontWeight:600, color:C.textPri,
-    borderBottom:`1px solid ${C.border}`, verticalAlign:"middle",
-  };
-  const tdVal = {
-    padding:"10px 14px", textAlign:"right",
-    borderBottom:`1px solid ${C.border}`, verticalAlign:"middle",
-  };
-
-  return (
-    <div className="fade-in" style={{ maxWidth:580 }}>
-
-      {/* Prosperity Points */}
-      <div style={{
-        background:C.card, border:`1px solid ${C.accentDim || C.border}`,
-        borderRadius:10, padding:"18px 20px", marginBottom:20,
-        display:"flex", alignItems:"center", justifyContent:"space-between", gap:16,
-      }}>
-        <div>
-          <div style={{ fontSize:15, fontWeight:800, color:C.textPri, fontFamily:"Syne,sans-serif" }}>
-            Prosperity Points
-          </div>
-          <div style={{ fontSize:11, color:C.textSec, marginTop:3, fontFamily:"'Space Mono',monospace" }}>
-            Your island's current prosperity level (0 – 250,000)
-          </div>
-        </div>
-        <DaybreakNumberInput
-          value={prosperityPoints}
-          onChange={val => setProsperityPoints(val)}
-          suffix=""
-          isLarge={true}
-          isInteger={true}
-        />
-      </div>
-
-      {/* Buffs Table */}
-      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10, overflow:"hidden", marginBottom:16 }}>
-        <div style={{ padding:"14px 20px 12px", borderBottom:`1px solid ${C.border}` }}>
-          <div style={{ fontSize:15, fontWeight:800, color:C.textPri, fontFamily:"Syne,sans-serif" }}>
-            Island Buffs
-          </div>
-          <div style={{ fontSize:11, color:C.textSec, marginTop:3, fontFamily:"'Space Mono',monospace" }}>
-            Enter your current Daybreak Island bonus values
-          </div>
-        </div>
-        <table style={{ borderCollapse:"collapse", width:"100%" }}>
-          <tbody>
-            {DAYBREAK_BUFFS.map((b, i) => (
-              <tr key={b.key} style={{ background: i % 2 === 0 ? "transparent" : C.surface }}>
-                <td style={tdLabel}>{b.label}</td>
-                <td style={tdVal}>
-                  <DaybreakNumberInput
-                    value={buffs[b.key] ?? ""}
-                    onChange={val => setField(b.key, val)}
-                    suffix={b.suffix}
-                    isLarge={b.key === "deployCap"}
-                    isInteger={b.key === "deployCap"}
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <div style={{ fontSize:10, color:C.textDim, fontFamily:"'Space Mono',monospace",
-        textAlign:"center", paddingBottom:8 }}>
-        Deployment Capacity bonus is included in the Chief Profile Military calculation
-      </div>
-    </div>
-  );
-}
-
 // ─── Character Profile Page ───────────────────────────────────────────────────
 
 // Embassy Reinforcement Cap by level (F30 = index 0, FC1-FC10 = index 1-10)
@@ -7124,17 +7628,8 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
     const cmdBase = COMMAND_CENTER_STATS[getBuildingLevel("Command")] ?? null;
     // Research Center contributions
     const rcContrib = getRCDeployRally(rcLevels);
-    // Daybreak Island Troops Deployment Capacity bonus
-    let daybreakDeploy = 0;
-    try {
-      const dbRaw = localStorage.getItem("daybreak-buffs");
-      if (dbRaw) {
-        const dbParsed = JSON.parse(dbRaw);
-        daybreakDeploy = Number(String(dbParsed.deployCap ?? "").replace(/,/g, "")) || 0;
-      }
-    } catch {}
     return {
-      deployCapacity:     Math.round(deployWA + deployGear + (cmdBase?.deploy ?? 0) + rcContrib.deploy + daybreakDeploy),
+      deployCapacity:     Math.round(deployWA + deployGear + (cmdBase?.deploy ?? 0) + rcContrib.deploy),
       rallyCapacityTotal: Math.round(rallyWA + (cmdBase?.rally ?? 0) + rcContrib.rally),
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -8037,7 +8532,6 @@ const PAGES = [
   { id:"chief-gear",    label:"Chief Gear",    icon:"[C]", section:"Chief"      },
   { id:"chief-charms",  label:"Chief Charms",  icon:"[K]", section:"Chief"      },
   { id:"experts",       label:"Experts",       icon:"[E]", section:"Chief"      },
-  { id:"daybreak-island", label:"Daybreak Island", icon:"[D]", section:"Chief"      },
   { id:"war-academy",  label:"War Academy",   icon:"[W]", section:"Resources"   },
   { id:"research-center", label:"Research", icon:"⚗", section:"Resources" },
   { id:"heroes",        label:"Heroes",        icon:"[H]", section:"Combat"      },
@@ -8056,7 +8550,6 @@ const PAGE_TITLES = {
   "chief-gear":   { title: "Chief Gear",    sub: "Chief gear upgrade planner — track level upgrades, material costs and stat gains" },
   "chief-charms": { title: "Chief Charms",  sub: "Charm upgrade planner — 18 independent charms across 6 gear pieces, material costs and stat gains" },
   experts:      { title: "Expert Planner", sub: "Skill levels, sigil costs, and per-day SVS contributions" },
-  "daybreak-island": { title: "Daybreak Island", sub: "Island buff tracker — prosperity points, troop bonuses, deployment capacity and more" },
   "war-academy":{ title: "War Academy", sub: "Research upgrade planner — track shards, steel, time costs and stat gains across all three troop types" },
   "research-center": { title: "Research Center", sub: "Growth, Economy & Battle research trees — track per-level costs, buffs and time across all tiers" },
   "troops":     { title: "Troops", sub: "Troop inventory — track your Infantry, Lancer and Marksman counts by tier" },
@@ -8700,8 +9193,7 @@ export default function App() {
             {page === "troops"       && <TroopsPage />}
             {page === "chief-gear"   && <ChiefGearPage   inv={inv} />}
             {page === "chief-charms" && <ChiefCharmsPage inv={inv} />}
-            {page === "experts"      && <ExpertsPage      inv={inv} />}
-            {page === "daybreak-island" && <DaybreakIslandPage />}
+            {page === "experts"      && <ExpertsPage      inv={inv} setInv={setInv} />}
             {page === "war-academy"  && <WarAcademyPage   inv={inv} setInv={setInv} />}
             {page === "research-center" && <ResearchCenterPage inv={inv} rcLevels={rcLevels} setRcLevels={setRcLevels} rcCollapse={rcCollapse} setRcCollapse={setRcCollapse} />}
             {page === "svs-calendar" && <SvSCalendar />}
