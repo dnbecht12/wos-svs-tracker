@@ -1244,37 +1244,6 @@ const RC = {
   }
 };
 
-// ─── Buff parser ─────────────────────────────────────────────────────────────
-// Parse a buff string like "+1.25% Infantry Attack" or "+320 Deployment Capacity"
-// Returns { stat: string, value: number, isPct: boolean }
-function parseBuff(buff) {
-  if (!buff || buff === "—") return null;
-  const m = buff.match(/^\+?([\d,]+\.?\d*)(%)?\s+(.+)$/);
-  if (!m) return null;
-  return {
-    stat:  m[3].trim(),
-    value: parseFloat(m[1].replace(/,/g, "")),
-    isPct: m[2] === "%",
-  };
-}
-
-// Compute summed stats for all researches in a tier at current levels
-function calcTierStats(tier, getLv) {
-  const stats = {}; // stat → { value, isPct }
-  tier.researches.forEach(res => {
-    const { cur } = getLv(res.id);
-    if (!cur || cur <= 0) return;
-    const maxLv = res.levels.length - 1;
-    const row = res.levels[Math.min(cur, maxLv)];
-    if (!row?.buff) return;
-    const p = parseBuff(row.buff);
-    if (!p) return;
-    if (!stats[p.stat]) stats[p.stat] = { value: 0, isPct: p.isPct };
-    stats[p.stat].value += p.value;
-  });
-  return stats;
-}
-
 // ─── Cost calculator ──────────────────────────────────────────────────────────
 
 function calcResearchCost(res, curLv, goalLv) {
@@ -1742,49 +1711,6 @@ export default function ResearchCenterPage({ inv, rcLevels, setRcLevels, rcColla
             </div>
 
             {/* Hide table when collapsed */}
-            {/* ── Tier Stats Summary ── always visible, even when collapsed ── */}
-            {(() => {
-              const tierStats = calcTierStats(tier, getLv);
-              const entries = Object.entries(tierStats).sort(([a],[b]) => a.localeCompare(b));
-              if (entries.length === 0) return null;
-              const statColor = (stat) => {
-                if (stat.includes("Attack"))      return C.red;
-                if (stat.includes("Defense"))     return C.blue;
-                if (stat.includes("Health"))      return C.green;
-                if (stat.includes("Lethality"))   return C.amber;
-                if (stat.includes("Deployment") || stat.includes("Rally") || stat.includes("March")) return C.accent;
-                if (stat.includes("Training") || stat.includes("Healing")) return C.green;
-                if (stat.includes("Construction") || stat.includes("Research")) return C.blue;
-                return C.textSec;
-              };
-              return (
-                <div style={{
-                  marginTop: isHiding ? 6 : 8, marginBottom: isHiding ? 0 : 8,
-                  padding: "7px 12px",
-                  background: C.surface, border: `1px solid ${C.border}`, borderRadius: 7,
-                  display: "flex", flexWrap: "wrap", gap: "4px 14px", alignItems: "center",
-                }}>
-                  <span style={{
-                    fontSize: 9, fontWeight: 700, color: C.textDim, textTransform: "uppercase",
-                    letterSpacing: "1.2px", fontFamily: "'Space Mono',monospace",
-                    flexShrink: 0, marginRight: 4,
-                  }}>
-                    Current Buffs
-                  </span>
-                  {entries.map(([stat, { value, isPct }]) => (
-                    <span key={stat} style={{
-                      fontSize: 11, fontFamily: "'Space Mono',monospace", color: statColor(stat),
-                    }}>
-                      +{isPct
-                        ? (parseFloat(value.toFixed(2))) + "%"
-                        : value.toLocaleString()
-                      }{" "}{stat}
-                    </span>
-                  ))}
-                </div>
-              );
-            })()}
-
             {!isHiding && (
               <div style={{overflowX:"auto"}}>
                 <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:720}}>
@@ -1888,5 +1814,96 @@ export default function ResearchCenterPage({ inv, rcLevels, setRcLevels, rcColla
         );
       })}
     </div>
+
+      {/* ── Per-Tree Stat Summary Tables ── */}
+      {["Growth","Economy","Battle"].map(treeName => {
+        // Sum buff values across ALL tiers and ALL researches in this tree at current levels
+        const statTotals = {}; // stat → { value, isPct }
+        RC[treeName].tiers.forEach(tier => {
+          tier.researches.forEach(res => {
+            const cur = levels[res.id]?.cur ?? 0;
+            if (!cur || cur <= 0) return;
+            const maxLv = res.levels.length - 1;
+            const row = res.levels[Math.min(cur, maxLv)];
+            if (!row?.buff) return;
+            // Parse "+X% Stat" or "+X Stat"
+            const m = row.buff.match(/^\+?([\d,]+\.?\d*)(%?)\s+(.+)$/);
+            if (!m) return;
+            const stat  = m[3].trim();
+            const val   = parseFloat(m[1].replace(/,/g,""));
+            const isPct = m[2] === "%";
+            if (!statTotals[stat]) statTotals[stat] = { value: 0, isPct };
+            statTotals[stat].value += val;
+          });
+        });
+
+        const entries = Object.entries(statTotals);
+        if (entries.length === 0) return null;
+
+        // Define display order for each tree
+        const ORDER = {
+          Growth:  ["Construction Speed","Research Speed","Training Speed","Healing Speed","Training Capacity","Infirmary Capacity","March Queue"],
+          Economy: ["Meat Output","Wood Output","Coal Output","Iron Output","Meat Gathering Speed","Wood Gathering Speed","Coal Gathering Speed","Iron Gathering Speed"],
+          Battle:  ["All Troops Attack","All Troops Defense","All Troops Lethality","All Troops Health","Infantry Attack","Infantry Defense","Infantry Lethality","Infantry Health","Lancer Attack","Lancer Defense","Lancer Lethality","Lancer Health","Marksman Attack","Marksman Defense","Marksman Lethality","Marksman Health","Deployment Capacity"],
+        };
+        const order = ORDER[treeName] ?? [];
+        const sorted = [
+          ...order.filter(s => statTotals[s]),
+          ...entries.map(([s]) => s).filter(s => !order.includes(s)).sort(),
+        ];
+
+        const treeColor = { Growth: C.green, Economy: C.amber, Battle: C.red }[treeName] ?? C.accent;
+
+        const statColor = (stat) => {
+          if (stat.includes("Attack"))      return C.red;
+          if (stat.includes("Lethality"))   return C.amber;
+          if (stat.includes("Defense"))     return C.blue;
+          if (stat.includes("Health"))      return C.green;
+          if (stat.includes("Deployment") || stat.includes("Rally") || stat.includes("March")) return C.accent;
+          return C.textSec;
+        };
+
+        const fmt = (v, isPct) => {
+          if (!isPct) return v.toLocaleString();
+          const rounded = Math.round(v * 100) / 100;
+          return (Number.isInteger(rounded) ? rounded : rounded.toFixed(2)) + "%";
+        };
+
+        return (
+          <div key={treeName} style={{ marginBottom: 20,
+            background: C.card, border: `1px solid ${C.border}`, borderRadius: 10, overflow: "hidden" }}>
+            {/* Header */}
+            <div style={{ padding: "10px 16px", background: C.surface,
+              borderBottom: `1px solid ${C.border}`,
+              display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 13, fontWeight: 800, color: treeColor,
+                fontFamily: "Syne,sans-serif" }}>{treeName} Tree</span>
+              <span style={{ fontSize: 10, color: C.textDim,
+                fontFamily: "'Space Mono',monospace" }}>— Current level stat totals</span>
+            </div>
+            {/* Table */}
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <tbody>
+                {sorted.map((stat, i) => {
+                  const { value, isPct } = statTotals[stat];
+                  return (
+                    <tr key={stat} style={{ background: i % 2 === 0 ? "transparent" : C.surface }}>
+                      <td style={{ padding: "7px 16px", fontSize: 12, color: C.textSec,
+                        borderBottom: `1px solid ${C.border}` }}>
+                        {stat}
+                      </td>
+                      <td style={{ padding: "7px 16px", fontSize: 12, fontWeight: 700,
+                        fontFamily: "'Space Mono',monospace", textAlign: "right",
+                        color: statColor(stat), borderBottom: `1px solid ${C.border}` }}>
+                        +{fmt(value, isPct)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        );
+      })}
   );
 }
