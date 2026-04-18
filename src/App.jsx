@@ -5918,9 +5918,9 @@ const EXPERT_AFFINITY_POWER_RATE = {
   Holger:   86400,
   Fabian:   108000,
   Baldur:   57600,
-  Valeria:  null,  // unknown
+  Valeria:  144000,  // screenshot ✅ (1,152,000 ÷ 8 tiers)
   Ronne:    null,
-  Kathy:    null,
+  Kathy:    108000,  // screenshot ✅ (108,000 per tier)
 };
 
 // Talent Power per bonus level: power = rate × talent_level
@@ -5933,7 +5933,7 @@ const EXPERT_TALENT_POWER_RATE = {
   Baldur:   43000,
   Valeria:  143000,  // spreadsheet ✅
   Ronne:    58000,   // spreadsheet ✅
-  Kathy:    null,
+  Kathy:    72000,   // screenshot ✅ (72,000 per talent level)
 };
 
 // Level Power formula: power = rate × (level + offset)
@@ -5945,9 +5945,9 @@ const EXPERT_LEVEL_POWER = {
   Holger:   { rate: 12380, offset: 0  },   // approx from L82 data
   Fabian:   { rate: 16113, offset: 0  },   // approx from L62 data
   Baldur:   { rate: 8434,  offset: 0  },   // approx from L70 data
-  Valeria:  null,
+  Valeria:  { rate: 20700, offset: 0  },   // screenshot ✅ (20,700×80=1,656,000)
   Ronne:    null,
-  Kathy:    null,
+  Kathy:    { rate: 13500, offset: 12 },   // screenshot ✅ (13,500×(lv+12); L1=175,500)
 };
 
 // Research Power formula: n*1000 + floor(n/20)*60000  (verified all 200 data points)
@@ -5969,7 +5969,7 @@ const EXPERT_SKILL_POWER = {
   Baldur:   { sk1: 18000,  sk2: 18000,  sk3: 18000,  sk4: 35000  }, // spreadsheet ✅ (714,000)
   Valeria:  { sk1: 30000,  sk2: 30000,  sk3: 156000, sk4: 156000 }, // spreadsheet ✅
   Ronne:    { sk1: 18000,  sk2: 18000,  sk3: 42000,  sk4: 98000  }, // spreadsheet ✅
-  Kathy:    null,
+  Kathy:    { sk1: 18000,  sk2: 18000,  sk3: 70000,  sk4: 98000  }, // screenshot ✅ (all 4 skills confirmed)
 };
 
 function ExpertStatsSummary({ expertData }) {
