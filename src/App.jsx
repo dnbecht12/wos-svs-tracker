@@ -8334,10 +8334,12 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
     } catch {}
     const cmdDeploy = cmdBase?.deploy ?? 0;
     const cmdRally  = cmdBase?.rally  ?? 0;
+    const BASE_DEPLOY = 500; // all players start with 500 base deployment capacity
     return {
-      deployCapacity:     Math.round(deployWA + deployGear + cmdDeploy + rcContrib.deploy + romulusExpertDeploy + daybreakDeploy),
+      deployCapacity:     Math.round(BASE_DEPLOY + deployWA + deployGear + cmdDeploy + rcContrib.deploy + romulusExpertDeploy + daybreakDeploy),
       rallyCapacityTotal: Math.round(rallyWA  + cmdRally  + rcContrib.rally + romulusExpertRally),
       deployBreakdown: [
+        { label: "Base (all players)",  value: BASE_DEPLOY },
         { label: "Command Center",   value: cmdDeploy },
         { label: "War Academy (Flame Squad + Helios Training × 3)", value: Math.round(deployWA) },
         { label: "Chief Gear",       value: Math.round(deployGear) },
