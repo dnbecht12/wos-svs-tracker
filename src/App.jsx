@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo, Component } f
 import { createPortal } from "react-dom";
 import { supabase } from "./supabase.js";
 import {
-  useLocalStorage, setGuestFlag, setSyncUserId, scheduleSync, _isGuest,
+  useLocalStorage, setGuestFlag, setSyncUserId, setSyncCharId, scheduleSync, _isGuest,
 } from "./useLocalStorage.js";
 import WarAcademyPage, { WA_RESEARCH, waPower } from "./WarAcademy.jsx";
 import DaybreakIslandPage from "./DaybreakIsland.jsx";
@@ -853,7 +853,7 @@ function ProfileModal({ open, onClose, initialSection="account",
                           )}
                           {c.id !== activeCharId && (
                             <button className="modal-btn modal-btn-ghost" style={{padding:"3px 8px",fontSize:10}}
-                              onClick={()=>{ switchCharacter(c.id); onClose(); }}>Switch</button>
+                              onClick={async ()=>{ await handleSwitchCharacter(c.id); onClose(); }}>Switch</button>
                           )}
                           {characters.length > 1 && (
                             <button className="modal-btn modal-btn-danger" style={{padding:"3px 8px",fontSize:10}}
@@ -1974,7 +1974,42 @@ export default function App() {
     await charSaveInventory(charId, invRef.current);
   }, [user]);
 
-  // ── Load data whenever activeCharId changes ───────────────────────────────────
+  // ── Switch character: flush, update charId, clear local cache, re-fetch ────────
+  const handleSwitchCharacter = useCallback(async (newCharId) => {
+    if (!newCharId || newCharId === activeCharId) return;
+    await flushSave(activeCharId);
+    setSyncCharId(newCharId);
+    // Clear localStorage cache so stale data doesn't bleed into the new character
+    const SYNC_KEYS = [
+      "wa-levels","wa-speedbuff","wa-buffs","wa-dailyshards",
+      "rc-levels","rc-collapse","cp-speedbuff","cp-vip-level",
+      "experts-data","cg-slots","cc-slots","troops-inventory-v2",
+      "daybreak-buffs","daybreak-prosperity","hg-heroes","hg-hero-stats",
+      "cp-buildings","cp-buffs","cp-cycle","cp-dailyfc","cp-agnes",
+    ];
+    SYNC_KEYS.forEach(k => {
+      try { localStorage.removeItem(k); localStorage.removeItem(`${k}__ts`); } catch {}
+    });
+    // Switch active character (triggers the activeCharId useEffect for inventory)
+    switchCharacter(newCharId);
+    // Re-fetch this character's user_data from Supabase
+    if (user?.id) {
+      const { data } = await supabase.from("user_data")
+        .select("key, value, updated_at")
+        .eq("user_id", user.id)
+        .eq("char_id", newCharId);
+      (data || []).forEach(row => {
+        try {
+          localStorage.setItem(row.key, row.value);
+          localStorage.setItem(`${row.key}__ts`, row.updated_at);
+        } catch {}
+      });
+      // Signal all useLocalStorage hooks to re-read
+      window.dispatchEvent(new CustomEvent("wos-user-ready", { detail: { id: user.id } }));
+    }
+  }, [user, activeCharId, flushSave, switchCharacter]);
+
+  // ── Load data whenever activeCharId changes ───────────────────────────────────────
   useEffect(() => {
     if (!user || !activeCharId) return;
 
@@ -2017,9 +2052,14 @@ export default function App() {
       setSyncUserId(null);
       return;
     }
+    // Set char ID first so scheduleSync includes it from the start
+    const charIdForSync = activeCharId;
+    setSyncCharId(charIdForSync);
+
     supabase.from("user_data")
       .select("key, value, updated_at")
       .eq("user_id", user.id)
+      .eq("char_id", charIdForSync)
       .then(({ data, error }) => {
         const cloudRows = (!error && data) ? data : [];
         const cloudMap = new Map(cloudRows.map(r => [r.key, r]));
@@ -2036,17 +2076,15 @@ export default function App() {
         });
 
         // Push local → cloud for keys that exist locally but not in Supabase
-        // This handles first-time sync after RLS was fixed
         const allLocalKeys = Object.keys(localStorage).filter(k =>
           !k.endsWith("__ts") && !NO_SYNC_KEYS.has(k) &&
           !k.startsWith("sb-") && k !== "wos-theme"
         );
         allLocalKeys.forEach(key => {
           try {
-            if (cloudMap.has(key)) return; // already in cloud, skip
+            if (cloudMap.has(key)) return;
             const localVal = localStorage.getItem(key);
             if (!localVal || localVal === "null") return;
-            // Schedule upload with a small delay to avoid hammering Supabase
             scheduleSync(key, JSON.parse(localVal));
           } catch {}
         });
@@ -2203,7 +2241,7 @@ export default function App() {
           removeCharacter={removeCharacter}
           renameCharacter={renameCharacter}
           makeDefault={makeDefault}
-          switchCharacter={async (id) => { await flushSave(activeCharId); switchCharacter(id); }}
+          switchCharacter={handleSwitchCharacter}
           changePassword={changePassword}
           requestDeleteAccount={requestDeleteAccount}
           confirmDeleteAccount={confirmDeleteAccount}
@@ -2280,8 +2318,7 @@ export default function App() {
                     setProfileSection("characters");
                     setProfileOpen(true);
                   } else {
-                    await flushSave(activeCharId);
-                    switchCharacter(val);
+                    await handleSwitchCharacter(val);
                   }
                 }}>
                 {characters.map(c => (
@@ -2544,7 +2581,8 @@ export default function App() {
                 planSnapshot={planSnapshot}
                 onSetSnapshot={handleSetSnapshot}
                 onUpdatePlan={handleUpdatePlan}
-                cpSpeedBuff={cpSpeedBuff} setCpSpeedBuff={setCpSpeedBuff} />}
+                cpSpeedBuff={cpSpeedBuff} setCpSpeedBuff={setCpSpeedBuff}
+                activeCharId={activeCharId} />}
             {page === "rfc-planner"  && <RFCPlanner inv={inv} setInv={setInv}
                 savedPlans={user ? savedPlans : {}}
                 onSavePlan={user ? handleSavePlan : ()=>{}}

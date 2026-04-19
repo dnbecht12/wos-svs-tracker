@@ -9,11 +9,15 @@ import { supabase } from "./supabase.js";
 export let _isGuest = true;
 export function setGuestFlag(isGuest) { _isGuest = isGuest; }
 
-// Module-level user ID — set when auth resolves
+// Module-level user ID and active character ID — set when auth resolves
 export let _syncUserId = null;
+export let _syncCharId = null;
 export function setSyncUserId(id) {
   _syncUserId = id;
   if (id) window.dispatchEvent(new CustomEvent("wos-user-ready", { detail: { id } }));
+}
+export function setSyncCharId(charId) {
+  _syncCharId = charId;
 }
 
 // Keys that should NOT sync to cloud (UI preferences only)
@@ -24,14 +28,15 @@ export const NO_SYNC_KEYS = new Set([
 // Pending write queue — batches rapid updates into a single Supabase write
 const _writeTimers = {};
 export function scheduleSync(key, value) {
-  if (!_syncUserId || NO_SYNC_KEYS.has(key)) return;
-  clearTimeout(_writeTimers[key]);
-  _writeTimers[key] = setTimeout(async () => {
+  if (!_syncUserId || !_syncCharId || NO_SYNC_KEYS.has(key)) return;
+  const timerKey = `${_syncCharId}:${key}`;
+  clearTimeout(_writeTimers[timerKey]);
+  _writeTimers[timerKey] = setTimeout(async () => {
     try {
       await supabase.from("user_data").upsert(
-        { user_id: _syncUserId, key, value: JSON.stringify(value),
-          updated_at: new Date().toISOString() },
-        { onConflict: "user_id,key" }
+        { user_id: _syncUserId, char_id: _syncCharId, key,
+          value: JSON.stringify(value), updated_at: new Date().toISOString() },
+        { onConflict: "user_id,char_id,key" }
       );
     } catch {}
   }, 800);

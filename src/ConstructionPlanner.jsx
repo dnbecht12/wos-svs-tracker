@@ -631,27 +631,31 @@ const DEFAULT_BUILDINGS = [
 const CP_KEYS = ["cp-buildings","cp-buffs","cp-speedbuff","cp-cycle","cp-dailyfc","cp-agnes"];
 const _cpTimers = {};
 
-async function cpSyncToCloud(key, val) {
+async function cpSyncToCloud(key, val, charId) {
   try {
     const { data: { session } } = await supabase.auth.getSession();
     const userId = session?.user?.id;
-    if (!userId) return;
+    if (!userId || !charId) return;
     await supabase.from("user_data").upsert(
-      { user_id: userId, key, value: JSON.stringify(val),
+      { user_id: userId, char_id: charId, key, value: JSON.stringify(val),
         updated_at: new Date().toISOString() },
-      { onConflict: "user_id,key" }
+      { onConflict: "user_id,char_id,key" }
     );
   } catch {}
 }
 
-function saveState(key, val) {
-  try {
-    localStorage.setItem(key, JSON.stringify(val));
-    localStorage.setItem(`${key}__ts`, new Date().toISOString());
-  } catch {}
+function saveState(key, val, charId) {
+  if (!_isGuest) {
+    try {
+      localStorage.setItem(key, JSON.stringify(val));
+      localStorage.setItem(`${key}__ts`, new Date().toISOString());
+    } catch {}
+  }
   // Debounced cloud write — uses supabase.auth directly, no localStorage token parsing
-  clearTimeout(_cpTimers[key]);
-  _cpTimers[key] = setTimeout(() => cpSyncToCloud(key, val), 800);
+  if (charId) {
+    clearTimeout(_cpTimers[key]);
+    _cpTimers[key] = setTimeout(() => cpSyncToCloud(key, val, charId), 800);
+  }
 }
 
 function loadState(key, fallback) {
@@ -661,7 +665,7 @@ function loadState(key, fallback) {
   catch { return fallback; }
 }
 
-async function syncCPFromCloud(userId, setters) {
+async function syncCPFromCloud(userId, charId, setters) {
   try {
     if (!userId) {
       const { data: { session } } = await supabase.auth.getSession();
@@ -672,6 +676,7 @@ async function syncCPFromCloud(userId, setters) {
     const { data } = await supabase.from("user_data")
       .select("key, value, updated_at")
       .eq("user_id", userId)
+      .eq("char_id", charId || null)
       .in("key", CP_KEYS);
 
     const cloudKeys = new Set((data || []).map(r => r.key));
@@ -698,14 +703,14 @@ async function syncCPFromCloud(userId, setters) {
         const cloudRow = (data || []).find(r => r.key === key);
         // Push if key missing from cloud OR local timestamp is newer
         if (!cloudKeys.has(key) || (cloudRow && localTs > cloudRow.updated_at)) {
-          cpSyncToCloud(key, JSON.parse(localVal));
+          cpSyncToCloud(key, JSON.parse(localVal), charId);
         }
       } catch {}
     });
   } catch {}
 }
 
-export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSnapshot, onUpdatePlan, cpSpeedBuff: cpSpeedBuffProp, setCpSpeedBuff: setCpSpeedBuffProp }) {
+export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSnapshot, onUpdatePlan, cpSpeedBuff: cpSpeedBuffProp, setCpSpeedBuff: setCpSpeedBuffProp, activeCharId }) {
   // Cycle selector linked to SvS Calendar
   const currentCycle = useMemo(() => getCurrentCycleNum(), []);
   const cycleOpts    = useMemo(() => buildCycles(Math.max(1, currentCycle - 1), 16), [currentCycle]);
@@ -793,7 +798,7 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
       });
       const cascaded = cascadePrereqs(next);
       setBuildings(cascaded);
-      saveState("cp-buildings", cascaded);
+      saveState("cp-buildings", cascaded, activeCharId);
     }
     // Write confirmed FC/RFC back to live inventory and update plan
     setFC(modalFC);
@@ -810,7 +815,7 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
   const setSpeedBuff = (v) => {
     setSpeedBuffLocal(v);
     setCpSpeedBuffProp?.(v);  // update cloud-synced prop in App.jsx
-    saveState("cp-speedbuff", v);
+    saveState("cp-speedbuff", v, activeCharId);
   };
 
   // Keep pet, chiefOrder, presSkill, presPos as toggles (4 remaining)
@@ -820,7 +825,7 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
 
   function toggleBuff(k) {
     const next = { ...buffs, [k]: !buffs[k] };
-    setBuffs(next); saveState("cp-buffs", next);
+    setBuffs(next); saveState("cp-buffs", next, activeCharId);
   }
 
   // ── On mount: pull latest cp-* keys from Supabase ───────────────────────────
@@ -835,8 +840,8 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
     };
     // Always call syncCPFromCloud — it will get userId from supabase.auth internally
     // Also listen for wos-user-ready in case auth hasn't resolved yet
-    syncCPFromCloud(null, setters);
-    const handler = (e) => syncCPFromCloud(e.detail.id, setters);
+    syncCPFromCloud(null, activeCharId, setters);
+    const handler = (e) => syncCPFromCloud(e.detail.id, activeCharId, setters);
     window.addEventListener("wos-user-ready", handler, { once: true });
     return () => window.removeEventListener("wos-user-ready", handler);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -963,10 +968,10 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
     });
     const cascaded = cascadePrereqs(next);
     setBuildings(cascaded);
-    saveState("cp-buildings", cascaded);
+    saveState("cp-buildings", cascaded, activeCharId);
   }
 
-  const persist = (setter, key) => (val) => { setter(val); saveState(key, val); };
+  const persist = (setter, key) => (val) => { setter(val); saveState(key, val, activeCharId); };
 
   return (
     <>
@@ -986,7 +991,7 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
               <span style={{fontSize:9,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:C.textSec,fontFamily:"Space Mono,monospace"}}>SvS Cycle</span>
               <select
                 value={selectedCycle}
-                onChange={e => { const v=Number(e.target.value); setSelectedCycle(v); saveState("cp-cycle",v); }}
+                onChange={e => { const v=Number(e.target.value); setSelectedCycle(v); saveState("cp-cycle",v, activeCharId); }}
                 style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,padding:"5px 10px",fontFamily:"Space Mono,monospace",fontSize:12,color:C.accent,outline:"none",cursor:"pointer"}}>
                 {cycleOpts.map(c => (
                   <option key={c.cycleNum} value={c.cycleNum}>
@@ -1144,7 +1149,7 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
                       });
                       const cascaded = cascadePrereqs(next);
                       setBuildings(cascaded);
-                      saveState("cp-buildings", cascaded);
+                      saveState("cp-buildings", cascaded, activeCharId);
                     }}
                     style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,
                       color:C.textPri,fontSize:11,padding:"5px 8px",cursor:"pointer",outline:"none",
@@ -1169,7 +1174,7 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
                       });
                       const cascaded = cascadePrereqs(next);
                       setBuildings(cascaded);
-                      saveState("cp-buildings", cascaded);
+                      saveState("cp-buildings", cascaded, activeCharId);
                     }}
                     style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:6,
                       color:C.textPri,fontSize:11,padding:"5px 8px",cursor:"pointer",outline:"none",
