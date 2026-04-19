@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
+import { _isGuest } from "./useLocalStorage.js";
 import { buildCycles, getCurrentCycleNum, getCycleStartDate, fmtDate as fmtDateCal, cycleLabelFull, addDaysToDate, toIso, FIRST_SVS_MONDAY } from "./svsCalendar.js";
 import { supabase } from "./supabase.js";
 
@@ -654,6 +655,8 @@ function saveState(key, val) {
 }
 
 function loadState(key, fallback) {
+  // Guests should never see stale localStorage data from a previous logged-in session
+  if (_isGuest) return fallback;
   try { const s = localStorage.getItem(key); return s ? JSON.parse(s) : fallback; }
   catch { return fallback; }
 }
@@ -759,7 +762,7 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
   const fc  = planSnapshot ? (planSnapshot.fc  ?? liveFC)  : liveFC;
   const rfc = planSnapshot ? (planSnapshot.rfc ?? liveRFC) : liveRFC;
   const [dailyFCIncome, setDailyFCIncome] = useState(() => loadState("cp-dailyfc", 48));
-  const [agnesLevel, setAgnesLevel] = useState(() => loadState("cp-agnes", 8));
+  const [agnesLevel, setAgnesLevel] = useState(() => loadState("cp-agnes", 0));
 
   // ── Update Plan modal state ───────────────────────────────────────────────────
   const [showUpdateModal, setShowUpdateModal] = useState(false);
@@ -802,7 +805,7 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
   };
 
   // Construction speed — use prop from App.jsx (cloud-synced) if provided, else local state
-  const [speedBuffLocal, setSpeedBuffLocal] = useState(() => loadState("cp-speedbuff", 91.5));
+  const [speedBuffLocal, setSpeedBuffLocal] = useState(() => loadState("cp-speedbuff", 0));
   const speedBuff    = cpSpeedBuffProp  !== undefined ? Number(cpSpeedBuffProp)  : speedBuffLocal;
   const setSpeedBuff = (v) => {
     setSpeedBuffLocal(v);
@@ -812,7 +815,7 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
 
   // Keep pet, chiefOrder, presSkill, presPos as toggles (4 remaining)
   const [buffs, setBuffs] = useState(() => loadState("cp-buffs", {
-    pet: true, chiefOrder: true, presSkill: true, presPos: true,
+    pet: false, chiefOrder: false, presSkill: false, presPos: false,
   }));
 
   function toggleBuff(k) {
