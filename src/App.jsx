@@ -2733,6 +2733,7 @@ export default function App() {
     const charIdForSync = activeCharId;
     if (!charIdForSync) return; // wait until activeCharId is available
     setSyncCharId(charIdForSync);
+    setSyncUserId(user.id); // set before fetch so scheduleSync works immediately
 
     supabase.from("user_data")
       .select("key, value, updated_at")
@@ -2767,8 +2768,33 @@ export default function App() {
           } catch {}
         });
 
+        // Fire wos-user-ready so all useLocalStorage hooks re-read from localStorage
+        window.dispatchEvent(new CustomEvent("wos-user-ready"));
+
+        // Force-write hg-heroes and hg-hero-stats to Supabase if missing from cloud
+        // These may never have been in localStorage so the push-up loop misses them
+        if (!cloudMap.has("hg-heroes")) {
+          const localHG = localStorage.getItem("hg-heroes");
+          if (!localHG) {
+            // Not in localStorage either — write current React state after a short delay
+            // so React state has settled from the wos-user-ready event
+            setTimeout(() => {
+              const raw = localStorage.getItem("hg-heroes");
+              if (raw) scheduleSync("hg-heroes", JSON.parse(raw));
+            }, 2000);
+          }
+        }
+        if (!cloudMap.has("hg-hero-stats")) {
+          const localHS = localStorage.getItem("hg-hero-stats");
+          if (!localHS) {
+            setTimeout(() => {
+              const raw = localStorage.getItem("hg-hero-stats");
+              if (raw) scheduleSync("hg-hero-stats", JSON.parse(raw));
+            }, 2000);
+          }
+        }
+
         // Fire event — mounted hooks re-read from localStorage
-        setSyncUserId(user.id);
         setTimeout(() => setProfileVersion(v => v + 1), 1500);
         // Load notifications for this user
         fetchNotifications(user.id).then(setNotifications);

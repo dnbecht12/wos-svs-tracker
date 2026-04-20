@@ -30,7 +30,11 @@ export const NO_SYNC_KEYS = new Set([
 // Pending write queue — batches rapid updates into a single Supabase write
 const _writeTimers = {};
 export function scheduleSync(key, value) {
-  if (!_syncUserId || !_syncCharId || NO_SYNC_KEYS.has(key)) return;
+  if (!_syncUserId || !_syncCharId || NO_SYNC_KEYS.has(key)) {
+    if (key === "hg-heroes" || key === "hg-hero-stats")
+      console.warn("[scheduleSync] skipped", key, {_syncUserId, _syncCharId});
+    return;
+  }
   const timerKey = `${_syncCharId}:${key}`;
   clearTimeout(_writeTimers[timerKey]);
   _writeTimers[timerKey] = setTimeout(async () => {
