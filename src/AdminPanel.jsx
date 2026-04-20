@@ -393,9 +393,10 @@ function ReportIssueModal({ user, currentPage, onClose, submitIssue }) {
 function AdminPage({ onStatsUpdated }) {
   const C = COLORS;
   const [adminTab,      setAdminTab]      = useState("submissions");
-  const [adminMessages, setAdminMessages] = useState([]);
-  const [msgLoading,    setMsgLoading]    = useState(false);
-  const [msgReplyText,  setMsgReplyText]  = useState({});
+  const [adminMessages,   setAdminMessages]   = useState([]);
+  const [msgLoading,      setMsgLoading]      = useState(false);
+  const [msgReplyText,    setMsgReplyText]    = useState({});
+  const [unreadMsgCount,  setUnreadMsgCount]  = useState(0);
   const [submissions,   setSubmissions]   = useState([]);
   const [loading,       setLoading]       = useState(true);
   const [note,          setNote]          = useState({});
@@ -558,11 +559,28 @@ function AdminPage({ onStatsUpdated }) {
     const { data } = await supabase.from("user_messages").select("*")
       .order("created_at", { ascending: true });
     setAdminMessages(data || []);
+    // Recompute unread count
+    const unread = (data || []).filter(m => !m.read_by_admin && m.sender === "user").length;
+    setUnreadMsgCount(unread);
     setMsgLoading(false);
   };
 
-  useEffect(() => { load(); loadIssues(); }, []);
-  useEffect(() => { if (adminTab === "messages")   loadAdminMessages(); }, [adminTab]);
+  useEffect(() => {
+    load();
+    loadIssues();
+    // Load unread message count for tab badge
+    supabase.from("user_messages")
+      .select("*", { count: "exact", head: true })
+      .eq("read_by_admin", false)
+      .eq("sender", "user")
+      .then(({ count }) => setUnreadMsgCount(count || 0));
+  }, []);
+  useEffect(() => {
+    if (adminTab === "messages") {
+      loadAdminMessages();
+      setUnreadMsgCount(0); // clear badge when tab is opened
+    }
+  }, [adminTab]);
   useEffect(() => { if (adminTab === "dataexport") loadExportUsers();    }, [adminTab]);
 
   const [handleError, setHandleError] = useState("");
@@ -693,7 +711,7 @@ function AdminPage({ onStatsUpdated }) {
         {[
           {id:"submissions", label:"📋 Stat Submissions"},
           {id:"issues",      label:"🚩 Issue Tracking", count: issues.filter(i=>i.status!=="closed").length},
-          {id:"messages",    label:"✉️ User Messages"},
+          {id:"messages",    label:"✉️ User Messages", count: unreadMsgCount},
           {id:"dataexport",  label:"💾 Data Export"},
         ].map(tab => (
           <button key={tab.id} type="button"
@@ -1446,5 +1464,5 @@ function AdminPage({ onStatsUpdated }) {
 }
 
 // ─── Exports ──────────────────────────────────────────────────────────────────
-export { AdminPage, ReportIssueModal, submitIssue, sendMessage,
+export { AdminPage, ReportIssueModal, ThreadView, submitIssue, sendMessage,
          fetchUserThreads, markMessagesReadByUser, closeThread };

@@ -113,7 +113,7 @@ import { GEAR_DB, EMPOWERMENT, GEAR_TYPE, HERO_GEAR_SET, SLOT_TO_GEAR, getGearSt
 import { HeroesPage, HeroGearPage, HERO_ROSTER, HERO_SLOTS, GEAR_SLOTS,
          defaultAllHeroStats, defaultHeroState }
   from "./Heroes.jsx";
-import { AdminPage, ReportIssueModal, submitIssue, sendMessage,
+import { AdminPage, ReportIssueModal, ThreadView, submitIssue, sendMessage,
          fetchUserThreads, markMessagesReadByUser, closeThread }
   from "./AdminPanel.jsx";
 
@@ -2766,9 +2766,9 @@ export default function App() {
         // Load pending count for admin nav dot
         if (user.id === ADMIN_UID) {
           Promise.all([
-            supabase.from("issue_reports").select("id", {count:"exact"}).eq("status","submitted"),
-            supabase.from("stat_submissions").select("id", {count:"exact"}).eq("status","pending"),
-            supabase.from("user_messages").select("id", {count:"exact"}).eq("read_by_admin", false).eq("sender","user"),
+            supabase.from("issue_reports").select("*", {count:"exact",head:true}).eq("status","submitted"),
+            supabase.from("stat_submissions").select("*", {count:"exact",head:true}).eq("status","pending"),
+            supabase.from("user_messages").select("*", {count:"exact",head:true}).eq("read_by_admin",false).eq("sender","user"),
           ]).then(([issues, subs, msgs]) => {
             setPendingAdminCount((issues.count || 0) + (subs.count || 0) + (msgs.count || 0));
           });
