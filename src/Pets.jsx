@@ -335,22 +335,51 @@ const PetDrawer = React.memo(function PetDrawer({ pet, data, onChange, inv }) {
 
       {/* Current stat display */}
       {d.level > 0 && (() => {
-        const stat = getPetStat(pet.quality, d.level, d.advanced);
+        const baseStat = getPetStat(pet.quality, d.level, false);
+        const advStat  = getPetStat(pet.quality, d.level, true);
+        const hasAdv   = advStat !== null && advStat !== baseStat;
+        const stat     = d.advanced && advStat !== null ? advStat : baseStat;
         return stat !== null ? (
-          <div style={{ padding:"6px 16px", background:C.accentBg,
+          <div style={{ padding:"8px 16px", background:C.accentBg,
             borderBottom:`1px solid ${C.accentDim}`,
-            display:"flex", alignItems:"center", gap:16 }}>
+            display:"flex", alignItems:"center", gap:20, flexWrap:"wrap" }}>
             <span style={{ fontSize:10, fontWeight:700, color:C.textDim,
               fontFamily:"'Space Mono',monospace", textTransform:"uppercase",
-              letterSpacing:"1px" }}>Current Stats</span>
-            <span style={{ fontSize:12, color:C.accent,
-              fontFamily:"'Space Mono',monospace", fontWeight:700 }}>
-              Troops' Attack: +{stat.toFixed(2)}%
-            </span>
-            <span style={{ fontSize:12, color:C.accent,
-              fontFamily:"'Space Mono',monospace", fontWeight:700 }}>
-              Troops' Defense: +{stat.toFixed(2)}%
-            </span>
+              letterSpacing:"1px" }}>Troop Buffs</span>
+            {/* Attack */}
+            <div style={{ display:"flex", flexDirection:"column" }}>
+              <span style={{ fontSize:9, color:C.textDim,
+                fontFamily:"'Space Mono',monospace" }}>Troops' Attack</span>
+              <span style={{ fontSize:13, fontWeight:800, color:C.accent,
+                fontFamily:"Syne,sans-serif" }}>+{stat.toFixed(2)}%</span>
+              {hasAdv && !d.advanced && (
+                <span style={{ fontSize:9, color:C.green,
+                  fontFamily:"'Space Mono',monospace" }}>
+                  → +{advStat.toFixed(2)}% after Advance
+                </span>
+              )}
+            </div>
+            {/* Defense */}
+            <div style={{ display:"flex", flexDirection:"column" }}>
+              <span style={{ fontSize:9, color:C.textDim,
+                fontFamily:"'Space Mono',monospace" }}>Troops' Defense</span>
+              <span style={{ fontSize:13, fontWeight:800, color:C.accent,
+                fontFamily:"Syne,sans-serif" }}>+{stat.toFixed(2)}%</span>
+              {hasAdv && !d.advanced && (
+                <span style={{ fontSize:9, color:C.green,
+                  fontFamily:"'Space Mono',monospace" }}>
+                  → +{advStat.toFixed(2)}% after Advance
+                </span>
+              )}
+            </div>
+            {d.advanced && (
+              <span style={{ fontSize:9, padding:"2px 7px", borderRadius:10,
+                background:C.green+"22", color:C.green,
+                border:`1px solid ${C.green}44`,
+                fontFamily:"'Space Mono',monospace", fontWeight:700 }}>
+                ✓ ADVANCED
+              </span>
+            )}
           </div>
         ) : null;
       })()}
