@@ -1328,7 +1328,7 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
 }
 
 // ─── Report Issue Modal ───────────────────────────────────────────────────────
-function HeroesPage({ genFilter, setGenFilter, heroStats, setHeroStats, currentUser, activeCharacter, hgHeroes, heroStatsVersion }) {
+function HeroesPage({ genFilter, setGenFilter, heroStats, setHeroStats, setHgHeroes, currentUser, activeCharacter, hgHeroes, heroStatsVersion }) {
   // Preserve scroll position when heroStats updates (prevents jump-to-top on select change)
   const scrollRef = React.useRef(0);
   const updateStat_raw = (heroName, field, value) => {
@@ -1337,6 +1337,18 @@ function HeroesPage({ genFilter, setGenFilter, heroStats, setHeroStats, currentU
       ...prev,
       [heroName]: { ...(prev[heroName] || defaultHeroStats()), [field]: value },
     }));
+    // Sync widget changes back to hgHeroes widgetCurrent for any slot using this hero
+    if (field === "widget") {
+      setHgHeroes(prev => prev.map(h => {
+        if (h.hero !== heroName) return h;
+        return {
+          ...h,
+          slots: h.slots.map((s, si) =>
+            si === 4 ? { ...s, widgetCurrent: value, widgetGoal: Math.max(s.widgetGoal ?? 0, value) } : s
+          ),
+        };
+      }));
+    }
   };
   React.useLayoutEffect(() => {
     if (scrollRef.current > 0) {
@@ -1702,19 +1714,20 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
 
   // Update a gear slot field with goal-floor enforcement + widget sync to heroStats
   const setSlotField = (heroIdx, slotIdx, field, value) => {
+    // Widget sync: if setting widgetCurrent, update heroStats OUTSIDE the setHeroData
+    // updater — calling setState inside another setState updater is unreliable in React
+    if (field === "widgetCurrent" && slotIdx === 4) {
+      const heroName = heroData[heroIdx]?.hero;
+      if (heroName) {
+        setHeroStats(ps => ({
+          ...ps,
+          [heroName]: { ...(ps[heroName] || defaultHeroStats()), widget: value },
+        }));
+      }
+    }
+
     setHeroData(prev => prev.map((h, hi) => {
       if (hi !== heroIdx) return h;
-
-      // Widget sync: if setting widgetCurrent, also update heroStats for this hero
-      if (field === "widgetCurrent" && slotIdx === 4) {
-        const heroName = h.hero;
-        if (heroName) {
-          setHeroStats(ps => ({
-            ...ps,
-            [heroName]: { ...(ps[heroName] || defaultHeroStats()), widget: value },
-          }));
-        }
-      }
 
       return {
         ...h,

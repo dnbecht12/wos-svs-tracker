@@ -3307,7 +3307,7 @@ export default function App() {
                 onLoadPlan={handleLoadPlan}
                 openSavePopup={user ? openSavePopup : null}
                 currentUser={user} />}
-            {page === "heroes"      && <HeroesPage    genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} currentUser={user} activeCharacter={activeCharacter} hgHeroes={hgHeroes} heroStatsVersion={heroStatsVersion} />}
+            {page === "heroes"      && <HeroesPage    genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} setHgHeroes={setHgHeroes} currentUser={user} activeCharacter={activeCharacter} hgHeroes={hgHeroes} heroStatsVersion={heroStatsVersion} />}
             {page === "admin"       && user?.id === ADMIN_UID && <AdminPage onStatsUpdated={() => setHeroStatsVersion(v => v + 1)} />}
 
             {page === "hero-gear"    && <HeroGearPage    inv={inv} genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} hgHeroes={hgHeroes} setHgHeroes={setHgHeroes} />}
