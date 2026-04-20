@@ -1483,6 +1483,106 @@ function AdminPage({ onStatsUpdated }) {
   const [closeNote,     setCloseNote]     = useState("");
   const [confirmClose,  setConfirmClose]  = useState(false); // show "are you sure" overlay
 
+  // ── Data Export state ──────────────────────────────────────────────────────
+  const [exportUsers,   setExportUsers]   = useState([]);
+  const [exportLoading, setExportLoading] = useState(false);
+  const [exportBusy,    setExportBusy]    = useState({});
+  const [importBusy,    setImportBusy]    = useState({});
+  const [importMsg,     setImportMsg]     = useState({});
+
+  // ── Data Export helpers ───────────────────────────────────────────────────
+  const loadExportUsers = async () => {
+    setExportLoading(true);
+    try {
+      const { data: chars } = await supabase
+        .from("characters")
+        .select("id, name, alliance, state_number, is_default, user_id")
+        .order("user_id").order("created_at");
+      const { data: profiles } = await supabase
+        .from("profiles").select("id, display_name");
+      const profileMap = Object.fromEntries((profiles || []).map(p => [p.id, p.display_name]));
+      const byUser = {};
+      (chars || []).forEach(c => {
+        if (!byUser[c.user_id]) byUser[c.user_id] = { user_id: c.user_id, characters: [] };
+        byUser[c.user_id].characters.push(c);
+      });
+      setExportUsers(Object.values(byUser).map(u => ({
+        ...u,
+        display_name: profileMap[u.user_id] || u.user_id.slice(0,8) + "…",
+      })));
+    } catch(e) { console.error("loadExportUsers", e); }
+    setExportLoading(false);
+  };
+
+  const exportCharacter = async (char, userLabel) => {
+    setExportBusy(prev => ({ ...prev, [char.id]: true }));
+    try {
+      const [udRes, charRes, plansRes] = await Promise.all([
+        supabase.from("user_data").select("key, value, updated_at").eq("char_id", char.id),
+        supabase.from("characters").select("inventory, plan_snapshot").eq("id", char.id).single(),
+        supabase.from("saved_plans").select("plan_key, data").eq("character_id", char.id),
+      ]);
+      const bundle = {
+        exported_at:   new Date().toISOString(),
+        user_id:       char.user_id,
+        char_id:       char.id,
+        char_name:     char.name,
+        user_label:    userLabel,
+        user_data:     udRes.data    || [],
+        inventory:     charRes.data?.inventory     || null,
+        plan_snapshot: charRes.data?.plan_snapshot || null,
+        saved_plans:   plansRes.data || [],
+      };
+      const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: "application/json" });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = url;
+      a.download = `tundra-${char.name.replace(/\s+/g,"-").toLowerCase()}-${new Date().toISOString().slice(0,10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch(e) { console.error("exportCharacter", e); }
+    setExportBusy(prev => ({ ...prev, [char.id]: false }));
+  };
+
+  const importCharacter = async (char, file) => {
+    setImportBusy(prev => ({ ...prev, [char.id]: true }));
+    setImportMsg(prev =>  ({ ...prev, [char.id]: "" }));
+    try {
+      const bundle = JSON.parse(await file.text());
+      if (bundle.char_id !== char.id) {
+        setImportMsg(prev => ({ ...prev, [char.id]: "❌ File is for a different character." }));
+        setImportBusy(prev => ({ ...prev, [char.id]: false }));
+        return;
+      }
+      if (bundle.user_data?.length) {
+        await supabase.from("user_data").upsert(
+          bundle.user_data.map(r => ({
+            user_id: char.user_id, char_id: char.id,
+            key: r.key, value: r.value, updated_at: new Date().toISOString(),
+          })),
+          { onConflict: "user_id,char_id,key" }
+        );
+      }
+      const upd = {};
+      if (bundle.inventory     !== null) upd.inventory     = bundle.inventory;
+      if (bundle.plan_snapshot !== null) upd.plan_snapshot = bundle.plan_snapshot;
+      if (Object.keys(upd).length) await supabase.from("characters").update(upd).eq("id", char.id);
+      if (bundle.saved_plans?.length) {
+        await supabase.from("saved_plans").upsert(
+          bundle.saved_plans.map(r => ({
+            character_id: char.id, plan_key: r.plan_key,
+            data: r.data, updated_at: new Date().toISOString(),
+          })),
+          { onConflict: "character_id,plan_key" }
+        );
+      }
+      setImportMsg(prev => ({ ...prev, [char.id]: "✅ Restored successfully!" }));
+    } catch(e) {
+      setImportMsg(prev => ({ ...prev, [char.id]: `❌ Error: ${e.message}` }));
+    }
+    setImportBusy(prev => ({ ...prev, [char.id]: false }));
+  };
+
   const loadIssues = async () => {
     setIssuesLoading(true);
     const data = await fetchIssues();
@@ -1551,6 +1651,7 @@ function AdminPage({ onStatsUpdated }) {
   };
 
   useEffect(() => { load(); loadIssues(); }, []);
+  useEffect(() => { if (adminTab === "dataexport") loadExportUsers(); }, [adminTab]);
 
   const [handleError, setHandleError] = useState("");
 
@@ -1680,6 +1781,7 @@ function AdminPage({ onStatsUpdated }) {
         {[
           {id:"submissions", label:"📋 Stat Submissions"},
           {id:"issues",      label:"🚩 Issue Tracking", count: issues.filter(i=>i.status!=="closed").length},
+          {id:"dataexport",  label:"💾 Data Export"},
         ].map(tab => (
           <button key={tab.id} type="button"
             onClick={() => setAdminTab(tab.id)}
@@ -3016,6 +3118,87 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
           </table>
         </div>
       </div>
+
+      {/* ── Data Export ──────────────────────────────────────────────── */}
+      {adminTab === "dataexport" && (
+        <div>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+            <div style={{fontSize:13,fontWeight:700,color:C.textPri}}>Character Data Export / Restore</div>
+            <button onClick={loadExportUsers} style={{padding:"5px 12px",borderRadius:6,fontSize:11,
+              background:C.surface,border:`1px solid ${C.border}`,color:C.textSec,cursor:"pointer"}}>
+              🔄 Refresh
+            </button>
+          </div>
+
+          {exportLoading ? (
+            <div style={{color:C.textDim,fontSize:12,fontFamily:"'Space Mono',monospace"}}>Loading users…</div>
+          ) : exportUsers.map(u => (
+            <div key={u.user_id} style={{marginBottom:20,border:`1px solid ${C.border}`,borderRadius:10,overflow:"hidden"}}>
+              {/* User header */}
+              <div style={{padding:"10px 16px",background:C.surface,borderBottom:`1px solid ${C.border}`,
+                fontSize:12,fontWeight:700,color:C.textDim,fontFamily:"'Space Mono',monospace"}}>
+                👤 {u.display_name} <span style={{fontSize:10,color:C.textDim,fontWeight:400}}>({u.user_id.slice(0,8)}…)</span>
+              </div>
+
+              {/* Characters */}
+              {u.characters.map(char => (
+                <div key={char.id} style={{padding:"12px 16px",borderBottom:`1px solid ${C.border}40`,
+                  display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8}}>
+                  <div>
+                    <span style={{fontSize:13,fontWeight:700,color:C.textPri}}>
+                      {char.alliance ? `[${char.alliance}] ` : ""}{char.name}
+                    </span>
+                    {char.is_default && (
+                      <span style={{marginLeft:8,fontSize:9,fontWeight:700,background:C.accentBg,
+                        color:C.accent,border:`1px solid ${C.accentDim}`,padding:"1px 5px",borderRadius:3}}>
+                        DEFAULT
+                      </span>
+                    )}
+                    {char.state_number && (
+                      <span style={{marginLeft:8,fontSize:11,color:C.textDim}}>State {char.state_number}</span>
+                    )}
+                    <div style={{fontSize:10,color:C.textDim,fontFamily:"'Space Mono',monospace",marginTop:2}}>
+                      {char.id.slice(0,16)}…
+                    </div>
+                    {importMsg[char.id] && (
+                      <div style={{fontSize:11,marginTop:4,color:importMsg[char.id].startsWith("✅") ? C.green : C.red,
+                        fontFamily:"'Space Mono',monospace"}}>{importMsg[char.id]}</div>
+                    )}
+                  </div>
+
+                  <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                    {/* Export button */}
+                    <button
+                      disabled={exportBusy[char.id]}
+                      onClick={() => exportCharacter(char, u.display_name)}
+                      style={{padding:"6px 14px",borderRadius:6,fontSize:11,fontWeight:700,cursor:"pointer",
+                        background:C.blueBg,color:C.blue,border:`1px solid ${C.blueDim}`,
+                        opacity:exportBusy[char.id]?0.5:1}}>
+                      {exportBusy[char.id] ? "Exporting…" : "⬇ Export"}
+                    </button>
+
+                    {/* Import / Restore button */}
+                    <label style={{padding:"6px 14px",borderRadius:6,fontSize:11,fontWeight:700,
+                      cursor:importBusy[char.id]?"not-allowed":"pointer",
+                      background:C.amberBg,color:C.amber,border:`1px solid ${C.amberDim}`,
+                      opacity:importBusy[char.id]?0.5:1,userSelect:"none"}}>
+                      {importBusy[char.id] ? "Restoring…" : "⬆ Restore"}
+                      <input type="file" accept=".json" style={{display:"none"}}
+                        disabled={importBusy[char.id]}
+                        onChange={e => {
+                          const file = e.target.files?.[0];
+                          if (file) importCharacter(char, file);
+                          e.target.value = "";
+                        }} />
+                    </label>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+
     </div>
   );
 }
