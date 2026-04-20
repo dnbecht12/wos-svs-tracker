@@ -1085,92 +1085,89 @@ function ExpertStatsSummary({ expertData }) {
   const C = COLORS;
   const [collapsed, setCollapsed] = React.useState(false);
   const getD = (name) => expertData[name] || {};
-
-  const expertColors = {
-    Cyrille:"#4A9EBF", Agnes:"#7B9E6B", Romulus:"#C0392B",
-    Holger:"#8E44AD", Fabian:"#D4A017", Baldur:"#16A085",
-    Valeria:"#E3731A", Ronne:"#2980B9", Kathy:"#636e72",
-  };
-
-  const getStatRows = () => {
-    const rows = [];
-    const cyrLv = Number(getD("Cyrille").level ?? 0);
-    if (cyrLv > 0) rows.push({ expert:"Cyrille", stat:"Troops' Attack",    value: EXPERT_LEVEL_STATS.Cyrille[cyrLv] ?? 0, source:`Lv ${cyrLv}` });
-    const agnLv = Number(getD("Agnes").level ?? 0);
-    if (agnLv > 0) rows.push({ expert:"Agnes",   stat:"Troops' Defense",   value: EXPERT_LEVEL_STATS.Agnes[agnLv]   ?? 0, source:`Lv ${agnLv}` });
-    const dRom  = getD("Romulus");
-    const romLv = Number(dRom.level  ?? 0);
-    const romSk2 = Number(dRom.sk2Level ?? 0);
-    const romSk3 = Number(dRom.sk3Level ?? 0);
-    if (romLv > 0) {
-      const v = EXPERT_LEVEL_STATS.Romulus[romLv] ?? 0;
-      rows.push({ expert:"Romulus", stat:"Troops' Lethality", value: v, source:`Lv ${romLv}` });
-      rows.push({ expert:"Romulus", stat:"Troops' Health",    value: v, source:`Lv ${romLv}` });
-    }
-    if (romSk2 > 0) {
-      const v = ROMULUS_SK2_STAT[romSk2] ?? 0;
-      rows.push({ expert:"Romulus", stat:"Troops' Attack",  value: v, source:`Sk2 (Last Line) Lv ${romSk2}` });
-      rows.push({ expert:"Romulus", stat:"Troops' Defense", value: v, source:`Sk2 (Last Line) Lv ${romSk2}` });
-    }
-    if (romSk3 > 0) {
-      const v = ROMULUS_SK3_STAT[romSk3] ?? 0;
-      rows.push({ expert:"Romulus", stat:"Troops' Lethality", value: v, source:`Sk3 (Spirit) Lv ${romSk3}` });
-      rows.push({ expert:"Romulus", stat:"Troops' Health",    value: v, source:`Sk3 (Spirit) Lv ${romSk3}` });
-    }
-    const fabLv = Number(getD("Fabian").level ?? 0);
-    if (fabLv > 0) {
-      const fabVal = EXPERT_LEVEL_STATS.Fabian[fabLv] ?? 0;
-      rows.push({ expert:"Fabian", stat:"Troops' Lethality", value: fabVal, source:`Lv ${fabLv} (Foundry/Hellfire)` });
-      rows.push({ expert:"Fabian", stat:"Troops' Health",    value: fabVal, source:`Lv ${fabLv} (Foundry/Hellfire)` });
-    }
-    // Holger: Troops' Attack & Defense
-    const holLv = Number(getD("Holger").level ?? 0);
-    if (holLv > 0) {
-      const holVal = EXPERT_LEVEL_STATS.Holger[holLv] ?? 0;
-      rows.push({ expert:"Holger", stat:"Troops' Attack",  value: holVal, source:`Lv ${holLv}` });
-      rows.push({ expert:"Holger", stat:"Troops' Defense", value: holVal, source:`Lv ${holLv}` });
-    }
-    // Baldur: Troops' Attack & Defense (distinct curve, lower than others)
-    const balLv = Number(getD("Baldur").level ?? 0);
-    if (balLv > 0) {
-      const balVal = EXPERT_LEVEL_STATS.Baldur[balLv] ?? 0;
-      rows.push({ expert:"Baldur", stat:"Troops' Attack",  value: balVal, source:`Lv ${balLv}` });
-      rows.push({ expert:"Baldur", stat:"Troops' Defense", value: balVal, source:`Lv ${balLv}` });
-    }
-    // Valeria: Troops' Lethality & Health (applies during SvS Battle Phase)
-    const valLv = Number(getD("Valeria").level ?? 0);
-    if (valLv > 0) {
-      const valVal = EXPERT_LEVEL_STATS.Valeria[valLv] ?? 0;
-      rows.push({ expert:"Valeria", stat:"Troops' Lethality", value: valVal, source:`Lv ${valLv} (SvS Battle Phase)` });
-      rows.push({ expert:"Valeria", stat:"Troops' Health",    value: valVal, source:`Lv ${valLv} (SvS Battle Phase)` });
-    }
-    // Ronne: Troops' Attack & Defense (applies during raids/raiding)
-    const ronneLv = Number(getD("Ronne").level ?? 0);
-    if (ronneLv > 0) {
-      const ronneVal = EXPERT_LEVEL_STATS.Ronne[ronneLv] ?? 0;
-      rows.push({ expert:"Ronne", stat:"Troops' Attack",  value: ronneVal, source:`Lv ${ronneLv} (raid bonus)` });
-      rows.push({ expert:"Ronne", stat:"Troops' Defense", value: ronneVal, source:`Lv ${ronneLv} (raid bonus)` });
-    }
-    // Kathy: Troops' Lethality & Health
-    const kathyLv = Number(getD("Kathy").level ?? 0);
-    if (kathyLv > 0) {
-      const kathyVal = EXPERT_LEVEL_STATS.Kathy[kathyLv] ?? 0;
-      rows.push({ expert:"Kathy", stat:"Troops' Lethality", value: kathyVal, source:`Lv ${kathyLv}` });
-      rows.push({ expert:"Kathy", stat:"Troops' Health",    value: kathyVal, source:`Lv ${kathyLv}` });
-    }
-    return rows;
-  };
-
-  const STAT_ORDER = ["Troops' Attack","Troops' Defense","Troops' Lethality","Troops' Health"];
-  const statRows = getStatRows();
-  const totals = {};
-  STAT_ORDER.forEach(s => { totals[s] = 0; });
-  statRows.forEach(r => { if (totals[r.stat] !== undefined) totals[r.stat] += r.value; });
-
-  const dRom = getD("Romulus");
-  const romulusDeploy = ROMULUS_BONUS_DEPLOY[Number(dRom.affinity ?? 0)] ?? 0;
-  const romulusRally  = ROMULUS_SK4_RALLY[Number(dRom.sk4Level ?? 0)] ?? 0;
   const pct = v => `${(v * 100).toFixed(2)}%`;
+
+  // ── Always-on totals (sum all non-event experts) ──────────────────────────
+  const STAT_ORDER = ["Troops' Attack", "Troops' Defense", "Troops' Lethality", "Troops' Health"];
+  const totals = Object.fromEntries(STAT_ORDER.map(s => [s, 0]));
+
+  const add = (stat, val) => { if (totals[stat] !== undefined) totals[stat] += (val ?? 0); };
+
+  const cyrLv  = Number(getD("Cyrille").level  ?? 0);
+  const agnLv  = Number(getD("Agnes").level    ?? 0);
+  const holLv  = Number(getD("Holger").level   ?? 0);
+  const balLv  = Number(getD("Baldur").level   ?? 0);
+  const kathyLv= Number(getD("Kathy").level    ?? 0);
+  const dRom   = getD("Romulus");
+  const romLv  = Number(dRom.level   ?? 0);
+  const romSk2 = Number(dRom.sk2Level ?? 0);
+  const romSk3 = Number(dRom.sk3Level ?? 0);
+
+  // Cyrille — Troops' Attack
+  add("Troops' Attack",    EXPERT_LEVEL_STATS.Cyrille?.[cyrLv]  ?? 0);
+  // Agnes — Troops' Defense
+  add("Troops' Defense",   EXPERT_LEVEL_STATS.Agnes?.[agnLv]    ?? 0);
+  // Holger — Troops' Attack & Defense
+  add("Troops' Attack",    EXPERT_LEVEL_STATS.Holger?.[holLv]   ?? 0);
+  add("Troops' Defense",   EXPERT_LEVEL_STATS.Holger?.[holLv]   ?? 0);
+  // Baldur — Troops' Attack & Defense
+  add("Troops' Attack",    EXPERT_LEVEL_STATS.Baldur?.[balLv]   ?? 0);
+  add("Troops' Defense",   EXPERT_LEVEL_STATS.Baldur?.[balLv]   ?? 0);
+  // Kathy — Troops' Lethality & Health
+  add("Troops' Lethality", EXPERT_LEVEL_STATS.Kathy?.[kathyLv]  ?? 0);
+  add("Troops' Health",    EXPERT_LEVEL_STATS.Kathy?.[kathyLv]  ?? 0);
+  // Romulus level — Troops' Lethality & Health
+  add("Troops' Lethality", EXPERT_LEVEL_STATS.Romulus?.[romLv]  ?? 0);
+  add("Troops' Health",    EXPERT_LEVEL_STATS.Romulus?.[romLv]  ?? 0);
+  // Romulus sk2 — Troops' Attack & Defense (always-on)
+  add("Troops' Attack",    ROMULUS_SK2_STAT?.[romSk2] ?? 0);
+  add("Troops' Defense",   ROMULUS_SK2_STAT?.[romSk2] ?? 0);
+  // Romulus sk3 — Troops' Lethality & Health (always-on)
+  add("Troops' Lethality", ROMULUS_SK3_STAT?.[romSk3] ?? 0);
+  add("Troops' Health",    ROMULUS_SK3_STAT?.[romSk3] ?? 0);
+
+  // ── Event-specific buffs (called out separately) ──────────────────────────
+  const fabLv   = Number(getD("Fabian").level  ?? 0);
+  const valLv   = Number(getD("Valeria").level ?? 0);
+  const ronneLv = Number(getD("Ronne").level   ?? 0);
+
+  const fabVal   = EXPERT_LEVEL_STATS.Fabian?.[fabLv]   ?? 0;
+  const valVal   = EXPERT_LEVEL_STATS.Valeria?.[valLv]  ?? 0;
+  const ronneVal = EXPERT_LEVEL_STATS.Ronne?.[ronneLv]  ?? 0;
+
+  const eventBuffs = [
+    fabLv > 0 && {
+      expert:"Fabian", event:"Foundry / Hellfire",
+      stats: [
+        { stat:"Troops' Lethality", value: fabVal },
+        { stat:"Troops' Health",    value: fabVal },
+      ],
+    },
+    valLv > 0 && {
+      expert:"Valeria", event:"SvS Battle Phase",
+      stats: [
+        { stat:"Troops' Lethality", value: valVal },
+        { stat:"Troops' Health",    value: valVal },
+      ],
+    },
+    ronneLv > 0 && {
+      expert:"Ronne", event:"Raids",
+      stats: [
+        { stat:"Troops' Attack",  value: ronneVal },
+        { stat:"Troops' Defense", value: ronneVal },
+      ],
+    },
+  ].filter(Boolean);
+
+  const romulusDeploy = ROMULUS_BONUS_DEPLOY[Number(dRom.affinity  ?? 0)] ?? 0;
+  const romulusRally  = ROMULUS_SK4_RALLY[Number(dRom.sk4Level ?? 0)] ?? 0;
+
+  const expertEventColors = {
+    Fabian:"#D4A017", Valeria:"#E3731A", Ronne:"#2980B9",
+  };
+
+  const anyData = STAT_ORDER.some(s => totals[s] > 0) || eventBuffs.length > 0
+    || romulusDeploy > 0 || romulusRally > 0;
 
   return (
     <div style={{ marginTop:20 }}>
@@ -1187,7 +1184,7 @@ function ExpertStatsSummary({ expertData }) {
             Troop Stat Contributions
           </div>
           <div style={{ fontSize:11, color:C.textSec, fontFamily:"'Space Mono',monospace", marginTop:2 }}>
-            Permanent buffs from expert levels & skills · feeds into Chief Profile
+            Summed buffs from all experts · event-specific buffs shown separately
           </div>
         </div>
         <div style={{ display:"flex", alignItems:"center", gap:8 }}>
@@ -1195,7 +1192,7 @@ function ExpertStatsSummary({ expertData }) {
             <span key={s} style={{ fontSize:10, padding:"2px 8px", borderRadius:8,
               background:C.green+"22", color:C.green, border:`1px solid ${C.green}44`,
               fontFamily:"'Space Mono',monospace" }}>
-              {s.replace("Troops' ","")}: +{pct(totals[s])}
+              {s.replace("Troops' ","")} +{pct(totals[s])}
             </span>
           ))}
           <span style={{ color:C.textDim, fontSize:14 }}>{collapsed ? "▼" : "▲"}</span>
@@ -1206,48 +1203,29 @@ function ExpertStatsSummary({ expertData }) {
         <div style={{ background:C.card, border:`1px solid ${C.border}`,
           borderTop:"none", borderRadius:"0 0 10px 10px", overflow:"hidden" }}>
 
-          {statRows.length === 0 ? (
+          {!anyData ? (
             <div style={{ padding:"20px 16px", textAlign:"center", color:C.textDim,
               fontSize:12, fontFamily:"'Space Mono',monospace" }}>
               Set expert levels above to see stat contributions
             </div>
           ) : (
             <>
-              <table style={{ borderCollapse:"collapse", width:"100%" }}>
-                <thead>
-                  <tr style={{ background:C.surface }}>
-                    {["Expert","Stat","Value","Source"].map(h => (
-                      <th key={h} style={{ padding:"8px 12px", fontSize:10, fontWeight:700,
-                        color:C.textDim, textAlign:"left", borderBottom:`1px solid ${C.border}`,
-                        fontFamily:"'Space Mono',monospace", textTransform:"uppercase", letterSpacing:"1px" }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {statRows.map((r, i) => (
-                    <tr key={i} style={{ background: i % 2 === 0 ? "transparent" : C.surface }}>
-                      <td style={{ padding:"8px 12px", fontSize:12, fontWeight:700,
-                        color: expertColors[r.expert] ?? C.textPri }}>{r.expert}</td>
-                      <td style={{ padding:"8px 12px", fontSize:12, color:C.textPri }}>{r.stat}</td>
-                      <td style={{ padding:"8px 12px", fontSize:12, fontWeight:700,
-                        color:C.green, fontFamily:"'Space Mono',monospace" }}>+{pct(r.value)}</td>
-                      <td style={{ padding:"8px 12px", fontSize:11, color:C.textDim,
-                        fontFamily:"'Space Mono',monospace" }}>{r.source}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              <div style={{ padding:"12px 16px", background:C.surface, borderTop:`2px solid ${C.border}` }}>
-                <div style={{ fontSize:10, fontWeight:700, color:C.textDim, textTransform:"uppercase",
-                  letterSpacing:"1.5px", fontFamily:"'Space Mono',monospace", marginBottom:8 }}>Totals</div>
+              {/* ── Always-on totals ── */}
+              <div style={{ padding:"14px 16px" }}>
+                <div style={{ fontSize:10, fontWeight:700, color:C.textDim,
+                  textTransform:"uppercase", letterSpacing:"1.5px",
+                  fontFamily:"'Space Mono',monospace", marginBottom:10 }}>
+                  Always-On Buffs (All Sources Combined)
+                </div>
                 <div style={{ display:"flex", flexWrap:"wrap", gap:10 }}>
                   {STAT_ORDER.map(s => (
-                    <div key={s} style={{ display:"flex", flexDirection:"column", padding:"8px 14px",
-                      borderRadius:8, background: totals[s] > 0 ? C.green+"15" : C.card,
+                    <div key={s} style={{ display:"flex", flexDirection:"column",
+                      padding:"8px 14px", borderRadius:8,
+                      background: totals[s] > 0 ? C.green+"15" : C.surface,
                       border:`1px solid ${totals[s] > 0 ? C.green+"44" : C.border}` }}>
-                      <span style={{ fontSize:10, color:C.textDim, fontFamily:"'Space Mono',monospace" }}>{s}</span>
-                      <span style={{ fontSize:16, fontWeight:800, fontFamily:"Syne,sans-serif",
+                      <span style={{ fontSize:10, color:C.textDim,
+                        fontFamily:"'Space Mono',monospace" }}>{s}</span>
+                      <span style={{ fontSize:18, fontWeight:800, fontFamily:"Syne,sans-serif",
                         color: totals[s] > 0 ? C.green : C.textDim }}>
                         {totals[s] > 0 ? `+${pct(totals[s])}` : "—"}
                       </span>
@@ -1256,17 +1234,60 @@ function ExpertStatsSummary({ expertData }) {
                 </div>
               </div>
 
+              {/* ── Event-specific buffs ── */}
+              {eventBuffs.length > 0 && (
+                <div style={{ padding:"12px 16px", borderTop:`1px solid ${C.border}` }}>
+                  <div style={{ fontSize:10, fontWeight:700, color:C.textDim,
+                    textTransform:"uppercase", letterSpacing:"1.5px",
+                    fontFamily:"'Space Mono',monospace", marginBottom:10 }}>
+                    Event-Specific Buffs
+                  </div>
+                  <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                    {eventBuffs.map((eb, i) => (
+                      <div key={i} style={{ padding:"10px 14px", borderRadius:8,
+                        background:C.surface, border:`1px solid ${C.border}`,
+                        display:"flex", alignItems:"center", flexWrap:"wrap", gap:12 }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:8, minWidth:140 }}>
+                          <span style={{ fontSize:12, fontWeight:700,
+                            color: expertEventColors[eb.expert] ?? C.textPri }}>
+                            {eb.expert}
+                          </span>
+                          <span style={{ fontSize:10, padding:"1px 7px", borderRadius:10,
+                            background: expertEventColors[eb.expert]+"22",
+                            color: expertEventColors[eb.expert] ?? C.textDim,
+                            border:`1px solid ${expertEventColors[eb.expert]}44`,
+                            fontFamily:"'Space Mono',monospace", fontWeight:700 }}>
+                            {eb.event}
+                          </span>
+                        </div>
+                        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                          {eb.stats.map((st, j) => (
+                            <div key={j} style={{ fontSize:12, fontFamily:"'Space Mono',monospace",
+                              color:C.amber }}>
+                              {st.stat}: <span style={{ fontWeight:700 }}>+{pct(st.value)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ── Romulus capacity bonuses ── */}
               {(romulusDeploy > 0 || romulusRally > 0) && (
-                <div style={{ padding:"10px 16px", background:C.card,
-                  borderTop:`1px solid ${C.border}`, display:"flex", gap:16, flexWrap:"wrap" }}>
+                <div style={{ padding:"10px 16px", borderTop:`1px solid ${C.border}`,
+                  display:"flex", gap:16, flexWrap:"wrap" }}>
                   {romulusDeploy > 0 && (
-                    <span style={{ fontSize:11, color:C.blue, fontFamily:"'Space Mono',monospace" }}>
-                      🔵 Romulus Bonus (Expedition Army / Deploy Cap): +{romulusDeploy.toLocaleString()} → wired to Chief Profile
+                    <span style={{ fontSize:11, color:C.blue,
+                      fontFamily:"'Space Mono',monospace" }}>
+                      🔵 Romulus Deploy Cap Bonus: +{romulusDeploy.toLocaleString()} → Chief Profile
                     </span>
                   )}
                   {romulusRally > 0 && (
-                    <span style={{ fontSize:11, color:C.blue, fontFamily:"'Space Mono',monospace" }}>
-                      🔵 Romulus Sk4 Rally: +{romulusRally.toLocaleString()} → wired to Chief Profile
+                    <span style={{ fontSize:11, color:C.blue,
+                      fontFamily:"'Space Mono',monospace" }}>
+                      🔵 Romulus Sk4 Rally: +{romulusRally.toLocaleString()} → Chief Profile
                     </span>
                   )}
                 </div>
