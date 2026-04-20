@@ -99,6 +99,7 @@ async function acceptSubmission(submission, forceAccept = false) {
 import ConstructionPlanner, { getBuildingPower, BUILDINGS_LIST } from "./ConstructionPlanner.jsx";
 import RFCPlanner from "./RFCPlanner.jsx";
 import SvSCalendar from "./SvSCalendar.jsx";
+import PetsPage from "./Pets.jsx";
 import { useAuth } from "./useAuth.js";
 import { useCharacters, charLoadInventory, charSaveInventory, charLoadPlans, charSavePlan, charDeletePlan, savePlanSnapshot, loadPlanSnapshot } from "./useCharacters.js";
 import { GEAR_DB, EMPOWERMENT, GEAR_TYPE, HERO_GEAR_SET, SLOT_TO_GEAR, getGearStats, getUnlockedEmpowerments } from "./GearData.js";
@@ -269,6 +270,12 @@ const INITIAL_INVENTORY = {
   valeriaSigils:   0,
   ronneSigils:     0,
   kathySigils:     0,
+  // Pet Materials
+  tamingManuals:      0,
+  energizingPotion:   0,
+  strengtheningSerum: 0,
+  wildMarks:          0,
+  advWildMarks:       0,
   // Chief gear & charms
   chiefPlans:      0,
   chiefPolish:     0,
@@ -1722,6 +1729,14 @@ function InventoryPage({ inv, setInv }) {
         <ResInput label="Kathy Sigils"       icon="KT" field="kathySigils"    value={inv.kathySigils    ?? 0}  onChange={update} color={COLORS.amber} tabIndex={28} />
       </Section>
 
+      <Section title="Pet Materials" sub="Taming Manuals, Energizing Potions, Strengthening Serum, Wild Marks">
+        <ResInput label="Taming Manuals"      icon="TM" field="tamingManuals"      value={inv.tamingManuals      ?? 0} onChange={update} color={COLORS.blue}  tabIndex={29} />
+        <ResInput label="Energizing Potions"  icon="EP" field="energizingPotion"   value={inv.energizingPotion   ?? 0} onChange={update} color={COLORS.blue}  tabIndex={30} />
+        <ResInput label="Strengthening Serum" icon="SS" field="strengtheningSerum" value={inv.strengtheningSerum ?? 0} onChange={update} color={COLORS.blue}  tabIndex={31} />
+        <ResInput label="Wild Marks"          icon="WM" field="wildMarks"          value={inv.wildMarks          ?? 0} onChange={update} color={COLORS.green} tabIndex={32} />
+        <ResInput label="Adv. Wild Marks"     icon="AW" field="advWildMarks"       value={inv.advWildMarks       ?? 0} onChange={update} color={COLORS.accent} tabIndex={33} />
+      </Section>
+
       <Section title="Raw Materials" sub="Basic resources — Meat, Wood, Coal, Iron">
         <ResBigInput label="Meat" icon="MT" field="meat" value={inv.meat??0} unit={inv.meatUnit||"M"} onChangeVal={update} onChangeUnit={update} color={COLORS.green} tabIndex={28} />
         <ResBigInput label="Wood" icon="WD" field="wood" value={inv.wood??0} unit={inv.woodUnit||"M"} onChangeVal={update} onChangeUnit={update} color={COLORS.green} tabIndex={29} />
@@ -1907,6 +1922,7 @@ const PAGES = [
   { id:"chief-gear",       label:"Chief Gear",       icon:"[C]", section:"Chief"                     },
   { id:"chief-charms",     label:"Chief Charms",     icon:"[K]", section:"Chief"                     },
   { id:"experts",          label:"Experts",           icon:"[E]", section:"Chief"                     },
+  { id:"pets",              label:"Pets",              icon:"[P]", section:"Chief"                     },
   { id:"daybreak-island",  label:"Daybreak Island",  icon:"[D]", section:"Chief"                     },
   { id:"inventory",        label:"Inventory",         icon:"[I]", section:"Chief"                     },
   // COMBAT
@@ -1936,6 +1952,7 @@ const PAGE_TITLES = {
   "research-center": { title: "Research Center", sub: "Growth, Economy & Battle research trees — track per-level costs, buffs and time across all tiers" },
   "troops":     { title: "Troops", sub: "Troop inventory — track your Infantry, Lancer and Marksman counts by tier" },
   "svs-calendar":{ title: "SvS Calendar", sub: "Rolling 28-week schedule — SvS every 4th week, King of Icefield every 2nd week" },
+  "pets":          { title: "Pets", sub: "Pet levels, advancement costs, skill tracker and refinement stats" },
   "char-profile": { title: "Chief Profile", sub: "Total power summary — tech, gear, heroes, charms, military and growth stats" },
   alliance:     { title: "Alliance Scores", sub: "SvS prep scores and historical results" },
   admin:        { title: "Admin", sub: "Review and approve hero stat submissions" },
@@ -2656,7 +2673,7 @@ export default function App() {
       "wa-levels","wa-speedbuff","wa-buffs","wa-dailyshards",
       "rc-levels","rc-collapse","cp-speedbuff","cp-vip-level",
       "experts-data","cg-slots","cc-slots","troops-inventory-v2",
-      "daybreak-buffs","daybreak-prosperity","hg-heroes","hg-hero-stats",
+      "daybreak-buffs","daybreak-prosperity","hg-heroes","hg-hero-stats","pets-data",
       "cp-buildings","cp-buffs","cp-cycle","cp-dailyfc","cp-agnes",
     ];
     SYNC_KEYS.forEach(k => {
@@ -3315,6 +3332,7 @@ export default function App() {
             {page === "chief-gear"   && <ChiefGearPage   inv={inv} />}
             {page === "chief-charms" && <ChiefCharmsPage inv={inv} />}
             {page === "experts"      && <ExpertsPage      inv={inv} setInv={setInv} />}
+            {page === "pets"           && <PetsPage inv={inv} setInv={setInv} />}
             {page === "daybreak-island" && <DaybreakIslandPage />}
             {page === "war-academy"  && <WarAcademyPage   inv={inv} setInv={setInv} />}
             {page === "research-center" && <ResearchCenterPage inv={inv} rcLevels={rcLevels} setRcLevels={setRcLevels} rcCollapse={rcCollapse} setRcCollapse={setRcCollapse} />}
