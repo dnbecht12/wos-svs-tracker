@@ -1934,7 +1934,7 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                       {/* Current: Gear Level */}
                       <td style={{...tdStyle,width:80,textAlign:"center"}}>
                         {isWidget ? (
-                          <select value={heroStatsForSlot.widget}
+                          <select value={s.widgetCurrent ?? 0}
                             onChange={e => setSlotField(heroIdx, slotIdx, "widgetCurrent", Number(e.target.value))}
                             style={sel}>
                             {widgetOpts.map(v => <option key={v} value={v}>{v}</option>)}
@@ -1977,7 +1977,7 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                           <select value={s.widgetGoal ?? 0}
                             onChange={e => setSlotField(heroIdx, slotIdx, "widgetGoal", Number(e.target.value))}
                             style={sel}>
-                            {widgetOpts.filter(v => v >= (heroStatsForSlot.widget ?? 0)).map(v =>
+                            {widgetOpts.filter(v => v >= (s.widgetCurrent ?? 0)).map(v =>
                               <option key={v} value={v}>{v}</option>)}
                           </select>
                         ) : (
