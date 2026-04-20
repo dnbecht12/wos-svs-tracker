@@ -1339,6 +1339,12 @@ function AdminPage({ onStatsUpdated }) {
                               e.preventDefault();
                               const txt=msgReplyText[thread.thread_id]?.trim();
                               if(!txt)return;
+                              // Mark all unread user messages in this thread as read
+                              await supabase.from("user_messages")
+                                .update({ read_by_admin: true })
+                                .eq("thread_id", thread.thread_id)
+                                .eq("sender", "user")
+                                .eq("read_by_admin", false);
                               await supabase.from("user_messages").insert({
                                 thread_id:thread.thread_id,user_id:thread.messages[0]?.user_id||null,
                                 user_name:"Tundra Commander",category:thread.category,sender:"admin",
@@ -1355,6 +1361,12 @@ function AdminPage({ onStatsUpdated }) {
                         <button onClick={async()=>{
                             const txt=msgReplyText[thread.thread_id]?.trim();
                             if(!txt)return;
+                            // Mark all unread user messages in this thread as read
+                            await supabase.from("user_messages")
+                              .update({ read_by_admin: true })
+                              .eq("thread_id", thread.thread_id)
+                              .eq("sender", "user")
+                              .eq("read_by_admin", false);
                             await supabase.from("user_messages").insert({
                               thread_id:thread.thread_id,user_id:thread.messages[0]?.user_id||null,
                               user_name:"Tundra Commander",category:thread.category,sender:"admin",

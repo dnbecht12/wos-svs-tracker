@@ -2605,6 +2605,13 @@ export default function App() {
   const [cpSpeedBuff, setCpSpeedBuff] = useLocalStorage("cp-speedbuff", 0);
   // Version counter — increments when cloud sync completes, triggers CharacterProfilePage re-read
   const [profileVersion, setProfileVersion] = useState(0);
+
+  // Periodically refresh admin badge count every 30s
+  useEffect(() => {
+    if (user?.id !== ADMIN_UID) return;
+    const interval = setInterval(refreshAdminCount, 30000);
+    return () => clearInterval(interval);
+  }, [user, refreshAdminCount]);
   const [reportIssueOpen, setReportIssueOpen] = useState(false);
   const [guideOpen,       setGuideOpen]       = useState(false);
   const [contactOpen,     setContactOpen]     = useState(false);
@@ -2614,6 +2621,15 @@ export default function App() {
   const [loadedPlanKey, setLoadedPlanKey]= useState(null);
   const [syncing,       setSyncing]      = useState(false);
   const [pendingAdminCount, setPendingAdminCount] = useState(0);
+
+  const refreshAdminCount = useCallback(async () => {
+    const [issues, subs, msgs] = await Promise.all([
+      supabase.from("issue_reports").select("*",{count:"exact",head:true}).eq("status","submitted"),
+      supabase.from("stat_submissions").select("*",{count:"exact",head:true}).eq("status","pending"),
+      supabase.from("user_messages").select("*",{count:"exact",head:true}).eq("read_by_admin",false).eq("sender","user"),
+    ]);
+    setPendingAdminCount((issues.count||0)+(subs.count||0)+(msgs.count||0));
+  }, []);
   const [sidebarOpen,    setSidebarOpen]   = useState(false);
   const [profileOpen,    setProfileOpen]   = useState(false);
   const [profileSection, setProfileSection]= useState("account");
@@ -2764,15 +2780,7 @@ export default function App() {
         // Load user message threads
         fetchUserThreads(user.id).then(setUserMessages);
         // Load pending count for admin nav dot
-        if (user.id === ADMIN_UID) {
-          Promise.all([
-            supabase.from("issue_reports").select("*", {count:"exact",head:true}).eq("status","submitted"),
-            supabase.from("stat_submissions").select("*", {count:"exact",head:true}).eq("status","pending"),
-            supabase.from("user_messages").select("*", {count:"exact",head:true}).eq("read_by_admin",false).eq("sender","user"),
-          ]).then(([issues, subs, msgs]) => {
-            setPendingAdminCount((issues.count || 0) + (subs.count || 0) + (msgs.count || 0));
-          });
-        }
+        if (user.id === ADMIN_UID) { refreshAdminCount(); }
       });
   }, [user]);
 
