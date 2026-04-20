@@ -233,7 +233,7 @@ const PetDrawer = React.memo(function PetDrawer({ pet, data, onChange, inv }) {
   const costs = calcPetCosts(pet.quality, d.level, d.advanced, d.goalLevel, d.goalAdv);
   const levelOpts = getLevelOptions(pet.maxLevel);
   const qColor = qualityColor(pet.quality);
-  const hasAdv = d.level > 0 && d.level < pet.maxLevel;
+  const hasAdv = d.level > 0 && d.level % 10 === 0; // advance available at every 10-level tier
 
   // Check if goal > current to show cost summary
   const hasCost = costs.food > 0 || costs.manual > 0 || costs.potion > 0 || costs.serum > 0;
@@ -288,7 +288,7 @@ const PetDrawer = React.memo(function PetDrawer({ pet, data, onChange, inv }) {
               ))}
             </select>
             {/* Advanced toggle */}
-            {d.level > 0 && d.level < pet.maxLevel && (
+            {d.level > 0 && d.level % 10 === 0 && (
               <label style={{ display:"flex", alignItems:"center", gap:5,
                 cursor:"pointer", fontSize:11, color:C.textSec }}>
                 <input type="checkbox" checked={d.advanced}
@@ -318,7 +318,7 @@ const PetDrawer = React.memo(function PetDrawer({ pet, data, onChange, inv }) {
                     <option key={v} value={v}>{v === 0 ? "—" : v}</option>
                   ))}
                 </select>
-                {d.goalLevel > 0 && d.goalLevel < pet.maxLevel && (
+                {d.goalLevel > 0 && d.goalLevel % 10 === 0 && (
                   <label style={{ display:"flex", alignItems:"center", gap:5,
                     cursor:"pointer", fontSize:11, color:C.textSec }}>
                     <input type="checkbox" checked={d.goalAdv}
