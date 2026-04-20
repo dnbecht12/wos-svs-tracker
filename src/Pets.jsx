@@ -2,6 +2,14 @@ import React from "react";
 import { useLocalStorage } from "./useLocalStorage.js";
 
 // ─── COLORS ───────────────────────────────────────────────────────────────────
+// Inject pet dropdown option colors once
+if (typeof document !== "undefined" && !document.getElementById("pets-style")) {
+  const s = document.createElement("style");
+  s.id = "pets-style";
+  s.textContent = `.pet-select option { background: var(--c-card); color: var(--c-textPri); }`;
+  document.head.appendChild(s);
+}
+
 const COLORS = {
   bg:"var(--c-bg)", surface:"var(--c-surface)", card:"var(--c-card)",
   border:"var(--c-border)", borderHi:"var(--c-borderHi)",
@@ -93,6 +101,67 @@ const PET_COSTS = {
   },
 };
 
+const PET_STATS = {
+  "C": {
+    1:0.05,2:0.10,3:0.15,4:0.20,5:0.25,6:0.30,7:0.35,8:0.40,9:0.45,
+    10:0.50,"10a":0.92,11:0.97,12:1.02,13:1.07,14:1.12,15:1.17,16:1.22,17:1.27,18:1.32,19:1.37,
+    20:1.42,"20a":1.85,21:1.90,22:1.95,23:2.00,24:2.05,25:2.10,26:2.15,27:2.20,28:2.25,29:2.30,
+    30:2.35,"30a":2.87,31:2.92,32:2.97,33:3.02,34:3.07,35:3.12,36:3.17,37:3.22,38:3.27,39:3.32,
+    40:3.37,"40a":3.90,41:3.95,42:4.00,43:4.05,44:4.10,45:4.15,46:4.20,47:4.25,48:4.30,49:4.35,
+    50:4.40,"50a":5.02,
+  },
+  "N": {
+    1:0.08,2:0.17,3:0.25,4:0.34,5:0.42,6:0.50,7:0.59,8:0.67,9:0.75,
+    10:0.84,"10a":1.51,11:1.59,12:1.68,13:1.76,14:1.84,15:1.93,16:2.01,17:2.09,18:2.18,19:2.26,
+    20:2.35,"20a":3.02,21:3.10,22:3.18,23:3.27,24:3.35,25:3.43,26:3.52,27:3.60,28:3.69,29:3.77,
+    30:3.85,"30a":4.69,31:4.78,32:4.86,33:4.95,34:5.03,35:5.11,36:5.20,37:5.28,38:5.36,39:5.45,
+    40:5.53,"40a":6.37,41:6.46,42:6.54,43:6.62,44:6.71,45:6.79,46:6.87,47:6.96,48:7.04,49:7.13,
+    50:7.21,"50a":8.21,51:8.29,52:8.38,53:8.46,54:8.55,55:8.63,56:8.71,57:8.80,58:8.88,59:8.96,
+    60:9.05,"60a":10.06,
+  },
+  "R": {
+    1:0.11,2:0.22,3:0.32,4:0.43,5:0.54,6:0.65,7:0.75,8:0.86,9:0.97,
+    10:1.08,"10a":1.92,11:2.03,12:2.13,13:2.24,14:2.35,15:2.46,16:2.56,17:2.67,18:2.78,19:2.89,
+    20:2.99,"20a":3.83,21:3.94,22:4.05,23:4.16,24:4.27,25:4.37,26:4.48,27:4.59,28:4.70,29:4.80,
+    30:4.91,"30a":5.95,31:6.06,32:6.17,33:6.28,34:6.38,35:6.49,36:6.60,37:6.71,38:6.81,39:6.92,
+    40:7.03,"40a":8.08,41:8.19,42:8.30,43:8.40,44:8.51,45:8.62,46:8.73,47:8.83,48:8.94,49:9.05,
+    50:9.16,"50a":10.42,51:10.52,52:10.63,53:10.74,54:10.85,55:10.96,56:11.06,57:11.17,58:11.28,59:11.39,
+    60:11.49,"60a":12.74,61:12.85,62:12.96,63:13.07,64:13.18,65:13.28,66:13.39,67:13.50,68:13.61,69:13.71,
+    70:13.82,"70a":15.08,
+  },
+  "SR": {
+    1:0.14,2:0.27,3:0.41,4:0.54,5:0.68,6:0.82,7:0.95,8:1.09,9:1.23,
+    10:1.36,"10a":2.37,11:2.51,12:2.64,13:2.78,14:2.92,15:3.05,16:3.16,17:3.32,18:3.46,19:3.60,
+    20:3.73,"20a":4.75,21:4.89,22:5.03,23:5.16,24:5.30,25:5.43,26:5.57,27:5.71,28:5.84,29:5.98,
+    30:6.12,"30a":7.38,31:7.51,32:7.65,33:7.78,34:7.92,35:8.06,36:8.19,37:8.33,38:8.46,39:8.60,
+    40:8.74,"40a":10.01,41:10.14,42:10.28,43:10.42,44:10.55,45:10.69,46:10.82,47:10.96,48:11.10,49:11.23,
+    50:11.37,"50a":12.89,51:13.02,52:13.16,53:13.30,54:13.43,55:13.57,56:13.71,57:13.84,58:13.98,59:14.11,
+    60:14.25,"60a":15.77,61:15.91,62:16.04,63:16.18,64:16.32,65:16.45,66:16.59,67:16.75,68:16.86,69:17.00,
+    70:17.13,"70a":18.65,71:18.79,72:18.92,73:19.06,74:19.20,75:19.33,76:19.47,77:19.61,78:19.74,79:19.88,
+    80:20.01,"80a":21.78,
+  },
+  "SSR": {
+    1:0.17,2:0.34,3:0.50,4:0.67,5:0.84,6:1.01,7:1.17,8:1.34,9:1.51,
+    10:1.68,"10a":2.86,11:3.02,12:3.19,13:3.36,14:3.53,15:3.69,16:3.86,17:4.03,18:4.20,19:4.36,
+    20:4.53,"20a":5.70,21:5.87,22:6.04,23:6.20,24:6.37,25:6.54,26:6.71,27:6.88,28:7.04,29:7.21,
+    30:7.38,"30a":8.85,31:9.02,32:9.18,33:9.35,34:9.52,35:9.69,36:9.85,37:10.02,38:10.19,39:10.36,
+    40:10.52,"40a":11.99,41:12.16,42:12.33,43:12.50,44:12.66,45:12.83,46:13.00,47:13.17,48:13.33,49:13.50,
+    50:13.67,"50a":15.44,51:15.61,52:15.78,53:15.94,54:16.11,55:16.28,56:16.45,57:16.61,58:16.78,59:16.95,
+    60:17.12,"60a":18.88,61:19.04,62:19.21,63:19.38,64:19.55,65:19.71,66:19.88,67:20.05,68:20.22,69:20.38,
+    70:20.55,"70a":22.32,71:22.49,72:22.66,73:22.82,74:22.99,75:23.16,76:23.33,77:23.50,78:23.66,79:23.83,
+    80:24.00,"80a":26.05,81:26.22,82:26.38,83:26.55,84:26.72,85:26.89,86:27.05,87:27.22,88:27.39,89:27.56,
+    90:27.72,"90a":29.78,91:29.95,92:30.12,93:30.29,94:30.45,95:30.62,96:30.79,97:30.96,98:31.12,99:31.29,
+    100:31.46,"100a":33.52,
+  },
+};
+
+function getPetStat(quality, level, advanced) {
+  const table = PET_STATS[quality];
+  if (!table || !level) return null;
+  const key = advanced ? `${level}a` : level;
+  return table[key] ?? table[level] ?? null;
+}
+
 // ─── Calculate upgrade costs from cur → goal ─────────────────────────────────
 function calcPetCosts(quality, curLevel, curAdvanced, goalLevel, goalAdvanced) {
   const costs = PET_COSTS[quality];
@@ -127,10 +196,9 @@ function calcPetCosts(quality, curLevel, curAdvanced, goalLevel, goalAdvanced) {
 }
 
 // ─── Level options for a pet ──────────────────────────────────────────────────
-function getLevelOptions(quality, maxLevel) {
-  const costs = PET_COSTS[quality] || {};
+function getLevelOptions(maxLevel) {
   const opts = [0];
-  for (let lv = 10; lv <= maxLevel; lv += 10) {
+  for (let lv = 1; lv <= maxLevel; lv++) {
     opts.push(lv);
   }
   return opts;
@@ -163,7 +231,7 @@ const PetDrawer = React.memo(function PetDrawer({ pet, data, onChange, inv }) {
   const C = COLORS;
   const d = data || defaultPetState();
   const costs = calcPetCosts(pet.quality, d.level, d.advanced, d.goalLevel, d.goalAdv);
-  const levelOpts = getLevelOptions(pet.quality, pet.maxLevel);
+  const levelOpts = getLevelOptions(pet.maxLevel);
   const qColor = qualityColor(pet.quality);
   const hasAdv = d.level > 0 && d.level < pet.maxLevel;
 
@@ -214,7 +282,7 @@ const PetDrawer = React.memo(function PetDrawer({ pet, data, onChange, inv }) {
               letterSpacing:"1px" }}>Current</span>
             <select value={d.level}
               onChange={e => onChange({ level: Number(e.target.value), advanced: false })}
-              style={sel}>
+              className="pet-select" style={sel}>
               {levelOpts.map(v => (
                 <option key={v} value={v}>{v === 0 ? "Not Tamed" : v}</option>
               ))}
@@ -245,7 +313,7 @@ const PetDrawer = React.memo(function PetDrawer({ pet, data, onChange, inv }) {
               <>
                 <select value={d.goalLevel}
                   onChange={e => onChange({ goalLevel: Number(e.target.value), goalAdv: false })}
-                  style={sel}>
+                  className="pet-select" style={sel}>
                   {levelOpts.filter(v => v >= d.level).map(v => (
                     <option key={v} value={v}>{v === 0 ? "—" : v}</option>
                   ))}
@@ -264,6 +332,28 @@ const PetDrawer = React.memo(function PetDrawer({ pet, data, onChange, inv }) {
           </div>
         </div>
       </div>
+
+      {/* Current stat display */}
+      {d.level > 0 && (() => {
+        const stat = getPetStat(pet.quality, d.level, d.advanced);
+        return stat !== null ? (
+          <div style={{ padding:"6px 16px", background:C.accentBg,
+            borderBottom:`1px solid ${C.accentDim}`,
+            display:"flex", alignItems:"center", gap:16 }}>
+            <span style={{ fontSize:10, fontWeight:700, color:C.textDim,
+              fontFamily:"'Space Mono',monospace", textTransform:"uppercase",
+              letterSpacing:"1px" }}>Current Stats</span>
+            <span style={{ fontSize:12, color:C.accent,
+              fontFamily:"'Space Mono',monospace", fontWeight:700 }}>
+              Troops' Attack: +{stat.toFixed(2)}%
+            </span>
+            <span style={{ fontSize:12, color:C.accent,
+              fontFamily:"'Space Mono',monospace", fontWeight:700 }}>
+              Troops' Defense: +{stat.toFixed(2)}%
+            </span>
+          </div>
+        ) : null;
+      })()}
 
       {/* Cost summary */}
       {hasCost && (
@@ -378,6 +468,7 @@ export default function PetsPage({ inv, setInv }) {
   const C = COLORS;
   const [petData, setPetData] = useLocalStorage("pets-data", {});
   const [collapsed, setCollapsed] = React.useState({});
+  const [genFilter, setGenFilter] = React.useState(7); // show up to gen N
 
   const getPet = name => petData[name] || defaultPetState();
   const setPet = (name, updates) => {
@@ -411,8 +502,8 @@ export default function PetsPage({ inv, setInv }) {
   const groups = groupOrder.map(q => ({
     quality: q,
     label: qualityLabel(q),
-    pets: PETS.filter(p => p.quality === q),
-  }));
+    pets: PETS.filter(p => p.quality === q && p.gen <= genFilter),
+  })).filter(g => g.pets.length > 0);
 
   const inputS = {
     background:"transparent", border:`1px solid ${C.border}`,
@@ -423,6 +514,32 @@ export default function PetsPage({ inv, setInv }) {
 
   return (
     <div className="fade-in">
+
+      {/* ── Generation Filter ── */}
+      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:14 }}>
+        <span style={{ fontSize:11, fontWeight:700, color:C.textDim,
+          fontFamily:"'Space Mono',monospace", textTransform:"uppercase",
+          letterSpacing:"1px" }}>Generation Filter</span>
+        <div style={{ display:"flex", gap:6 }}>
+          {[1,2,3,4,5,6,7].map(g => (
+            <button key={g}
+              onClick={() => setGenFilter(g)}
+              style={{ padding:"4px 12px", borderRadius:6, fontSize:11,
+                fontWeight:700, cursor:"pointer",
+                fontFamily:"'Space Mono',monospace",
+                background: genFilter >= g ? C.accentBg : "transparent",
+                color:      genFilter >= g ? C.accent   : C.textDim,
+                border:`1px solid ${genFilter >= g ? C.accentDim : C.border}`,
+                transition:"all 0.15s" }}>
+              Gen {g}
+            </button>
+          ))}
+        </div>
+        <span style={{ fontSize:10, color:C.textDim,
+          fontFamily:"'Space Mono',monospace" }}>
+          (showing up to Gen {genFilter})
+        </span>
+      </div>
 
       {/* ── Resource Summary Bar ── */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)",
