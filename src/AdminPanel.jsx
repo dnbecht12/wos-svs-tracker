@@ -60,6 +60,7 @@ async function submitIssue(payload) {
     status: "submitted",
     submitted_at: new Date().toISOString(),
   });
+  if (error) console.error("[submitIssue]", error.message, error.details, error.hint);
   return !error;
 }
 async function fetchIssues() {
@@ -106,6 +107,7 @@ async function fetchAllThreadsAdmin() {
 
 async function sendMessage(payload) {
   const { error } = await supabase.from("user_messages").insert(payload);
+  if (error) console.error("[sendMessage]", error.message, error.details, error.hint);
   return !error;
 }
 

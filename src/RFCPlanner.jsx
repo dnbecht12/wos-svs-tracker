@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useCallback } from "react";
+import { _isGuest } from "./useLocalStorage.js";
 import { buildCycles, getCurrentCycleNum, getCycleStartDate, toIso, fmtIso, fmtDate as fmtDateUtil, cycleLabelFull } from "./svsCalendar.js";
 import { supabase } from "./supabase.js";
 
@@ -66,8 +67,19 @@ const WEEKDAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday",
 const MON_FAVORITES = [1, 5, 10, 20, 40, 60, 80, 100];
 
 const fmtN = n => typeof n==="number" ? Math.round(n).toLocaleString() : "—";
-function loadLS(k,fb){try{const s=localStorage.getItem(k);return s?JSON.parse(s):fb;}catch{return fb;}}
-function saveLS(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch{}}
+function loadLS(k,fb){
+  try{
+    // Guests should never read stale localStorage from a previous logged-in session
+    if(typeof _isGuest!=="undefined"&&_isGuest) return fb;
+    const s=localStorage.getItem(k);return s?JSON.parse(s):fb;
+  }catch{return fb;}
+}
+function saveLS(k,v){
+  try{
+    if(typeof _isGuest!=="undefined"&&_isGuest) return; // guests never write to localStorage
+    localStorage.setItem(k,JSON.stringify(v));
+  }catch{}
+}
 function fmtDate(isoStr){return fmtIso(isoStr);}
 function addDays(isoStr,n){
   if(!isoStr)return"";
