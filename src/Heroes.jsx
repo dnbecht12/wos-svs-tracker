@@ -2156,5 +2156,14 @@ function StatCard({ label, value, sub, color, prefix = "" }) {
 }
 
 // ─── Exports ──────────────────────────────────────────────────────────────────
+// ─── Hero utility functions ───────────────────────────────────────────────────
+function isSSRHero(heroName) {
+  const h = HERO_ROSTER.find(h => h.name === heroName);
+  return h ? h.quality === "SSR" : true;
+}
+function heroWidget(heroName, widgetVal) {
+  return isSSRHero(heroName) ? (widgetVal ?? 0) : null;
+}
+
 export { HeroesPage, HeroGearPage, HERO_ROSTER, HERO_SLOTS, GEAR_SLOTS,
-         defaultAllHeroStats, defaultHeroState };
+         defaultAllHeroStats, defaultHeroState, isSSRHero, heroWidget };

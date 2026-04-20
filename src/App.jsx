@@ -38,14 +38,6 @@ async function markNotificationRead(id) {
 
 
 // SR/R heroes cannot have widgets — always store/query widget as null for them
-function isSSRHero(heroName) {
-  const h = HERO_ROSTER.find(h => h.name === heroName);
-  return h ? h.quality === "SSR" : true; // default to SSR if unknown
-}
-function heroWidget(heroName, widgetVal) {
-  return isSSRHero(heroName) ? (widgetVal ?? 0) : null;
-}
-
 async function getHeroStatsFromDB(heroName, level, stars, widget) {
   const w = heroWidget(heroName, widget);
   const q = supabase.from("hero_stats_data")
@@ -111,7 +103,7 @@ import { useAuth } from "./useAuth.js";
 import { useCharacters, charLoadInventory, charSaveInventory, charLoadPlans, charSavePlan, charDeletePlan, savePlanSnapshot, loadPlanSnapshot } from "./useCharacters.js";
 import { GEAR_DB, EMPOWERMENT, GEAR_TYPE, HERO_GEAR_SET, SLOT_TO_GEAR, getGearStats, getUnlockedEmpowerments } from "./GearData.js";
 import { HeroesPage, HeroGearPage, HERO_ROSTER, HERO_SLOTS, GEAR_SLOTS,
-         defaultAllHeroStats, defaultHeroState }
+         defaultAllHeroStats, defaultHeroState, isSSRHero, heroWidget }
   from "./Heroes.jsx";
 import { AdminPage, ReportIssueModal, ThreadView, submitIssue, sendMessage,
          fetchUserThreads, markMessagesReadByUser, closeThread }

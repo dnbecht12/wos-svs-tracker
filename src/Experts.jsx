@@ -835,7 +835,8 @@ function ExpertsPage({ inv, setInv }) {
 
   // Total costs across all experts
   const grandTotalBooks  = EXPERTS.reduce((sum, e) => sum + getExpertTotals(e).books, 0);
-  const grandTotalSigils = EXPERTS.reduce((sum, e) => sum + getExpertTotals(e).sigils, 0);
+  // General Sigils are only the affinity/bonus relationship sigils — level-up sigils are expert-specific
+  const grandTotalSigils = EXPERTS.reduce((sum, e) => sum + getExpertTotals(e).affinitySigils, 0);
   const generalSigils = inv.generalSigils ?? 0;
   const books = inv.books ?? 0;
 
