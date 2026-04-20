@@ -1932,21 +1932,6 @@ export default function App() {
     switchCharacter, addCharacter, removeCharacter, renameCharacter, makeDefault,
   } = useCharacters(user);
 
-  // ── After reload: restore the character that was being switched to ────────────
-  useEffect(() => {
-    const pendingCharId = sessionStorage.getItem("wos-pending-char");
-    if (!pendingCharId || !characters.length) return;
-    const target = characters.find(c => c.id === pendingCharId);
-    if (target && target.id !== activeCharId) {
-      sessionStorage.removeItem("wos-pending-char");
-      switchCharacter(pendingCharId);
-    } else if (target) {
-      // Already active (switchCharacter resolved it), just clean up
-      sessionStorage.removeItem("wos-pending-char");
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [characters]);
-
   const [page,          setPage]         = useLocalStorage("wos-page", "inventory");
   const [inv,           setInvRaw]       = useLocalStorage("wos-svs-inventory", INITIAL_INVENTORY);
   const [savedPlans,    setSavedPlans]   = useLocalStorage("wos-rfc-saved-plans", {});

@@ -181,8 +181,17 @@ export function useCharacters(user) {
         }
       } else {
         setCharacters(chars);
-        const def = chars.find(c => c.is_default) || chars[0];
-        if (def) setActiveCharId(def.id);
+        // After a character switch the app reloads — honour the pending char
+        // stored in sessionStorage rather than always reverting to the default.
+        const pendingId = sessionStorage.getItem("wos-pending-char");
+        const pending   = pendingId && chars.find(c => c.id === pendingId);
+        if (pending) {
+          sessionStorage.removeItem("wos-pending-char");
+          setActiveCharId(pending.id);
+        } else {
+          const def = chars.find(c => c.is_default) || chars[0];
+          if (def) setActiveCharId(def.id);
+        }
       }
       setLoadingChars(false);
     }).catch(() => {
