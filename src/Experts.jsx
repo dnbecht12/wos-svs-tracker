@@ -172,7 +172,7 @@ function ExpertsPage({ inv, setInv }) {
     Baldur:  ["5% | 20%","5% | 20%","5% | 28%","5% | 36%","5% | 44%","5% | 52%","10% | 60%","10% | 68%","10% | 76%","10% | 84%","10% | 92%","15% | 100%"],
     Valeria: ["0%","2%","4%","6%","9%","12%","15%","18%","21%","24%","27%","30%"],
     Ronne:   ["0%","2%","4%","6%","9%","12%","15%","18%","21%","24%","27%","30%"],
-    Kathy:   ["—","—","—","—","—","—","—","—","—","—","—","—"],
+    Kathy:   ["0%","2%","4%","6%","9%","12%","15%","18%","21%","24%","27%","30%"], // Child of Frost: Troops Lethality & Health in Frostfire Mine
   };
 
   // Expert roster definition
@@ -866,7 +866,7 @@ function ExpertsPage({ inv, setInv }) {
                   fontFamily:"Syne,sans-serif", width:"100%", padding:0 }}
               />
             </div>
-            {(grandTotalBooks > 0 || grandTotalSigils > 0) && (
+            {((item.label.includes("Books") ? grandTotalBooks : grandTotalSigils) > 0) && (
               <div style={{ textAlign:"right", flexShrink:0 }}>
                 <div style={{ fontSize:10, color:C.textDim, fontFamily:"'Space Mono',monospace" }}>All goals</div>
                 <div style={{ fontSize:13, fontWeight:700, fontFamily:"'Space Mono',monospace",
@@ -1013,6 +1013,8 @@ const EXPERT_LEVEL_STATS = {
 };
 
 const ROMULUS_BONUS_DEPLOY = [0,300,600,1000,1500,2000,3000,4000,5500,7000,8500,10000]; // Commander's Crest: Expedition Army size per affinity level
+// Shared bonus curve: 0/2/4/6/9/12/15/18/21/24/27/30%
+const EXPERT_BONUS_STAT = [0,0.02,0.04,0.06,0.09,0.12,0.15,0.18,0.21,0.24,0.27,0.30];
 const ROMULUS_SK2_STAT  = [0,0.005,0.01,0.015,0.02,0.025,0.03,0.035,0.04,0.045,0.05,0.055,0.06,0.065,0.07,0.075,0.08,0.085,0.09,0.095,0.10];
 const ROMULUS_SK3_STAT  = [0,0.005,0.01,0.015,0.02,0.025,0.03,0.035,0.04,0.045,0.05,0.055,0.06,0.065,0.07,0.075,0.08,0.085,0.09,0.095,0.10];
 const ROMULUS_SK4_RALLY = [0,5000,10000,15000,20000,25000,30000,35000,40000,45000,50000,55000,60000,65000,70000,75000,80000,85000,90000,95000,100000];
@@ -1135,6 +1137,16 @@ function ExpertStatsSummary({ expertData }) {
   const valVal   = EXPERT_LEVEL_STATS.Valeria?.[valLv]  ?? 0;
   const ronneVal = EXPERT_LEVEL_STATS.Ronne?.[ronneLv]  ?? 0;
 
+  // Cyrille bonus — Bear Trap (affinity level)
+  const dCyr      = getD("Cyrille");
+  const cyrAff    = Number(dCyr.affinity ?? 0);
+  const cyrBear   = EXPERT_BONUS_STAT[cyrAff] ?? 0;
+
+  // Kathy bonus — Frostfire Mine (affinity level)
+  const dKathy    = getD("Kathy");
+  const kathyAff  = Number(dKathy.affinity ?? 0);
+  const kathyFrost= EXPERT_BONUS_STAT[kathyAff] ?? 0;
+
   const eventBuffs = [
     fabLv > 0 && {
       expert:"Fabian", event:"Foundry / Hellfire",
@@ -1157,6 +1169,19 @@ function ExpertStatsSummary({ expertData }) {
         { stat:"Troops' Defense", value: ronneVal },
       ],
     },
+    cyrBear > 0 && {
+      expert:"Cyrille", event:"Bear Trap",
+      stats: [
+        { stat:"Bear Damage", value: cyrBear },
+      ],
+    },
+    kathyFrost > 0 && {
+      expert:"Kathy", event:"Frostfire Mine",
+      stats: [
+        { stat:"Troops' Lethality", value: kathyFrost },
+        { stat:"Troops' Health",    value: kathyFrost },
+      ],
+    },
   ].filter(Boolean);
 
   const romulusDeploy = ROMULUS_BONUS_DEPLOY[Number(dRom.affinity  ?? 0)] ?? 0;
@@ -1164,6 +1189,7 @@ function ExpertStatsSummary({ expertData }) {
 
   const expertEventColors = {
     Fabian:"#D4A017", Valeria:"#E3731A", Ronne:"#2980B9",
+    Cyrille:"#4A9EBF", Kathy:"#636e72",
   };
 
   const anyData = STAT_ORDER.some(s => totals[s] > 0) || eventBuffs.length > 0
@@ -1310,4 +1336,5 @@ export {
   RESEARCH_POWER,
   ROMULUS_SK4_RALLY,
   ROMULUS_BONUS_DEPLOY,
+  EXPERT_BONUS_STAT,
 };
