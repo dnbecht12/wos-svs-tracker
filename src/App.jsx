@@ -853,7 +853,7 @@ function ProfileModal({ open, onClose, initialSection="account",
                           )}
                           {c.id !== activeCharId && (
                             <button className="modal-btn modal-btn-ghost" style={{padding:"3px 8px",fontSize:10}}
-                              onClick={async ()=>{ await handleSwitchCharacter(c.id); onClose(); }}>Switch</button>
+                              onClick={async ()=>{ await switchCharacter(c.id); onClose(); }}>Switch</button>
                           )}
                           {characters.length > 1 && (
                             <button className="modal-btn modal-btn-danger" style={{padding:"3px 8px",fontSize:10}}
@@ -1932,6 +1932,21 @@ export default function App() {
     switchCharacter, addCharacter, removeCharacter, renameCharacter, makeDefault,
   } = useCharacters(user);
 
+  // ── After reload: restore the character that was being switched to ────────────
+  useEffect(() => {
+    const pendingCharId = sessionStorage.getItem("wos-pending-char");
+    if (!pendingCharId || !characters.length) return;
+    const target = characters.find(c => c.id === pendingCharId);
+    if (target && target.id !== activeCharId) {
+      sessionStorage.removeItem("wos-pending-char");
+      switchCharacter(pendingCharId);
+    } else if (target) {
+      // Already active (switchCharacter resolved it), just clean up
+      sessionStorage.removeItem("wos-pending-char");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [characters]);
+
   const [page,          setPage]         = useLocalStorage("wos-page", "inventory");
   const [inv,           setInvRaw]       = useLocalStorage("wos-svs-inventory", INITIAL_INVENTORY);
   const [savedPlans,    setSavedPlans]   = useLocalStorage("wos-rfc-saved-plans", {});
@@ -2004,8 +2019,12 @@ export default function App() {
           localStorage.setItem(`${row.key}__ts`, row.updated_at);
         } catch {}
       });
-      // Signal all useLocalStorage hooks to re-read
-      window.dispatchEvent(new CustomEvent("wos-user-ready", { detail: { id: user.id } }));
+      // Force a full page reload so every component re-initializes
+      // with the new character's data — no stale state, no partial re-renders.
+      // Store the new charId in sessionStorage first so useCharacters can
+      // restore it as active after the reload.
+      sessionStorage.setItem("wos-pending-char", newCharId);
+      window.location.reload();
     }
   }, [user, activeCharId, flushSave, switchCharacter]);
 
@@ -2263,6 +2282,7 @@ export default function App() {
           user={user}
           currentPage={page}
           onClose={() => setReportIssueOpen(false)}
+          submitIssue={submitIssue}
         />
       )}
 

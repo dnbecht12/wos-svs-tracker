@@ -326,7 +326,7 @@ function WarAcademyPage({ inv, setInv }) {
 
   // ── Inventory (reads directly from inv, writes back via setInv for full sync) ─
   const curShards = inv.shards ?? 0;
-  const curSteel  = (inv.steel ?? 0) * (inv.steelUnit === "B" ? 1000 : 1);
+  const curSteel  = (inv.steel ?? 0) * (inv.steelUnit === "B" ? 1_000_000_000 : 1_000_000);
   const steelRate = inv.steelHourlyRate ?? 0; // per hour
 
   // Estimated SvS inventory

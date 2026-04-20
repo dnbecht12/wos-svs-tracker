@@ -1341,7 +1341,7 @@ const ISSUE_MODULES = [
   "Heroes", "Hero Gear", "Troops", "RFC Planner", "SvS Calendar", "General / Other",
 ];
 
-function ReportIssueModal({ user, currentPage, onClose }) {
+function ReportIssueModal({ user, currentPage, onClose, submitIssue }) {
   const C = COLORS;
   const [type,    setType]    = useState("");
   const [module,  setModule]  = useState(() => {
