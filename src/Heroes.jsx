@@ -1974,12 +1974,19 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                       {/* Goal: Gear Level */}
                       <td style={{...tdStyle,width:80,textAlign:"center"}}>
                         {isWidget ? (
-                          <select value={s.widgetGoal ?? 0}
-                            onChange={e => setSlotField(heroIdx, slotIdx, "widgetGoal", Number(e.target.value))}
-                            style={sel}>
-                            {widgetOpts.filter(v => v >= (s.widgetCurrent ?? 0)).map(v =>
-                              <option key={v} value={v}>{v}</option>)}
-                          </select>
+                          (s.widgetCurrent ?? 0) >= 10 ? (
+                            <span style={{fontSize:10,fontWeight:800,color:C.green,
+                              fontFamily:"'Space Mono',monospace",
+                              background:C.green+"22",border:`1px solid ${C.green}44`,
+                              padding:"2px 7px",borderRadius:4}}>MAX</span>
+                          ) : (
+                            <select value={s.widgetGoal ?? 0}
+                              onChange={e => setSlotField(heroIdx, slotIdx, "widgetGoal", Number(e.target.value))}
+                              style={sel}>
+                              {widgetOpts.filter(v => v >= (s.widgetCurrent ?? 0)).map(v =>
+                                <option key={v} value={v}>{v}</option>)}
+                            </select>
+                          )
                         ) : (
                           <select value={s.gearGoal ?? 0}
                             onChange={e => setSlotField(heroIdx, slotIdx, "gearGoal", Number(e.target.value))}
@@ -2027,8 +2034,8 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                       const gearChanged    = !isWidget && (s.gearCurrent ?? 0) !== (s.gearGoal ?? 0);
                       const masteryChanged = !isWidget && (s.masteryCurrent ?? 0) !== (s.masteryGoal ?? 0);
                       const statusChanged  = !isWidget && (s.goalStatus ?? s.status ?? "Mythic") !== (s.status ?? "Mythic");
-                      const widgetChanged  = isWidget && (heroStatsForSlot.widget ?? 0) !== (s.widgetGoal ?? 0);
-                      if (!gearChanged && !masteryChanged && !statusChanged && !widgetChanged) return null;
+                      const widgetChanged  = isWidget && (s.widgetCurrent ?? 0) !== (s.widgetGoal ?? 0);
+                      if (!gearChanged && !masteryChanged && !statusChanged) return null; // widget changes don't show stat subrow
 
                       // Calculate current and goal stats using GearData lookup
                       const gearName  = !isWidget ? SLOT_TO_GEAR(slot.type, gearSlot) : null;
