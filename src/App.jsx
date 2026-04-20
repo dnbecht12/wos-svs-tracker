@@ -2606,12 +2606,6 @@ export default function App() {
   // Version counter — increments when cloud sync completes, triggers CharacterProfilePage re-read
   const [profileVersion, setProfileVersion] = useState(0);
 
-  // Periodically refresh admin badge count every 30s
-  useEffect(() => {
-    if (user?.id !== ADMIN_UID) return;
-    const interval = setInterval(refreshAdminCount, 30000);
-    return () => clearInterval(interval);
-  }, [user, refreshAdminCount]);
   const [reportIssueOpen, setReportIssueOpen] = useState(false);
   const [guideOpen,       setGuideOpen]       = useState(false);
   const [contactOpen,     setContactOpen]     = useState(false);
@@ -2630,6 +2624,14 @@ export default function App() {
     ]);
     setPendingAdminCount((issues.count||0)+(subs.count||0)+(msgs.count||0));
   }, []);
+
+  // Periodically refresh admin badge count every 30s
+  useEffect(() => {
+    if (user?.id !== ADMIN_UID) return;
+    const interval = setInterval(refreshAdminCount, 30000);
+    return () => clearInterval(interval);
+  }, [user, refreshAdminCount]);
+
   const [sidebarOpen,    setSidebarOpen]   = useState(false);
   const [profileOpen,    setProfileOpen]   = useState(false);
   const [profileSection, setProfileSection]= useState("account");
