@@ -2731,6 +2731,7 @@ export default function App() {
     }
     // Set char ID first so scheduleSync includes it from the start
     const charIdForSync = activeCharId;
+    if (!charIdForSync) return; // wait until activeCharId is available
     setSyncCharId(charIdForSync);
 
     supabase.from("user_data")
@@ -2776,7 +2777,7 @@ export default function App() {
         // Load pending count for admin nav dot
         if (user.id === ADMIN_UID) { refreshAdminCount(); }
       });
-  }, [user]);
+  }, [user, activeCharId]);
 
   // ── Debounced cloud save on inv change ────────────────────────────────────────
   const setInv = useCallback((valOrFn) => {
