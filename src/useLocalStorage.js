@@ -18,6 +18,8 @@ export function setSyncUserId(id) {
 }
 export function setSyncCharId(charId) {
   _syncCharId = charId;
+  // Broadcast so all useLocalStorage hooks re-read for the new character
+  if (charId) window.dispatchEvent(new CustomEvent("wos-char-ready", { detail: { charId } }));
 }
 
 // Keys that should NOT sync to cloud (UI preferences only)
@@ -73,6 +75,14 @@ export function useLocalStorage(key, initial) {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
+
+  // Re-read whenever the active character changes (wos-char-ready fires on every switch)
+  useEffect(() => {
+    if (NO_SYNC_KEYS.has(key)) return;
+    const handler = () => readFromLocal();
+    window.addEventListener("wos-char-ready", handler);
+    return () => window.removeEventListener("wos-char-ready", handler);
+  }, [key, readFromLocal]);
 
   const set = useCallback(v => {
     setVal(prev => {

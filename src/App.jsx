@@ -1977,9 +1977,11 @@ export default function App() {
   // ── Switch character: flush, update charId, clear local cache, re-fetch ────────
   const handleSwitchCharacter = useCallback(async (newCharId) => {
     if (!newCharId || newCharId === activeCharId) return;
+
+    // 1. Save current character's data first
     await flushSave(activeCharId);
-    setSyncCharId(newCharId);
-    // Clear localStorage cache so stale data doesn't bleed into the new character
+
+    // 2. Clear localStorage so no stale data bleeds into the new character
     const SYNC_KEYS = [
       "wa-levels","wa-speedbuff","wa-buffs","wa-dailyshards",
       "rc-levels","rc-collapse","cp-speedbuff","cp-vip-level",
@@ -1990,9 +1992,8 @@ export default function App() {
     SYNC_KEYS.forEach(k => {
       try { localStorage.removeItem(k); localStorage.removeItem(`${k}__ts`); } catch {}
     });
-    // Switch active character (triggers the activeCharId useEffect for inventory)
-    switchCharacter(newCharId);
-    // Re-fetch this character's user_data from Supabase
+
+    // 3. Fetch new character's data from Supabase into localStorage
     if (user?.id) {
       const { data } = await supabase.from("user_data")
         .select("key, value, updated_at")
@@ -2004,13 +2005,15 @@ export default function App() {
           localStorage.setItem(`${row.key}__ts`, row.updated_at);
         } catch {}
       });
-      // Force a full page reload so every component re-initializes
-      // with the new character's data — no stale state, no partial re-renders.
-      // Store the new charId in sessionStorage first so useCharacters can
-      // restore it as active after the reload.
-      sessionStorage.setItem("wos-pending-char", newCharId);
-      window.location.reload();
     }
+
+    // 4. Update sync char ID — this dispatches wos-char-ready which causes
+    //    all useLocalStorage hooks to re-read from localStorage immediately
+    setSyncCharId(newCharId);
+
+    // 5. Switch the active character in useCharacters state
+    switchCharacter(newCharId);
+
   }, [user, activeCharId, flushSave, switchCharacter]);
 
   // ── Load data whenever activeCharId changes ───────────────────────────────────────
