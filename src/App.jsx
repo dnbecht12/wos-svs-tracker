@@ -18,68 +18,8 @@ import ResearchCenterPage, { getRCTechPower, getRCDeployRally } from "./Research
 const ADMIN_UID = "c5c3392e-2399-4cc9-b2ab-f22a61e7b91c";
 
 // ── Stat submission helpers ───────────────────────────────────────────────────
-async function submitHeroStats(payload) {
-  const { error } = await supabase.from("stat_submissions").insert({
-    ...payload,
-    status: "pending",
-    submitted_at: new Date().toISOString(),
-  });
-  return !error;
-}
-async function fetchSubmissions() {
-  const { data, error } = await supabase
-    .from("stat_submissions")
-    .select("*")
-    .order("submitted_at", { ascending: false });
-  return error ? [] : data;
-}
-async function updateSubmission(id, updates) {
-  // Try with reviewed_at first; if that column doesn't exist, retry without it
-  let { error } = await supabase
-    .from("stat_submissions")
-    .update({ ...updates, reviewed_at: new Date().toISOString() })
-    .eq("id", id);
-  if (error && error.message?.includes("reviewed_at")) {
-    const result = await supabase
-      .from("stat_submissions")
-      .update(updates)
-      .eq("id", id);
-    error = result.error;
-  }
-  if (error) console.error("updateSubmission error:", JSON.stringify(error));
-  return !error;
-}
+// Admin helpers — see ./AdminPanel.jsx
 
-// ── Issue reporting helpers ───────────────────────────────────────────────────
-async function submitIssue(payload) {
-  const { error } = await supabase.from("issue_reports").insert({
-    ...payload,
-    status: "submitted",
-    submitted_at: new Date().toISOString(),
-  });
-  return !error;
-}
-async function fetchIssues() {
-  const { data, error } = await supabase
-    .from("issue_reports")
-    .select("*")
-    .order("submitted_at", { ascending: false });
-  return error ? [] : data;
-}
-async function updateIssue(id, updates) {
-  const { error } = await supabase
-    .from("issue_reports")
-    .update(updates)
-    .eq("id", id);
-  return !error;
-}
-async function closeIssue(id, adminNote) {
-  const { error } = await supabase
-    .from("issue_reports")
-    .update({ status: "closed", admin_note: adminNote, closed_at: new Date().toISOString() })
-    .eq("id", id);
-  return !error;
-}
 async function fetchNotifications(userId) {
   const { data, error } = await supabase
     .from("issue_notifications")
@@ -171,8 +111,11 @@ import { useAuth } from "./useAuth.js";
 import { useCharacters, charLoadInventory, charSaveInventory, charLoadPlans, charSavePlan, charDeletePlan, savePlanSnapshot, loadPlanSnapshot } from "./useCharacters.js";
 import { GEAR_DB, EMPOWERMENT, GEAR_TYPE, HERO_GEAR_SET, SLOT_TO_GEAR, getGearStats, getUnlockedEmpowerments } from "./GearData.js";
 import { HeroesPage, HeroGearPage, HERO_ROSTER, HERO_SLOTS, GEAR_SLOTS,
-         defaultAllHeroStats, defaultHeroState, ReportIssueModal, AdminPage }
+         defaultAllHeroStats, defaultHeroState }
   from "./Heroes.jsx";
+import { AdminPage, ReportIssueModal, submitIssue, sendMessage,
+         fetchUserThreads, markMessagesReadByUser, closeThread }
+  from "./AdminPanel.jsx";
 
 // ─── Theme & Design System ────────────────────────────────────────────────────
 // ─── Theme System ─────────────────────────────────────────────────────────────
@@ -449,14 +392,14 @@ const GLOBAL_STYLE = `
   .sidebar-footer { padding: 16px 20px; border-top: 1px solid var(--c-border); font-size: 11px; color: var(--c-textDim); font-family: 'Space Mono', monospace; }
 
   /* Main content */
-  .main { flex: 1; overflow-x: hidden; }
+  .main { flex: 1; overflow-x: hidden; display: flex; flex-direction: column; min-height: 100vh; }
   .page-header { padding: 28px 32px 20px; border-bottom: 1px solid var(--c-border); background: var(--c-surface); position: sticky; top: 0; z-index: 10; }
   .page-header-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
   .page-title { font-size: 22px; font-weight: 800; color: var(--c-textPri); }
   .page-title span { color: var(--c-accent); }
   .page-sub { font-size: 13px; color: var(--c-textPri); margin-top: 4px; }
   .last-saved { font-size: 11px; font-family: 'Space Mono', monospace; color: var(--c-textSec); }
-  .page-body { padding: 28px 32px; }
+  .page-body { padding: 28px 32px; flex: 1; }
 
   /* Cards */
   .card { background: var(--c-card); border: 1px solid var(--c-border); border-radius: 10px; }
@@ -648,6 +591,8 @@ const GLOBAL_STYLE = `
   .profile-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--c-accentBg); border: 1px solid var(--c-accentDim); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: var(--c-accent); flex-shrink: 0; font-family: 'Space Mono', monospace; }
 `;
 
+// ThreadView — see ./AdminPanel.jsx
+
 // ─── Profile Management Modal ─────────────────────────────────────────────────
 
 function ProfileModal({ open, onClose, initialSection="account",
@@ -657,6 +602,7 @@ function ProfileModal({ open, onClose, initialSection="account",
   charError, clearCharError, authError, clearAuthError,
   theme, setTheme, resetToSystem,
   notifications=[], setNotifications,
+  userMessages=[], setUserMessages,
 }) {
   const [section, setSection]       = useState(initialSection);
   const [msg, setMsg]               = useState("");
@@ -707,6 +653,19 @@ function ProfileModal({ open, onClose, initialSection="account",
         .eq("submitted_by", user.id)
         .order("submitted_at", { ascending: false })
         .then(({ data }) => { setMySubs(data || []); setSubsLoading(false); });
+    }
+    if (open && section === "messages" && user) {
+      fetchUserThreads(user.id).then(threads => {
+        setUserMessages(threads);
+        // Mark admin replies as read
+        const unreadThreadIds = [...new Set(
+          threads.filter(m => !m.read_by_user && m.sender === "admin").map(m => m.thread_id)
+        )];
+        unreadThreadIds.forEach(tid => markMessagesReadByUser(tid));
+        setUserMessages(prev => prev.map(m =>
+          m.sender === "admin" ? { ...m, read_by_user: true } : m
+        ));
+      });
     }
     if (open && section === "submissions" && user) {
       // Load stat submissions
@@ -774,10 +733,12 @@ function ProfileModal({ open, onClose, initialSection="account",
   };
 
   const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadMsgCount = userMessages.filter(m => !m.read_by_user && m.sender === "admin").length;
   const tabs = [
     { id:"characters",   label:"Characters" },
     { id:"account",      label:"Account"    },
     { id:"submissions",  label:"Submissions & Issues", badge: unreadCount },
+    { id:"messages",     label:"Messages",  badge: unreadMsgCount },
   ];
 
   return (
@@ -1237,6 +1198,69 @@ function ProfileModal({ open, onClose, initialSection="account",
                     )}
                   </div>
                 )}
+              </div>
+            );
+          })()}
+
+          {/* ── Messages Tab ── */}
+          {section === "messages" && (() => {
+            // Group messages into threads
+            const threads = {};
+            userMessages.forEach(m => {
+              if (!threads[m.thread_id]) threads[m.thread_id] = {
+                thread_id: m.thread_id,
+                category: m.category,
+                wants_response: m.wants_response,
+                thread_closed: m.thread_closed,
+                messages: [],
+              };
+              threads[m.thread_id].messages.push(m);
+            });
+            const threadList = Object.values(threads).sort((a, b) =>
+              new Date(b.messages[b.messages.length-1]?.created_at) -
+              new Date(a.messages[a.messages.length-1]?.created_at)
+            );
+
+            return (
+              <div>
+                {threadList.length === 0 && (
+                  <div style={{fontSize:12,color:C.textDim,fontFamily:"Space Mono,monospace",
+                    padding:"20px 0",textAlign:"center"}}>
+                    No messages yet. Use the footer button to contact the Tundra Commander!
+                  </div>
+                )}
+                {threadList.map(thread => {
+                  const lastMsg = thread.messages[thread.messages.length - 1];
+                  const hasUnread = thread.messages.some(m => !m.read_by_user && m.sender === "admin");
+                  return (
+                    <ThreadView
+                      key={thread.thread_id}
+                      thread={thread}
+                      user={user}
+                      hasUnread={hasUnread}
+                      onReply={async (text) => {
+                        const ok = await sendMessage({
+                          thread_id:     thread.thread_id,
+                          user_id:       user.id,
+                          user_name:     user.user_metadata?.full_name || user.email,
+                          category:      thread.category,
+                          sender:        "user",
+                          message:       text,
+                          wants_response: true,
+                          read_by_admin: false,
+                          read_by_user:  true,
+                          thread_closed: false,
+                        });
+                        if (ok) fetchUserThreads(user.id).then(setUserMessages);
+                      }}
+                      onClose={async () => {
+                        await closeThread(thread.thread_id);
+                        fetchUserThreads(user.id).then(setUserMessages);
+                      }}
+                      C={C}
+                    />
+                  );
+                })}
               </div>
             );
           })()}
@@ -1886,20 +1910,24 @@ export class ErrorBoundary extends Component {
 
 // ─── Layout / Nav ─────────────────────────────────────────────────────────────
 const PAGES = [
-  { id:"char-profile",    label:"Chief Profile",    icon:"[P]", section:"Chief"      },
-  { id:"inventory",    label:"Inventory",     icon:"[I]", section:"Chief"      },
-  { id:"construction", label:"Construction",  icon:"[B]", section:"Chief"      },
-  { id:"chief-gear",    label:"Chief Gear",    icon:"[C]", section:"Chief"      },
-  { id:"chief-charms",  label:"Chief Charms",  icon:"[K]", section:"Chief"      },
-  { id:"experts",       label:"Experts",       icon:"[E]", section:"Chief"      },
-  { id:"daybreak-island", label:"Daybreak Island", icon:"[D]", section:"Chief"      },
-  { id:"war-academy",  label:"War Academy",   icon:"[W]", section:"Resources"   },
-  { id:"research-center", label:"Research", icon:"⚗", section:"Resources" },
-  { id:"heroes",        label:"Heroes",        icon:"[H]", section:"Combat"      },
-  { id:"hero-gear",     label:"Hero Gear",     icon:"[G]", section:"Combat"      },
-  { id:"troops",        label:"Troops",        icon:"[T]", section:"Combat"      },
-  { id:"rfc-planner",  label:"RFC Planner",   icon:"[R]", section:"Planning"    },
-  { id:"svs-calendar",  label:"SvS Calendar",  icon:"[C]", section:"Planning"    },
+  // CHIEF
+  { id:"char-profile",     label:"Chief Profile",   icon:"[P]", section:"Chief"                     },
+  { id:"chief-gear",       label:"Chief Gear",       icon:"[C]", section:"Chief"                     },
+  { id:"chief-charms",     label:"Chief Charms",     icon:"[K]", section:"Chief"                     },
+  { id:"experts",          label:"Experts",           icon:"[E]", section:"Chief"                     },
+  { id:"daybreak-island",  label:"Daybreak Island",  icon:"[D]", section:"Chief"                     },
+  { id:"inventory",        label:"Inventory",         icon:"[I]", section:"Chief"                     },
+  // COMBAT
+  { id:"heroes",           label:"Heroes",            icon:"[H]", section:"Combat"                    },
+  { id:"hero-gear",        label:"Hero Gear",         icon:"[G]", section:"Combat"                    },
+  { id:"troops",           label:"Troops",            icon:"[T]", section:"Combat"                    },
+  // CONSTRUCTION & TECHNOLOGY
+  { id:"construction",     label:"Construction",     icon:"[B]", section:"Construction & Technology" },
+  { id:"research-center",  label:"Research",         icon:"⚗",  section:"Construction & Technology" },
+  { id:"war-academy",      label:"War Academy",      icon:"[W]", section:"Construction & Technology" },
+  // PLANNING
+  { id:"rfc-planner",      label:"RFC Planner",      icon:"[R]", section:"Planning"                  },
+  { id:"svs-calendar",     label:"SvS Calendar",     icon:"[C]", section:"Planning"                  },
 ];
 
 const PAGE_TITLES = {
@@ -1921,6 +1949,635 @@ const PAGE_TITLES = {
   admin:        { title: "Admin", sub: "Review and approve hero stat submissions" },
 };
 
+// ─── Contact Modal ────────────────────────────────────────────────────────────
+function ContactModal({ open, onClose, user }) {
+  const C = COLORS;
+  const [category,      setCategory]      = React.useState("");
+  const [message,       setMessage]       = React.useState("");
+  const [wantsResponse, setWantsResponse] = React.useState(false);
+  const [contactType,   setContactType]   = React.useState("discord");
+  const [contactInfo,   setContactInfo]   = React.useState("");
+  const [busy,          setBusy]          = React.useState(false);
+  const [done,          setDone]          = React.useState(false);
+
+  React.useEffect(() => {
+    if (open) {
+      setCategory(""); setMessage(""); setWantsResponse(false);
+      setContactType("discord"); setContactInfo(""); setDone(false);
+    }
+  }, [open]);
+
+  const canSubmit = category && message.trim().length >= 5 &&
+    (!wantsResponse || !user || true) &&
+    (!wantsResponse || user || contactInfo.trim().length >= 2);
+
+  const handleSubmit = async () => {
+    if (!canSubmit || busy) return;
+    setBusy(true);
+    const threadId = crypto.randomUUID();
+    const ok = await sendMessage({
+      thread_id:     threadId,
+      user_id:       user?.id || null,
+      user_name:     user?.user_metadata?.full_name || user?.email || "Guest",
+      contact_info:  wantsResponse && !user ? contactInfo.trim() : null,
+      contact_type:  wantsResponse && !user ? contactType : null,
+      category,
+      sender:        "user",
+      message:       message.trim(),
+      wants_response: wantsResponse,
+      read_by_admin: false,
+      read_by_user:  true,
+      thread_closed: false,
+    });
+    setBusy(false);
+    if (ok) setDone(true);
+  };
+
+  if (!open) return null;
+
+  const inputS = { width:"100%", background:C.card, border:`1px solid ${C.border}`,
+    borderRadius:7, color:C.textPri, padding:"8px 10px", fontSize:13,
+    fontFamily:"'Space Mono',monospace", outline:"none", boxSizing:"border-box" };
+
+  return createPortal(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.75)",zIndex:9999,
+      display:"flex",alignItems:"center",justifyContent:"center",padding:20,
+      backdropFilter:"blur(3px)"}}
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={{background:C.card,border:`1px solid ${C.borderHi}`,borderRadius:14,
+        width:"100%",maxWidth:480,boxShadow:"0 24px 80px rgba(0,0,0,0.6)"}}>
+
+        {/* Header */}
+        <div style={{padding:"18px 22px 14px",borderBottom:`1px solid ${C.border}`,
+          display:"flex",alignItems:"center",justifyContent:"space-between",
+          background:C.surface,borderRadius:"14px 14px 0 0"}}>
+          <div>
+            <div style={{fontSize:15,fontWeight:800,color:C.textPri}}>
+              ✉️ Contact the Tundra Commander
+            </div>
+            <div style={{fontSize:11,color:C.textDim,fontFamily:"'Space Mono',monospace",marginTop:2}}>
+              Suggestions, support, or just say hi
+            </div>
+          </div>
+          <button onClick={onClose} style={{background:"none",border:"none",
+            color:C.textDim,cursor:"pointer",fontSize:18,lineHeight:1}}>✕</button>
+        </div>
+
+        {done ? (
+          <div style={{padding:"32px 24px",textAlign:"center"}}>
+            <div style={{fontSize:28,marginBottom:12}}>✅</div>
+            <div style={{fontSize:15,fontWeight:700,color:C.textPri,marginBottom:6}}>
+              Message Sent!
+            </div>
+            <div style={{fontSize:12,color:C.textSec,marginBottom:20}}>
+              {wantsResponse
+                ? user
+                  ? "You'll receive a response in your Messages tab."
+                  : `We'll reach out via ${contactType === "discord" ? "Discord" : "email"}.`
+                : "Thanks for reaching out!"}
+            </div>
+            <button onClick={onClose} style={{padding:"8px 24px",borderRadius:7,
+              background:C.accentBg,color:C.accent,border:`1px solid ${C.accentDim}`,
+              fontWeight:700,fontSize:12,cursor:"pointer",
+              fontFamily:"'Space Mono',monospace"}}>
+              Close
+            </button>
+          </div>
+        ) : (
+          <div style={{padding:"20px 22px",display:"flex",flexDirection:"column",gap:16}}>
+
+            {/* Category */}
+            <div>
+              <label style={{fontSize:11,fontWeight:700,color:C.textDim,
+                letterSpacing:"1px",textTransform:"uppercase",
+                fontFamily:"'Space Mono',monospace",marginBottom:5,display:"block"}}>
+                Category
+              </label>
+              <select value={category} onChange={e => setCategory(e.target.value)}
+                style={{...inputS,cursor:"pointer"}}>
+                <option value="">Select a category…</option>
+                <option value="Suggestions/Improvements">💡 Suggestions / Improvements</option>
+                <option value="Guest Support">🙋 Guest Support</option>
+                <option value="Other">💬 Other</option>
+              </select>
+            </div>
+
+            {/* Message */}
+            <div>
+              <label style={{fontSize:11,fontWeight:700,color:C.textDim,
+                letterSpacing:"1px",textTransform:"uppercase",
+                fontFamily:"'Space Mono',monospace",marginBottom:5,display:"block"}}>
+                Message
+              </label>
+              <textarea value={message} onChange={e => setMessage(e.target.value)}
+                rows={4} maxLength={1000} placeholder="What's on your mind?"
+                style={{...inputS,resize:"vertical",lineHeight:1.6}} />
+              <div style={{fontSize:10,color:C.textDim,textAlign:"right",
+                fontFamily:"'Space Mono',monospace",marginTop:3}}>
+                {message.length}/1000
+              </div>
+            </div>
+
+            {/* Wants response */}
+            <div>
+              <label style={{display:"flex",alignItems:"center",gap:10,cursor:"pointer"}}>
+                <input type="checkbox" checked={wantsResponse}
+                  onChange={e => setWantsResponse(e.target.checked)}
+                  style={{width:16,height:16,accentColor:C.accent,cursor:"pointer"}} />
+                <span style={{fontSize:13,color:C.textSec}}>
+                  I'd like a response
+                </span>
+              </label>
+            </div>
+
+            {/* Contact info — guests only, when wants response */}
+            {wantsResponse && !user && (
+              <div style={{padding:"14px",background:C.surface,
+                border:`1px solid ${C.border}`,borderRadius:8}}>
+                <div style={{fontSize:11,fontWeight:700,color:C.textDim,
+                  letterSpacing:"1px",textTransform:"uppercase",
+                  fontFamily:"'Space Mono',monospace",marginBottom:10}}>
+                  How should we reach you?
+                </div>
+                <div style={{display:"flex",gap:8,marginBottom:10}}>
+                  {["discord","email"].map(t => (
+                    <button key={t} onClick={() => setContactType(t)}
+                      style={{flex:1,padding:"6px 10px",borderRadius:6,fontSize:11,
+                        fontWeight:700,cursor:"pointer",border:"none",
+                        fontFamily:"'Space Mono',monospace",
+                        background: contactType===t ? C.accentBg : C.card,
+                        color:      contactType===t ? C.accent   : C.textDim,
+                        outline:    contactType===t ? `1px solid ${C.accentDim}` : `1px solid ${C.border}`}}>
+                      {t === "discord" ? "Discord Username" : "Email Address"}
+                    </button>
+                  ))}
+                </div>
+                <input type={contactType === "email" ? "email" : "text"}
+                  value={contactInfo}
+                  onChange={e => setContactInfo(e.target.value)}
+                  placeholder={contactType === "discord" ? "YourUsername#0000" : "you@example.com"}
+                  style={inputS} />
+              </div>
+            )}
+
+            {/* Logged-in user response note */}
+            {wantsResponse && user && (
+              <div style={{padding:"10px 14px",background:C.accentBg,
+                border:`1px solid ${C.accentDim}`,borderRadius:8,
+                fontSize:12,color:C.textSec}}>
+                💬 Replies will appear in your <strong>Messages</strong> tab in Profile.
+              </div>
+            )}
+
+            {/* Submit */}
+            <button onClick={handleSubmit} disabled={!canSubmit || busy}
+              style={{padding:"10px",borderRadius:8,fontSize:13,fontWeight:700,
+                cursor:canSubmit && !busy ? "pointer" : "not-allowed",border:"none",
+                background: canSubmit && !busy ? C.accent : C.border,
+                color: canSubmit && !busy ? C.bg : C.textDim,
+                transition:"all 0.15s"}}>
+              {busy ? "Sending…" : "Send Message"}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// ─── Site Guide — Onboarding Flow + Tabbed Reference ─────────────────────────
+// Rendered as a full-screen modal portal triggered by the Guide button in the
+// page header. Uses the same CSS vars and Syne/Space Mono fonts as the rest
+// of the app. No external dependencies.
+
+const ONBOARDING_STEPS = [
+  {
+    id: "welcome",
+    icon: "❄️",
+    title: "Welcome to Tundra Command",
+    body: `Tundra Command is your all-in-one Whiteout Survival planning platform. Available on any device, your data syncs to the cloud automatically. No spreadsheets, no Discord hunting — everything in one place.
+
+Create a free account to save your progress across devices, or continue as a guest to explore.`,
+    tip: null,
+  },
+  {
+    id: "character",
+    icon: "👤",
+    title: "Create Your Character",
+    body: `Set up your in-game character profile — your name, state number, and alliance tag. You can manage multiple characters from a single account, each with their own independent data.`,
+    tip: "Find your character name and state number on your in-game profile page.",
+  },
+  {
+    id: "construction",
+    icon: "🏗️",
+    title: "Construction Levels",
+    body: `Start here — your FC (Fire Crystal) building levels drive your power and troop capacity. Set your current and goal levels in the Construction tab. This feeds into almost every other calculation in the app.`,
+    tip: "Find your FC level in-game by tapping each building.",
+  },
+  {
+    id: "chief-gear",
+    icon: "⚔️",
+    title: "Chief Gear & Charms",
+    body: `Track your current Chief Gear and Charm upgrade levels and set goals for your next SvS. Tundra Command calculates the materials needed to reach your goal based on your current inventory, so you always know exactly what you need before the event.`,
+    tip: null,
+  },
+  {
+    id: "research",
+    icon: "🔬",
+    title: "War Academy & Research",
+    body: `Enter your current research levels across War Academy and Research Center, then set goal levels for your next SvS. Tundra Command tracks the shards, steel, and time required to reach your goals so you can plan upgrades in advance and never be caught short on event day.`,
+    tip: null,
+  },
+  {
+    id: "experts",
+    icon: "🧠",
+    title: "Experts",
+    body: `Log your current Expert levels, Affinity, and skills, and set upgrade goals for SvS. Tundra Command calculates the sigils and books required to reach your targets and shows how each upgrade impacts your power and combat stats.`,
+    tip: null,
+  },
+  {
+    id: "troops",
+    icon: "⚔️",
+    title: "Troops",
+    body: `Enter your troop counts by tier for Infantry, Lancer, and Marksman. Troop power is calculated based on your building FC level.`,
+    tip: null,
+  },
+  {
+    id: "heroes",
+    icon: "🦸",
+    title: "Heroes & Hero Gear",
+    body: `Log your hero levels, stars, and skills. Hero power is the most impactful component of your True Power score — more so than troops or buildings.`,
+    tip: null,
+  },
+  {
+    id: "inventory",
+    icon: "📦",
+    title: "Inventory",
+    body: `Enter your current FC, RFC, resources, shards, and steel. This feeds the RFC Planner and War Academy balance calculations so you always know where you stand.`,
+    tip: "Steel/hr is found in-game under Exploration → Claim window. If you've recently collected, wait 10 minutes for the rate to refresh.",
+  },
+  {
+    id: "daybreak",
+    icon: "🌅",
+    title: "Daybreak Island",
+    body: `Log your Daybreak Island buff values. These contribute to your deployment capacity and overall power shown in Chief Profile.`,
+    tip: null,
+  },
+];
+
+const GUIDE_TABS = [
+  {
+    id: "getting-started",
+    label: "Getting Started",
+    icon: "🚀",
+    content: [
+      { heading: "Where to Begin", body: "Fill in your data in this order for the best experience: Construction → Chief Gear & Charms → War Academy & Research → Experts → Troops → Heroes & Hero Gear → Inventory → Daybreak Island. Chief Profile will populate automatically as you go." },
+      { heading: "Accounts & Characters", body: "Creating a free account lets your data sync across every device — phone, tablet, desktop. You can manage up to 5 characters per account, each with completely independent data. Perfect if you play multiple states or have a main and a mini." },
+      { heading: "Guest Mode", body: "You can use every tool as a guest without an account. Your data is available for that session only and will be cleared when you close the browser. Create an account to keep your progress permanently." },
+    ],
+  },
+  {
+    id: "chief-profile",
+    label: "Chief Profile",
+    icon: "👤",
+    content: [
+      { heading: "What is True Power?", body: "Your in-game power score can be misleading — a player with 200M power could be troop-dominant and far weaker in actual combat than a 150M player with maxed heroes and gear. Tundra Command calculates your True Power by weighting each component according to its actual combat impact." },
+      { heading: "Power Priority Order", body: "In terms of real combat value: Heroes & Hero Gear > Chief Gear > Chief Charms > Building FC Level > Troop Tier & Count. Two players with the same total power can have very different combat outcomes depending on how that power is distributed." },
+      { heading: "Military Stats", body: "Chief Profile also shows your Deployment Capacity (how many troops you can send in a dispatch), Rally Capacity (how many troops your rally can hold), and Reinforcement Cap (how many troops you can send to support allies). These are the numbers that matter most in SvS." },
+    ],
+  },
+  {
+    id: "rfc-planner",
+    label: "RFC Planner",
+    icon: "🔥",
+    content: [
+      { heading: "What is RFC?", body: "Refined Fire Crystals (RFC) are a required upgrade material for building upgrades from FC6 through FC10. Players convert Fire Crystals (FC) into RFC through a refining process — but the more you refine, the more FC each refine costs." },
+      { heading: "The Core Problem", body: "New players often burn through all their FC trying to accumulate RFC, leaving nothing for the actual construction upgrades. The RFC Planner helps you schedule your refines day by day across a 28-day SvS cycle so you always have enough FC for both refining and building." },
+      { heading: "How to Use It", body: "Set your starting FC and RFC balances in Inventory, then use the RFC Planner to set your Monday refine count (weekends have different refining windows). The planner shows your estimated RFC balance each day and flags when you're at risk of running low on FC." },
+      { heading: "Reading the Table", body: "Green rows are Mondays (higher refine opportunity). Highlighted weeks are SvS weeks. The Balance column shows whether you're projected to have enough FC after each day's refines to still complete your planned upgrades." },
+    ],
+  },
+  {
+    id: "construction",
+    label: "Construction",
+    icon: "🏗️",
+    content: [
+      { heading: "FC Level System", body: "Buildings upgrade through Fire Crystal (FC) levels: Base → FC1 → FC2 → ... → FC10. Higher FC levels unlock more troop capacity, stronger buffs, and higher research prerequisites. The Furnace must be upgraded first — it's a prerequisite for all other buildings." },
+      { heading: "Sub-Levels", body: "Each FC tier has sub-upgrades before the main tier jump. For T1-T3 gear there are 3 sub-upgrades before the tier jump. For T4 and above there are 4 sub-upgrades. The Construction tab tracks both your current sub-level and goal sub-level." },
+      { heading: "Days to SvS", body: "The Construction tab shows how many days remain until the next SvS and estimates whether your planned upgrades are achievable in time based on your daily FC income and construction speed buffs." },
+      { heading: "Agnes Expert", body: "Agnes provides a construction speed bonus that reduces upgrade time. Set your Agnes level in the Construction tab to get accurate time estimates." },
+    ],
+  },
+  {
+    id: "war-academy",
+    label: "War Academy & Research",
+    icon: "🔬",
+    content: [
+      { heading: "War Academy", body: "War Academy research upgrades your troop stats — attack, defense, health, lethality — and increases your deployment and rally capacities. Each research type applies to one troop type (Infantry, Lancer, or Marksman). Use the tab buttons to switch between troop types." },
+      { heading: "Shards & Steel", body: "Shards are the primary War Academy currency. Your daily shard income comes from alliance tasks, daily quests, and the weekly War Academy Commissions (67 shards/week). Steel is needed for higher-level research and is tracked separately with an hourly rate estimate." },
+      { heading: "Finding Steel/hr", body: "Your steel generation rate is shown in-game under Exploration → Claim window. If you've recently collected your idle rewards, wait 10 minutes for the rate display to refresh before noting it down." },
+      { heading: "Research Center", body: "Research Center covers Growth, Economy, and Battle trees. These provide passive buffs to construction speed, resource production, troop capacity, and battle stats. Set current and goal levels for each research to track cumulative costs and time." },
+    ],
+  },
+  {
+    id: "experts",
+    label: "Experts",
+    icon: "🧠",
+    content: [
+      { heading: "Expert Levels & Affinity", body: "Each Expert has two progression tracks: Expert Level (upgraded with Affinity XP) and Affinity/Bonus Level (upgraded with Expert Sigils). To advance past every 10th Expert Level (L11, L21, L31...) you must first increase the Bonus Level." },
+      { heading: "Which Experts Matter", body: "Romulus increases Rally Capacity — critical for Rally Callers. Agnes boosts Construction Speed — valuable for everyone. Cyrille is optimized for Bear Hunt events. Holger boosts research speed. Your role determines which Experts to prioritize." },
+      { heading: "Sigil Costs", body: "Each Expert uses their own specific sigil type plus a shared book resource. Track your owned sigils in the Inventory tab — the Expert planner will show your shortfall against your upgrade goals automatically." },
+    ],
+  },
+  {
+    id: "heroes",
+    label: "Heroes & Hero Gear",
+    icon: "🦸",
+    content: [
+      { heading: "Why Heroes Matter Most", body: "Hero power is the single most impactful component of your True Power score. Investing in the right heroes at the right star level has a greater combat return than equivalent investment in troops or buildings." },
+      { heading: "Hero Gear", body: "The Hero Gear Calculator tracks 4 gear slots across 3 heroes simultaneously. Each gear piece contributes stats based on its level and mastery. Use the calculator to see the combined power contribution across your active hero loadout." },
+      { heading: "Stat Submissions", body: "Hero stats in the game aren't publicly documented with full precision. Tundra Command uses community-submitted data that is reviewed and approved before going live. If you notice a discrepancy, submit corrected stats using the Submit Stats button on the Heroes page." },
+    ],
+  },
+  {
+    id: "troops",
+    label: "Troops",
+    icon: "⚔️",
+    content: [
+      { heading: "Tier vs Count", body: "A smaller army of T10 troops will outperform a large army of T6 troops in most combat scenarios. Troop tier matters significantly more than raw troop count for actual combat effectiveness." },
+      { heading: "Troop Types", body: "Infantry, Lancer, and Marksman each have different strengths. Competitive play involves specific troop compositions depending on the event type — PvP rallies, Bear Traps, and KoI each favor different setups." },
+      { heading: "Power Calculation", body: "Tundra Command calculates troop power based on your building FC level, which determines the base stats your troops carry into battle." },
+    ],
+  },
+  {
+    id: "daybreak",
+    label: "Daybreak Island",
+    icon: "🌅",
+    content: [
+      { heading: "What is Daybreak Island?", body: "Daybreak Island is a persistent progression system that provides permanent buffs to your chief stats including deployment capacity, troop bonuses, and other combat modifiers." },
+      { heading: "Tracking Your Buffs", body: "Enter your current Daybreak buff values in the Daybreak Island tab. These flow automatically into your Chief Profile power and military calculations." },
+    ],
+  },
+  {
+    id: "glossary",
+    label: "Glossary",
+    icon: "📖",
+    content: [
+      { heading: "FC — Fire Crystals", body: "The primary building upgrade currency. Used directly for lower-tier upgrades and converted into RFC for higher-tier upgrades (FC6+)." },
+      { heading: "RFC — Refined Fire Crystals", body: "Required for building upgrades from FC6 through FC10. Created by refining FC — each refine costs more FC than the last." },
+      { heading: "SvS — State vs State", body: "A recurring event (every 4 weeks) where your entire state competes against another state for points. Most players time their major upgrades to land during SvS for maximum points." },
+      { heading: "KoI — King of Icefield", body: "A biweekly event (every 2 weeks alternating with SvS) where players compete individually and as states for territory control." },
+      { heading: "Deployment Capacity", body: "The maximum number of troops you can send in a single dispatch. Determined by Command Center FC level, War Academy research, Chief Gear, Research Center, Romulus Expert, and Daybreak Island buffs." },
+      { heading: "Rally Capacity", body: "The maximum number of troops that can join a rally you lead. Determined by Command Center FC level, War Academy Flame Legion research, Research Center, and Romulus Expert." },
+      { heading: "True Power", body: "Tundra Command's weighted power calculation that reflects actual combat value. Prioritizes Heroes & Hero Gear > Chief Gear > Chief Charms > Buildings > Troops — unlike the in-game score which weights all power sources equally." },
+      { heading: "Whale / Dolphin / F2P", body: "Informal player classifications by spending level. Whales are heavy spenders, Dolphins moderate, F2P (Free to Play) spend nothing. These affect upgrade priority and optimal strategy significantly." },
+    ],
+  },
+];
+
+function GuideModal({ open, onClose }) {
+  const C = COLORS;
+  const [mode,        setMode]        = React.useState("onboarding"); // "onboarding" | "tabs"
+  const [step,        setStep]        = React.useState(0);
+  const [activeTab,   setActiveTab]   = React.useState("getting-started");
+  const [animating,   setAnimating]   = React.useState(false);
+  const [direction,   setDirection]   = React.useState(1); // 1=forward, -1=back
+
+  // Reset to onboarding when opened
+  React.useEffect(() => {
+    if (open) { setMode("onboarding"); setStep(0); setActiveTab("getting-started"); }
+  }, [open]);
+
+  const goStep = (newStep, dir) => {
+    if (animating) return;
+    setAnimating(true);
+    setDirection(dir);
+    setTimeout(() => { setStep(newStep); setAnimating(false); }, 220);
+  };
+
+  const next = () => {
+    if (step < ONBOARDING_STEPS.length - 1) goStep(step + 1, 1);
+    else { setMode("tabs"); setActiveTab("getting-started"); }
+  };
+  const prev = () => { if (step > 0) goStep(step - 1, -1); };
+
+  if (!open) return null;
+
+  const currentStep = ONBOARDING_STEPS[step];
+  const currentTab  = GUIDE_TABS.find(t => t.id === activeTab) || GUIDE_TABS[0];
+  const progress    = ((step + 1) / ONBOARDING_STEPS.length) * 100;
+
+  const overlayStyle = {
+    position: "fixed", inset: 0,
+    background: "rgba(0,0,0,0.82)",
+    zIndex: 10000,
+    display: "flex", alignItems: "center", justifyContent: "center",
+    padding: "16px",
+    backdropFilter: "blur(4px)",
+  };
+
+  const modalStyle = {
+    background: C.card,
+    border: `1px solid ${C.borderHi}`,
+    borderRadius: 16,
+    width: "100%",
+    maxWidth: mode === "onboarding" ? 520 : 780,
+    maxHeight: "90vh",
+    display: "flex",
+    flexDirection: "column",
+    boxShadow: "0 32px 100px rgba(0,0,0,0.7)",
+    overflow: "hidden",
+    transition: "max-width 0.3s ease",
+  };
+
+  return createPortal(
+    <div style={overlayStyle} onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={modalStyle}>
+
+        {/* ── Header ── */}
+        <div style={{ padding: "18px 24px 14px", borderBottom: `1px solid ${C.border}`,
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          background: C.surface }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {/* Mode toggle */}
+            <div style={{ display: "flex", gap: 4, background: C.card,
+              borderRadius: 8, padding: 3, border: `1px solid ${C.border}` }}>
+              {[
+                { id: "onboarding", label: "Onboarding" },
+                { id: "tabs",       label: "Reference"  },
+              ].map(m => (
+                <button key={m.id}
+                  onClick={() => setMode(m.id)}
+                  style={{ padding: "4px 12px", borderRadius: 6, fontSize: 11, fontWeight: 700,
+                    cursor: "pointer", border: "none", fontFamily: "'Space Mono',monospace",
+                    background: mode === m.id ? C.accent : "transparent",
+                    color:      mode === m.id ? C.bg     : C.textDim,
+                    transition: "all 0.15s" }}>
+                  {m.label}
+                </button>
+              ))}
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.textPri }}>
+              Site Guide
+            </div>
+          </div>
+          <button onClick={onClose}
+            style={{ background: "none", border: "none", color: C.textDim,
+              cursor: "pointer", fontSize: 20, lineHeight: 1, padding: 4 }}>✕</button>
+        </div>
+
+        {/* ── Onboarding Mode ── */}
+        {mode === "onboarding" && (
+          <div style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden" }}>
+
+            {/* Progress bar */}
+            <div style={{ height: 3, background: C.border }}>
+              <div style={{ height: "100%", background: C.accent,
+                width: `${progress}%`, transition: "width 0.3s ease" }} />
+            </div>
+
+            {/* Step counter */}
+            <div style={{ padding: "10px 24px 0", display: "flex",
+              justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 10, color: C.textDim,
+                fontFamily: "'Space Mono',monospace", letterSpacing: "1px" }}>
+                STEP {step + 1} OF {ONBOARDING_STEPS.length}
+              </span>
+              <button onClick={() => { setMode("tabs"); setActiveTab("getting-started"); }}
+                style={{ fontSize: 10, color: C.textDim, background: "none", border: "none",
+                  cursor: "pointer", fontFamily: "'Space Mono',monospace",
+                  textDecoration: "underline" }}>
+                Skip to Reference →
+              </button>
+            </div>
+
+            {/* Step content */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px" }}>
+              <div style={{ opacity: animating ? 0 : 1,
+                transform: animating ? `translateX(${direction * 30}px)` : "translateX(0)",
+                transition: "opacity 0.2s ease, transform 0.2s ease" }}>
+
+                <div style={{ fontSize: 36, marginBottom: 12, textAlign: "center" }}>
+                  {currentStep.icon}
+                </div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: C.textPri,
+                  marginBottom: 14, textAlign: "center", fontFamily: "'Syne',sans-serif" }}>
+                  {currentStep.title}
+                </div>
+                <div style={{ fontSize: 13, color: C.textSec, lineHeight: 1.8,
+                  whiteSpace: "pre-line", marginBottom: currentStep.tip ? 16 : 0 }}>
+                  {currentStep.body}
+                </div>
+
+                {currentStep.tip && (
+                  <div style={{ marginTop: 16, padding: "10px 14px",
+                    background: C.accentBg, border: `1px solid ${C.accentDim}`,
+                    borderRadius: 8, borderLeft: `3px solid ${C.accent}` }}>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: C.accent,
+                      fontFamily: "'Space Mono',monospace", letterSpacing: "1px",
+                      marginBottom: 4 }}>💡 IN-GAME TIP</div>
+                    <div style={{ fontSize: 12, color: C.textSec, lineHeight: 1.7 }}>
+                      {currentStep.tip}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Step dots */}
+            <div style={{ padding: "8px 24px 4px", display: "flex",
+              justifyContent: "center", gap: 6 }}>
+              {ONBOARDING_STEPS.map((_, i) => (
+                <div key={i}
+                  onClick={() => goStep(i, i > step ? 1 : -1)}
+                  style={{ width: i === step ? 20 : 6, height: 6,
+                    borderRadius: 3, cursor: "pointer", transition: "all 0.2s ease",
+                    background: i === step ? C.accent : i < step ? C.accentDim : C.border }} />
+              ))}
+            </div>
+
+            {/* Nav buttons */}
+            <div style={{ padding: "12px 24px 20px", display: "flex",
+              justifyContent: "space-between", alignItems: "center" }}>
+              <button onClick={prev} disabled={step === 0}
+                style={{ padding: "8px 20px", borderRadius: 8, fontSize: 12,
+                  fontWeight: 700, cursor: step === 0 ? "not-allowed" : "pointer",
+                  background: "transparent", fontFamily: "'Space Mono',monospace",
+                  color: step === 0 ? C.textDim : C.textSec,
+                  border: `1px solid ${step === 0 ? C.border : C.border}`,
+                  opacity: step === 0 ? 0.4 : 1 }}>
+                ← Back
+              </button>
+              <button onClick={next}
+                style={{ padding: "8px 24px", borderRadius: 8, fontSize: 12,
+                  fontWeight: 700, cursor: "pointer", border: "none",
+                  fontFamily: "'Space Mono',monospace",
+                  background: C.accent, color: C.bg }}>
+                {step === ONBOARDING_STEPS.length - 1 ? "Go to Chief Profile →" : "Next →"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Reference / Tabs Mode ── */}
+        {mode === "tabs" && (
+          <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+
+            {/* Tab sidebar */}
+            <div style={{ width: 180, minWidth: 180, borderRight: `1px solid ${C.border}`,
+              overflowY: "auto", padding: "12px 0", background: C.surface }}>
+              {GUIDE_TABS.map(tab => (
+                <button key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  style={{ width: "100%", padding: "8px 16px", textAlign: "left",
+                    background: activeTab === tab.id ? C.accentBg : "transparent",
+                    color: activeTab === tab.id ? C.accent : C.textSec,
+                    border: "none", borderLeft: activeTab === tab.id
+                      ? `2px solid ${C.accent}` : "2px solid transparent",
+                    cursor: "pointer", fontSize: 11, fontWeight: 700,
+                    fontFamily: "'Syne',sans-serif", display: "flex",
+                    alignItems: "center", gap: 8, transition: "all 0.1s",
+                    whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <span style={{ fontSize: 14 }}>{tab.icon}</span>
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Tab content */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "24px" }}>
+              <div style={{ fontSize: 18, fontWeight: 800, color: C.textPri,
+                marginBottom: 20, fontFamily: "'Syne',sans-serif",
+                display: "flex", alignItems: "center", gap: 10 }}>
+                <span>{currentTab.icon}</span>
+                {currentTab.label}
+              </div>
+
+              {currentTab.content.map((section, i) => (
+                <div key={i} style={{ marginBottom: 24,
+                  paddingBottom: 24, borderBottom: i < currentTab.content.length - 1
+                    ? `1px solid ${C.border}` : "none" }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: C.accent,
+                    fontFamily: "'Space Mono',monospace", letterSpacing: "1px",
+                    textTransform: "uppercase", marginBottom: 8 }}>
+                    {section.heading}
+                  </div>
+                  <div style={{ fontSize: 13, color: C.textSec, lineHeight: 1.85 }}>
+                    {section.body}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 export default function App() {
   const { theme, setTheme, resetToSystem } = useTheme();
   const { user, loading: authLoading, error: authError, signUp, signIn, signInWithDiscord, signOut,
@@ -1932,7 +2589,7 @@ export default function App() {
     switchCharacter, addCharacter, removeCharacter, renameCharacter, makeDefault,
   } = useCharacters(user);
 
-  const [page,          setPage]         = useLocalStorage("wos-page", "inventory");
+  const [page,          setPage]         = useLocalStorage("wos-page", "char-profile");
   const [inv,           setInvRaw]       = useLocalStorage("wos-svs-inventory", INITIAL_INVENTORY);
   const [savedPlans,    setSavedPlans]   = useLocalStorage("wos-rfc-saved-plans", {});
   const [planSnapshot,  setPlanSnapshot] = useState(null); // per-character, loaded from Supabase
@@ -1949,6 +2606,9 @@ export default function App() {
   // Version counter — increments when cloud sync completes, triggers CharacterProfilePage re-read
   const [profileVersion, setProfileVersion] = useState(0);
   const [reportIssueOpen, setReportIssueOpen] = useState(false);
+  const [guideOpen,       setGuideOpen]       = useState(false);
+  const [contactOpen,     setContactOpen]     = useState(false);
+  const [userMessages,    setUserMessages]    = useState([]); // logged-in user's threads
   const [notifications,   setNotifications]   = useState([]);
   const [savedAt,       setSavedAt]      = useState(null);
   const [loadedPlanKey, setLoadedPlanKey]= useState(null);
@@ -2101,13 +2761,16 @@ export default function App() {
         setTimeout(() => setProfileVersion(v => v + 1), 1500);
         // Load notifications for this user
         fetchNotifications(user.id).then(setNotifications);
+        // Load user message threads
+        fetchUserThreads(user.id).then(setUserMessages);
         // Load pending count for admin nav dot
         if (user.id === ADMIN_UID) {
           Promise.all([
             supabase.from("issue_reports").select("id", {count:"exact"}).eq("status","submitted"),
             supabase.from("stat_submissions").select("id", {count:"exact"}).eq("status","pending"),
-          ]).then(([issues, subs]) => {
-            setPendingAdminCount((issues.count || 0) + (subs.count || 0));
+            supabase.from("user_messages").select("id", {count:"exact"}).eq("read_by_admin", false).eq("sender","user"),
+          ]).then(([issues, subs, msgs]) => {
+            setPendingAdminCount((issues.count || 0) + (subs.count || 0) + (msgs.count || 0));
           });
         }
       });
@@ -2261,8 +2924,16 @@ export default function App() {
           resetToSystem={resetToSystem}
           notifications={notifications}
           setNotifications={setNotifications}
+          userMessages={userMessages}
+          setUserMessages={setUserMessages}
         />
       )}
+
+      {/* Contact Modal */}
+      <ContactModal open={contactOpen} onClose={() => setContactOpen(false)} user={user} />
+
+      {/* Guide Modal */}
+      <GuideModal open={guideOpen} onClose={() => setGuideOpen(false)} />
 
       {/* Report Issue Modal */}
       {reportIssueOpen && (
@@ -2351,7 +3022,7 @@ export default function App() {
                     onClick={() => { setLoadedPlanKey(null); setPage(p.id); setSidebarOpen(false); }}
                   >
                     {p.label}
-                    {p.id === "inventory" && <span className="nav-badge">HUB</span>}
+
                   </div>
                 ))}
               </div>
@@ -2415,7 +3086,8 @@ export default function App() {
             <div className="profile-btn-wrap" onClick={() => { setProfileSection("account"); setProfileOpen(true); }}>
               <div style={{position:"relative",flexShrink:0}}>
                 <div className="profile-avatar">{userInitial}</div>
-                {notifications.filter(n => !n.read).length > 0 && (
+                {(notifications.filter(n => !n.read).length > 0 ||
+                  userMessages.some(m => !m.read_by_user && m.sender === "admin")) && (
                   <div style={{position:"absolute",top:-3,right:-3,width:10,height:10,
                     background:COLORS.red,borderRadius:"50%",border:`2px solid ${COLORS.bg}`}} />
                 )}
@@ -2536,6 +3208,15 @@ export default function App() {
                     {activeCharacter.state_number ? ` · State ${activeCharacter.state_number}` : ""}
                   </div>
                 )}
+                <button onClick={() => setGuideOpen(true)}
+                  style={{padding:"5px 12px",borderRadius:6,fontSize:11,fontWeight:700,
+                    cursor:"pointer",fontFamily:"'Space Mono',monospace",whiteSpace:"nowrap",
+                    background:"transparent",color:COLORS.blue,
+                    border:`1px solid ${COLORS.blueDim}`,transition:"all 0.15s"}}
+                  onMouseEnter={e=>{e.currentTarget.style.background=COLORS.blueBg;}}
+                  onMouseLeave={e=>{e.currentTarget.style.background="transparent";}}>
+                  📖 Guide
+                </button>
                 {user && (
                   <button onClick={() => setReportIssueOpen(true)}
                     style={{padding:"5px 12px",borderRadius:6,fontSize:11,fontWeight:700,
@@ -2599,6 +3280,7 @@ export default function App() {
                 currentUser={user} />}
             {page === "heroes"      && <HeroesPage    genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} currentUser={user} activeCharacter={activeCharacter} hgHeroes={hgHeroes} heroStatsVersion={heroStatsVersion} />}
             {page === "admin"       && user?.id === ADMIN_UID && <AdminPage onStatsUpdated={() => setHeroStatsVersion(v => v + 1)} />}
+
             {page === "hero-gear"    && <HeroGearPage    inv={inv} genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} hgHeroes={hgHeroes} setHgHeroes={setHgHeroes} />}
             {page === "troops"       && <TroopsPage />}
             {page === "chief-gear"   && <ChiefGearPage   inv={inv} />}
@@ -2611,6 +3293,29 @@ export default function App() {
             {page === "char-profile" && <CharacterProfilePage hgHeroes={hgHeroes} inv={inv}
                 rcLevels={rcLevels} profileVersion={profileVersion}
                 cpSpeedBuff={cpSpeedBuff} setCpSpeedBuff={setCpSpeedBuff} />}
+          </div>
+
+          {/* ── Persistent Footer — sits at the very bottom of .main ── */}
+          <div style={{
+            marginTop: "auto", padding: "16px 32px",
+            borderTop: `1px solid ${COLORS.border}`,
+            display: "flex", alignItems: "center",
+            justifyContent: "space-between", flexWrap: "wrap", gap: 12,
+            background: COLORS.surface, flexShrink: 0,
+          }}>
+            <div style={{fontSize:11,color:COLORS.textDim,
+              fontFamily:"'Space Mono',monospace"}}>
+              Tundra Command · WoS SvS Planning Tracker · v1.0
+            </div>
+            <button onClick={() => setContactOpen(true)}
+              style={{padding:"7px 16px",borderRadius:7,fontSize:11,fontWeight:700,
+                cursor:"pointer",fontFamily:"'Space Mono',monospace",
+                background:"transparent",color:COLORS.accent,
+                border:`1px solid ${COLORS.accentDim}`,transition:"all 0.15s"}}
+              onMouseEnter={e=>{e.currentTarget.style.background=COLORS.accentBg;}}
+              onMouseLeave={e=>{e.currentTarget.style.background="transparent";}}>
+              ✉️ Contact the Tundra Commander
+            </button>
           </div>
         </main>
       </div>
