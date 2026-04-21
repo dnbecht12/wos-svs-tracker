@@ -437,11 +437,11 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
     );
   };
 
-  const Row = ({ label, value, source, breakdown, isEntry, onEntry, entryVal, accent, dim, suffix="" }) => {
+  const Row = ({ label, value, source, breakdown, isEntry, onEntry, entryVal, accent, dim, suffix="", noBorder=false }) => {
     const [hovered, setHovered] = React.useState(false);
     return (
     <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
-      padding:"11px 0", borderBottom:`1px solid ${C.border}`, position:"relative" }}
+      padding:"11px 0", borderBottom: noBorder ? "none" : `1px solid ${C.border}`, position:"relative" }}
       onMouseEnter={() => breakdown && setHovered(true)}
       onMouseLeave={() => setHovered(false)}>
       <div style={{ flex:1, paddingRight:12 }}>
@@ -635,12 +635,13 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
             { label: "Purchased queue (real-money pack)", value: purchQ > 0 ? "+1" : "0" },
           ];
           return (
-            <div>
+            <div style={{ borderBottom:`1px solid ${C.border}` }}>
               <Row label="March Queue" value={String(total)}
                 source="1 base + Research Center (max +3) + VIP 6+ (+1) + optional purchased queue (+1)"
-                breakdown={breakdown} />
+                breakdown={breakdown}
+                noBorder />
               <div style={{ display:"flex", alignItems:"center", gap:8,
-                padding:"4px 16px 10px 16px", marginTop:-6 }}>
+                padding:"2px 16px 10px 16px" }}>
                 <label style={{ display:"flex", alignItems:"center", gap:6,
                   cursor:"pointer", fontSize:11, color:C.textDim,
                   userSelect:"none" }}>
