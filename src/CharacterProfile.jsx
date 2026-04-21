@@ -3,7 +3,7 @@ import { useLocalStorage } from "./useLocalStorage.js";
 import { supabase } from "./supabase.js";
 import { CHIEF_GEAR_LEVELS, CHIEF_CHARM_LEVELS } from "./ChiefEquipment.jsx";
 import { WA_RESEARCH, waPower } from "./WarAcademy.jsx";
-import { getRCTechPower, getRCDeployRally } from "./ResearchCenter.jsx";
+import { getRCTechPower, getRCDeployRally, getRCMarchQueue } from "./ResearchCenter.jsx";
 import {
   EXPERT_AFFINITY_POWER_RATE, EXPERT_TALENT_POWER_RATE, EXPERT_LEVEL_POWER,
   EXPERT_SKILL_POWER, RESEARCH_POWER, ROMULUS_SK4_RALLY, ROMULUS_BONUS_DEPLOY,
@@ -89,6 +89,45 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
 
   // VIP level
   const [vipLevel, setVipLevel] = useLocalStorage("cp-vip-level", 0);
+
+  // VIP march queue: +1 at VIP 6+ (cumulative benefit, not per-level stacking)
+  const VIP_MARCH_QUEUE = [0,0,0,0,0,0,1,1,1,1,1,1,1]; // index = VIP level 0-12
+  const vipMarchQueue = VIP_MARCH_QUEUE[Math.min(vipLevel, 12)] ?? 0;
+
+  // Pet power — read from pets-data localStorage key (same as Pets tab)
+  const petPower = React.useMemo(() => {
+    try {
+      const QUALITY_MAP = {
+        "Cave Hyena":"C",
+        "Arctic Wolf":"N","Musk Ox":"N",
+        "Giant Tapir":"R","Titan Roc":"R",
+        "Giant Elk":"SR","Snow Leopard":"SR",
+        "Cave Lion":"SSR","Snow Ape":"SSR","Iron Rhino":"SSR",
+        "Sabertooth Tiger":"SSR","Mammoth":"SSR","Frost Gorilla":"SSR",
+        "Frostscale Chameleon":"SSR",
+      };
+      const PWR = {
+        C:{1:3600,2:7200,3:10800,4:14400,5:18000,6:21600,7:25200,8:28800,9:32400,10:36000,"10a":66240,11:69840,12:73440,13:77040,14:80640,15:84240,16:87840,17:91440,18:95040,19:98640,20:102960,"20a":136800,21:136800,22:140400,23:144000,24:147600,25:151200,26:154800,27:158400,28:162000,29:165600,30:169200,"30a":210240,31:210240,32:213840,33:217440,34:221040,35:224640,36:228240,37:231840,38:235440,39:239040,40:242640,"40a":280800,41:284400,42:288000,43:291600,44:295200,45:298800,46:302400,47:306000,48:309600,49:313200,50:316800,"50a":361440},
+        N:{1:5760,2:12240,3:18000,4:24480,5:30240,6:36000,7:42480,8:48240,9:54000,10:60480,"10a":108720,11:114480,12:120960,13:126720,14:130480,15:138960,16:144720,17:150480,18:156960,19:162720,20:169200,"20a":223200,21:223200,22:228960,23:235440,24:241200,25:246960,26:253440,27:259200,28:264960,29:270720,30:277200,"30a":337680,31:344160,32:349920,33:356400,34:362160,35:367920,36:374400,37:380160,38:385920,39:392400,40:398160,"40a":458640,41:465120,42:470880,43:476640,44:483120,45:488880,46:494640,47:501120,48:506880,49:513360,50:518820,"50a":591120,51:596380,52:603360,53:609120,54:615600,55:621660,56:627120,57:633600,58:639360,59:645120,60:651900,"60a":724320},
+        R:{1:7920,2:15840,3:23040,4:30960,5:38880,6:46800,7:54000,8:61920,9:69840,10:77760,"10a":138240,11:146160,12:153360,13:161280,14:169200,15:177120,16:184120,17:192240,18:200160,19:208080,20:215760,"20a":275760,21:283680,22:291600,23:299528,24:307440,25:314640,26:322560,27:330480,28:338400,29:345600,30:353520,"30a":428400,31:436320,32:444240,33:452160,34:459360,35:467280,36:475200,37:483120,38:490320,39:498240,40:506160,"40a":581760,41:589680,42:597600,43:604800,44:612720,45:620640,46:628560,47:635760,48:643680,49:651600,50:659520,"50a":750240,51:757440,52:765360,53:773280,54:781200,55:789120,56:796320,57:804240,58:812180,59:820080,60:827280,"60a":917280,61:925200,62:933120,63:941040,64:948960,65:956160,66:964080,67:972000,68:979920,69:987120,70:995040,"70a":1085760},
+        SR:{1:10080,2:19440,3:29520,4:38880,5:48960,6:59040,7:68400,8:78480,9:88560,10:97920,"10a":170640,11:180720,12:190080,13:200160,14:210240,15:219600,16:229680,17:239040,18:249120,19:259200,20:268500,"20a":342000,21:352080,22:362160,23:371520,24:381040,25:390960,26:401040,27:411120,28:420480,29:430560,30:440640,"30a":531360,31:540720,32:550800,33:560160,34:570240,35:580320,36:589680,37:599760,38:609120,39:619200,40:629280,"40a":720720,41:730080,42:740160,43:750240,44:759600,45:769680,46:779040,47:789120,48:799200,49:808560,50:818640,"50a":928080,51:937440,52:947520,53:957600,54:966960,55:977040,56:987120,57:996480,58:1006580,59:1015920,60:1026000,"60a":1135440,61:1145520,62:1154880,63:1164960,64:1175040,65:1184400,66:1194480,67:1203840,68:1213920,69:1224000,70:1233360,"70a":1342800,71:1352880,72:1362240,73:1372320,74:1382400,75:1391760,76:1401840,77:1411920,78:1421280,79:1431360,80:1440720,"80a":1568160},
+        SSR:{1:12240,2:24480,3:36000,4:48240,5:60480,6:72720,7:84240,8:96480,9:108720,10:120960,"10a":205920,11:217440,12:229680,13:241920,14:254160,15:265680,16:277920,17:290160,18:302400,19:313920,20:326160,"20a":410400,21:422640,22:434880,23:446400,24:458640,25:470880,26:483120,27:495360,28:506880,29:519120,30:531360,"30a":637200,31:649440,32:660960,33:673200,34:685440,35:697680,36:709200,37:721440,38:733680,39:745920,40:757440,"40a":863280,41:875520,42:887760,43:900000,44:911520,45:923760,46:936000,47:948240,48:959760,49:972000,50:984240,"50a":1116680,51:1123920,52:1136160,53:1147680,54:1159920,55:1172160,56:1184400,57:1195920,58:1208160,59:1220400,60:1232640,"60a":1359360,61:1370880,62:1383120,63:1395360,64:1407600,65:1419120,66:1431360,67:1443600,68:1455840,69:1467360,70:1479600,"70a":1607040,71:1619280,72:1631520,73:1634040,74:1655280,75:1667520,76:1679760,77:1692000,78:1703520,79:1715760,80:1728000,"80a":1875600,81:1887840,82:1899360,83:1911600,84:1923840,85:1936080,86:1947600,87:1959840,88:1972080,89:1984320,90:1995840,"90a":2144160,91:2156400,92:2168640,93:2180880,94:2192400,95:2204640,96:2216880,97:2229120,98:2240640,99:2252880,100:2265120,"100a":2413440},
+      };
+      const raw = localStorage.getItem("pets-data");
+      const saved = raw ? JSON.parse(raw) : {};
+      let total = 0;
+      Object.entries(QUALITY_MAP).forEach(([name, quality]) => {
+        const d = saved[name];
+        if (!d || !d.level) return;
+        const table = PWR[quality];
+        if (!table) return;
+        const key = d.advanced ? `${d.level}a` : d.level;
+        total += table[key] ?? table[d.level] ?? 0;
+      });
+      return total;
+    } catch { return 0; }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profileVersion]);
 
   // Embassy Reinforcement Cap
   const reinforceCap = React.useMemo(() => {
@@ -209,6 +248,7 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
     const cmdBase = COMMAND_CENTER_STATS[getBuildingLevel("Command")] ?? null;
     // Research Center contributions
     const rcContrib = getRCDeployRally(rcLevels);
+    const rcMarchQueue = getRCMarchQueue(rcLevels);
     // Romulus expert contributions — Bonus (Commander's Crest) for deploy, Skill 4 (One Heart) for rally
     let romulusExpertDeploy = 0, romulusExpertRally = 0;
     try {
@@ -555,8 +595,9 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
         <Row label="Hero Gear Power" value={fmt(heroGearPower)}
           source="Hero Gear Calculator · 4 gear slots × 3 hero slots" />
 
-        <Row label="Pet Power" value="—"
-          source="Coming soon" dim />
+        <Row label="Pet Power" value={petPower > 0 ? fmt(petPower) : "—"}
+          source="Sum of Troops Power from all tamed pets at current level/advancement (Pets tab)"
+          dim={petPower === 0} />
 
         <Row label="Expert Power"
           value={expertPower > 0 ? fmt(expertPower) : "—"}
@@ -581,8 +622,21 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
       <SectionCard>
         {sectionHead("Military", "March, deployment and training stats")}
 
-        <Row label="March Queue" value="—"
-          source="Research Center (coming soon)" dim />
+        {(() => {
+          const rcQ = getRCMarchQueue(rcLevels);
+          const vipQ = vipMarchQueue;
+          const total = 1 + rcQ + vipQ; // 1 base + RC + VIP
+          const breakdown = [
+            { label: "Base", value: "1" },
+            { label: `Research Center (Command Tactics I/II/III)`, value: `+${rcQ}` },
+            { label: `VIP ${vipLevel} benefit`, value: vipQ > 0 ? `+${vipQ}` : "0 (need VIP 6+)" },
+          ];
+          return (
+            <Row label="March Queue" value={String(total)}
+              source="1 base + Research Center (Command Tactics I/II/III, max +3) + VIP 6+ (+1)"
+              breakdown={breakdown} />
+          );
+        })()}
 
         <Row label="Deployment Capacity"
           value={deployCapacity > 0 ? fmt(deployCapacity) : "—"}

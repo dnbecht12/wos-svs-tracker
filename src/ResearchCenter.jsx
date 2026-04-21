@@ -1323,6 +1323,31 @@ export function getRCDeployRally(rcLevelsProp) {
   } catch { return { deploy: 0, rally: 0 }; }
 }
 
+// Exported — counts +1 March Queue buffs from RC research at current levels
+// cmdTactics I/II/III each give +1 when researched (max +3 from RC)
+export function getRCMarchQueue(rcLevelsProp) {
+  try {
+    const saved = rcLevelsProp ?? (() => {
+      const raw = localStorage.getItem("rc-levels");
+      return raw ? JSON.parse(raw) : {};
+    })();
+    let count = 0;
+    ["Growth","Economy","Battle"].forEach(treeName => {
+      RC[treeName].tiers.forEach(tier => {
+        tier.researches.forEach(res => {
+          const cur = saved[res.id]?.cur ?? 0;
+          if (cur <= 0) return;
+          for (let i = 1; i <= cur; i++) {
+            const lv = res.levels[i];
+            if (lv?.buff?.includes("+1 March Queue")) count++;
+          }
+        });
+      });
+    });
+    return count;
+  } catch { return 0; }
+}
+
 export function getRCTechPower(rcLevelsProp) {
   try {
     const saved = rcLevelsProp ?? (() => {
