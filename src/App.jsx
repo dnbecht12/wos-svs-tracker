@@ -2627,6 +2627,11 @@ export default function App() {
   const [isSwitching,   setIsSwitching]  = useState(false);
   const [pendingAdminCount, setPendingAdminCount] = useState(0);
 
+  // Track the last user+char combo we ran the full cloud sync for.
+  // Prevents TOKEN_REFRESHED (or any other spurious user object re-creation)
+  // from re-triggering the sync and overwriting the active character's data.
+  const lastSyncedKeyRef = useRef(null);
+
   const refreshAdminCount = useCallback(async () => {
     const [issues, subs, msgs] = await Promise.all([
       supabase.from("issue_reports").select("*",{count:"exact",head:true}).eq("status","submitted"),
@@ -2762,11 +2767,21 @@ export default function App() {
     setGuestFlag(!user);
     if (!user?.id) {
       setSyncUserId(null);
+      lastSyncedKeyRef.current = null;
       return;
     }
     // Set char ID first so scheduleSync includes it from the start
     const charIdForSync = activeCharId;
     if (!charIdForSync) return; // wait until activeCharId is available
+
+    // Guard: only run the full sync when the user ID or active character has
+    // actually changed. Supabase fires TOKEN_REFRESHED periodically which
+    // creates a new user object reference without changing the ID — without
+    // this guard that would re-run the sync and snap back to the default char.
+    const syncKey = `${user.id}:${charIdForSync}`;
+    if (lastSyncedKeyRef.current === syncKey) return;
+    lastSyncedKeyRef.current = syncKey;
+
     setSyncCharId(charIdForSync);
     setSyncUserId(user.id); // set before fetch so scheduleSync works immediately
 

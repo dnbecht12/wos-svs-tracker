@@ -28,7 +28,13 @@ export function useAuth() {
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // TOKEN_REFRESHED fires every ~55min or on tab focus — the user object is
+      // technically new but the ID is identical. Calling setUser() with a new
+      // reference would re-trigger the login useEffect in App.jsx and overwrite
+      // the active character's data with the default character's data.
+      // Only update user state on actual sign-in / sign-out events.
+      if (event === "TOKEN_REFRESHED") return;
       setUser(session?.user ?? null);
     });
     return () => subscription.unsubscribe();
