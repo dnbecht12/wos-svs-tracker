@@ -523,6 +523,7 @@ const GLOBAL_STYLE = `
 
   /* Animations */
   @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes spin { to { transform: rotate(360deg); } }
   .fade-in { animation: fadeIn 0.25s ease forwards; }
 
   /* Auth panel */
@@ -2623,6 +2624,7 @@ export default function App() {
   const [savedAt,       setSavedAt]      = useState(null);
   const [loadedPlanKey, setLoadedPlanKey]= useState(null);
   const [syncing,       setSyncing]      = useState(false);
+  const [isSwitching,   setIsSwitching]  = useState(false);
   const [pendingAdminCount, setPendingAdminCount] = useState(0);
 
   const refreshAdminCount = useCallback(async () => {
@@ -2665,6 +2667,9 @@ export default function App() {
   const handleSwitchCharacter = useCallback(async (newCharId) => {
     if (!newCharId || newCharId === activeCharId) return;
 
+    // Show loading state immediately so stale data never flashes
+    setIsSwitching(true);
+
     // 1. Save current character's data first
     await flushSave(activeCharId);
 
@@ -2704,6 +2709,9 @@ export default function App() {
     //    all useLocalStorage hooks to re-read from localStorage.
     //    Must happen AFTER the fetch above so data is already in localStorage.
     setSyncCharId(newCharId);
+
+    // 6. Clear the switching lock — data is now loaded and hooks have updated
+    setIsSwitching(false);
 
   }, [user, activeCharId, flushSave, switchCharacter]);
 
@@ -3315,6 +3323,24 @@ export default function App() {
           )}
 
           <div className="page-body">
+            {isSwitching ? (
+              <div style={{
+                display: "flex", flexDirection: "column",
+                alignItems: "center", justifyContent: "center",
+                flex: 1, gap: 16, padding: 64,
+              }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: "50%",
+                  border: `3px solid ${COLORS.border}`,
+                  borderTopColor: COLORS.accent,
+                  animation: "spin 0.7s linear infinite",
+                }} />
+                <div style={{
+                  fontFamily: "'Space Mono',monospace",
+                  fontSize: 13, color: COLORS.textSec,
+                }}>Loading character data…</div>
+              </div>
+            ) : (<>
             {page === "inventory"    && <InventoryPage    inv={inv} setInv={setInv} />}
             {page === "construction" && <ConstructionPlanner inv={inv} setInv={setInv}
                 planSnapshot={planSnapshot}
@@ -3344,6 +3370,7 @@ export default function App() {
             {page === "char-profile" && <CharacterProfilePage hgHeroes={hgHeroes} inv={inv}
                 rcLevels={rcLevels} profileVersion={profileVersion}
                 cpSpeedBuff={cpSpeedBuff} setCpSpeedBuff={setCpSpeedBuff} />}
+            </>)}
           </div>
 
           {/* ── Persistent Footer — sits at the very bottom of .main ── */}
