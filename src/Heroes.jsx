@@ -1902,13 +1902,107 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                   const gc = isWidget ? {mithril:0,mythic:0}
                            : calcGearCosts(s.gearCurrent ?? 0, s.gearGoal ?? 0, isLeg);
                   const mc = isWidget ? {stones:0,mythic:0}
-                           : calcMasteryCosts(s.masteryCurrent ?? 0, s.masteryGoal ?? 0);                  const rowStones  = mc.stones;
+                           : calcMasteryCosts(s.masteryCurrent ?? 0, s.masteryGoal ?? 0);
+                  const rowStones  = mc.stones;
                   const rowMithril = gc.mithril;
                   const rowMythic  = gc.mythic + mc.mythic;
 
                   const typeColor = slot.type === "Infantry" ? C.green
                                   : slot.type === "Lancer"   ? C.blue
                                   : C.amber;
+
+                  // ── Combined stat summary — rendered once after the Widget row ──
+                  const combinedSummary = (() => {
+                    if (slotIdx !== 4) return null;
+
+                    // Check if any of the 4 gear slots (not widget) has a change
+                    const gearSlots = [0,1,2,3].map(si => {
+                      const ds = { slot: GEAR_SLOTS[si], status: "Mythic", goalStatus: "Mythic",
+                        gearCurrent: 0, gearGoal: 0, masteryCurrent: 0, masteryGoal: 0 };
+                      return { ...ds, ...(hd.slots[si] || {}) };
+                    });
+                    const anyChanged = gearSlots.some(gs =>
+                      (gs.gearCurrent ?? 0) !== (gs.gearGoal ?? 0) ||
+                      (gs.masteryCurrent ?? 0) !== (gs.masteryGoal ?? 0) ||
+                      (gs.goalStatus ?? gs.status ?? "Mythic") !== (gs.status ?? "Mythic")
+                    );
+                    if (!anyChanged) return null;
+
+                    // Sum current and goal stats across all 4 gear slots
+                    let curPwr=0, curHeroMain=0, curHeroHp=0, curEscMain=0, curEscHp=0, curTroop=0, curMast=0;
+                    let goalPwr=0,goalHeroMain=0,goalHeroHp=0,goalEscMain=0,goalEscHp=0,goalTroop=0,goalMast=0;
+
+                    gearSlots.forEach((gs, si) => {
+                      const gearName = SLOT_TO_GEAR(slot.type, GEAR_SLOTS[si]);
+                      if (!gearName) return;
+                      const curTier  = gs.status    || "Mythic";
+                      const goalTier = gs.goalStatus || curTier;
+                      const cS = getGearStats(gearName, curTier,  gs.gearCurrent  ?? 0, gs.masteryCurrent ?? 0);
+                      const gS = getGearStats(gearName, goalTier, gs.gearGoal     ?? 0, gs.masteryGoal    ?? 0);
+                      if (cS) { curPwr+=cS.power; curHeroMain+=cS.heroMain; curHeroHp+=cS.heroHp; curEscMain+=cS.escMain; curEscHp+=cS.escHp; curTroop+=cS.troop; curMast+=(gs.masteryCurrent??0)*10; }
+                      if (gS) { goalPwr+=gS.power; goalHeroMain+=gS.heroMain; goalHeroHp+=gS.heroHp; goalEscMain+=gS.escMain; goalEscHp+=gS.escHp; goalTroop+=gS.troop; goalMast+=(gs.masteryGoal??0)*10; }
+                    });
+
+                    // Skip if all zeros
+                    if (curPwr === 0 && goalPwr === 0) return null;
+                    // Skip if nothing actually changed
+                    if (curPwr===goalPwr && curHeroMain===goalHeroMain && curHeroHp===goalHeroHp &&
+                        curEscMain===goalEscMain && curEscHp===goalEscHp && curTroop===goalTroop && curMast===goalMast) return null;
+
+                    const isATK = GEAR_TYPE[SLOT_TO_GEAR(slot.type, GEAR_SLOTS[0])] === "ATK";
+                    const STAT_LABELS = ["Gear Pwr", isATK ? "Hero Atk" : "Hero Def", "Hero HP",
+                                         isATK ? "Esc Atk" : "Esc Def", "Esc HP",
+                                         isATK ? "Trp Leth" : "Trp HP", "Trp Mast"];
+                    const isPct = [false, false, false, false, false, true, true];
+                    const curVals  = [curPwr,  curHeroMain,  curHeroHp,  curEscMain,  curEscHp,  curTroop,  curMast];
+                    const goalVals = [goalPwr, goalHeroMain, goalHeroHp, goalEscMain, goalEscHp, goalTroop, goalMast];
+                    const chgVals  = curVals.map((v, i) => goalVals[i] - v);
+                    const fmtVal = (val, pct) => pct ? val.toFixed(2)+"%" : Math.round(val).toLocaleString();
+                    const chgColor = v => v > 0 ? C.green : v < 0 ? C.red : C.textDim;
+                    const tdStat = {padding:"4px 8px",fontSize:10,fontFamily:"'Space Mono',monospace",
+                                    borderRight:`1px solid ${C.border}`,textAlign:"center"};
+                    const rows = [
+                      { label:"Current", color:C.textSec, bg:"transparent",          vals:curVals,  isChange:false },
+                      { label:"Goal",    color:C.blue,    bg:"rgba(56,139,253,0.06)", vals:goalVals, isChange:false },
+                      { label:"Change",  color:C.green,   bg:"rgba(63,185,80,0.06)",  vals:chgVals,  isChange:true  },
+                    ];
+
+                    return (
+                      <tr key={`${slot.slotId}-combined-stats`} style={{background:"rgba(56,139,253,0.04)"}}>
+                        <td colSpan={12} style={{padding:"6px 10px",borderBottom:`1px solid ${C.border}`}}>
+                          <div style={{fontSize:9,fontFamily:"'Space Mono',monospace",color:C.textDim,
+                            marginBottom:4,textTransform:"uppercase",letterSpacing:"0.5px"}}>
+                            All Gear — Combined Stats
+                          </div>
+                          <div style={{display:"flex",gap:0,borderRadius:6,overflow:"hidden",border:`1px solid ${C.border}`}}>
+                            <table style={{borderCollapse:"collapse",width:"100%",fontSize:10}}>
+                              <thead>
+                                <tr>
+                                  <td style={{...tdStat,width:60,color:C.textDim,background:"transparent",borderRight:`1px solid ${C.border}`}}/>
+                                  {STAT_LABELS.map(l => (
+                                    <td key={"hl"+l} style={{...tdStat,color:C.textDim,fontWeight:700,background:"transparent",fontSize:9,whiteSpace:"nowrap"}}>{l}</td>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {rows.map(row => (
+                                  <tr key={row.label} style={{background:row.bg}}>
+                                    <td style={{...tdStat,color:row.color,fontWeight:700,fontSize:9,whiteSpace:"nowrap"}}>{row.label}</td>
+                                    {row.vals.map((v, i) => (
+                                      <td key={row.label+STAT_LABELS[i]} style={{...tdStat,
+                                        color: row.isChange ? chgColor(v) : C.textPri}}>
+                                        {row.isChange && v > 0 ? "+" : ""}{fmtVal(v, isPct[i])}
+                                      </td>
+                                    ))}
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })();
 
                   return (
                     <React.Fragment key={`${slot.slotId}-${gearSlot}`}>
@@ -2045,103 +2139,7 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                       {/* SVS PTS */}
                       <td style={{...tdMono,color:C.textDim}}>—</td>
                     </tr>
-                    {/* Stat sub-row — only shown when gear/mastery/widget level changed */}
-                    {(() => {
-                      const gearChanged    = !isWidget && (s.gearCurrent ?? 0) !== (s.gearGoal ?? 0);
-                      const masteryChanged = !isWidget && (s.masteryCurrent ?? 0) !== (s.masteryGoal ?? 0);
-                      const statusChanged  = !isWidget && (s.goalStatus ?? s.status ?? "Mythic") !== (s.status ?? "Mythic");
-                      const widgetChanged  = isWidget && (s.widgetCurrent ?? 0) !== (s.widgetGoal ?? 0);
-                      if (!gearChanged && !masteryChanged && !statusChanged) return null; // widget changes don't show stat subrow
-
-                      // Calculate current and goal stats using GearData lookup
-                      const gearName  = !isWidget ? SLOT_TO_GEAR(slot.type, gearSlot) : null;
-                      const curTier   = s.status    || "Mythic";
-                      const goalTier  = s.goalStatus || curTier;   // use goalStatus for goal lookup
-                      const curLv     = s.gearCurrent  ?? 0;
-                      const goalLv    = s.gearGoal      ?? 0;
-                      const curM      = s.masteryCurrent ?? 0;
-                      const goalM     = s.masteryGoal    ?? 0;
-
-                      const STAT_LABELS = ["Gear Pwr", GEAR_TYPE[gearName]==="ATK" ? "Hero Atk" : "Hero Def", "Hero HP", GEAR_TYPE[gearName]==="ATK" ? "Esc Atk" : "Esc Def", "Esc HP", GEAR_TYPE[gearName]==="ATK" ? "Trp Leth" : "Trp HP", "Trp Mast"];
-                      const tdStat = {padding:"4px 8px",fontSize:10,fontFamily:"'Space Mono',monospace",borderRight:`1px solid ${C.border}`,textAlign:"center"};
-
-                      const curStats  = gearName ? getGearStats(gearName, curTier,  curLv,  curM)  : null;
-                      const goalStats = gearName ? getGearStats(gearName, goalTier, goalLv, goalM) : null;
-
-                      // Don't show subrow if stats are identical (e.g. both at 0/0 Mythic)
-                      if (curStats && goalStats) {
-                        const same = curStats.power === goalStats.power &&
-                          curStats.heroMain === goalStats.heroMain &&
-                          curStats.heroHp === goalStats.heroHp;
-                        if (same) return null;
-                      }
-
-                      // Format a stat value for display
-                      const fmtVal = (val, isPct) => {
-                        if (val == null) return "—";
-                        if (isPct) return val.toFixed(2) + "%";
-                        return Math.round(val).toLocaleString();
-                      };
-
-                      // Build rows: [Gear Pwr, Hero Atk/Def, Hero HP, Esc Atk/Def, Esc HP, Trp%, Trp Mast%]
-                      const getRowVals = (gs, mastery) => {
-                        if (!gs) return Array(7).fill(null);
-                        const mastPct = mastery * 10; // mastery bonus %
-                        return [
-                          gs.power,
-                          gs.heroMain,
-                          gs.heroHp,
-                          gs.escMain,
-                          gs.escHp,
-                          gs.troop,   // already a %
-                          mastPct,    // mastery %
-                        ];
-                      };
-
-                      const curVals  = getRowVals(curStats,  curM);
-                      const goalVals = getRowVals(goalStats, goalM);
-                      const chgVals  = curVals.map((v, i) => (goalVals[i] != null && v != null) ? goalVals[i] - v : null);
-                      const isPct    = [false, false, false, false, false, true, true];
-
-                      const chgColor = (v) => v == null ? C.textDim : v > 0 ? C.green : v < 0 ? C.red : C.textDim;
-
-                      const rows = [
-                        { label:"Current", color:C.textSec, bg:"transparent",               vals: curVals  },
-                        { label:"Goal",    color:C.blue,    bg:"rgba(56,139,253,0.06)",      vals: goalVals },
-                        { label:"Change",  color:C.green,   bg:"rgba(63,185,80,0.06)",       vals: chgVals, isChange: true },
-                      ];
-
-                      return (
-                        <tr style={{background:"rgba(56,139,253,0.04)"}}>
-                          <td colSpan={12} style={{padding:"6px 10px",borderBottom:`1px solid ${C.border}`}}>
-                            <div style={{display:"flex",gap:0,borderRadius:6,overflow:"hidden",border:`1px solid ${C.border}`}}>
-                              <table style={{borderCollapse:"collapse",width:"100%",fontSize:10}}>
-                                <thead>
-                                  <tr>
-                                    <td style={{...tdStat,width:60,color:C.textDim,background:"transparent",borderRight:`1px solid ${C.border}`}}/>
-                                    {STAT_LABELS.map(l => (
-                                      <td key={"hl"+l} style={{...tdStat,color:C.textDim,fontWeight:700,background:"transparent",fontSize:9,whiteSpace:"nowrap"}}>{l}</td>
-                                    ))}
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {rows.map(row => (
-                                    <tr key={row.label} style={{background:row.bg}}>
-                                      <td style={{...tdStat,color:row.color,fontWeight:700,fontSize:9,whiteSpace:"nowrap"}}>{row.label}</td>
-                                      {row.vals.map((v, i) => (
-                                        <td key={row.label+STAT_LABELS[i]} style={{...tdStat, color: row.isChange ? chgColor(v) : (v == null ? C.textDim : C.textPri)}}>
-                                          {row.isChange && v != null && v > 0 ? "+" : ""}{fmtVal(v, isPct[i])}
-                                        </td>
-                                      ))}
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })()}
+                    {combinedSummary}
                     </React.Fragment>
                   );
                 });
