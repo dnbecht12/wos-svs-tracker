@@ -2069,57 +2069,96 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                         ) : <span style={{color:C.textDim}}>—</span>}
                       </td>
 
-                      {/* Goal: Status */}
-                      <td style={{...tdStyle,width:110}}>
-                        {!isWidget ? (
-                          <select value={s.goalStatus ?? s.status ?? "Mythic"}
-                            onChange={e => setSlotField(heroIdx, slotIdx, "goalStatus", e.target.value)}
-                            style={sel}>
-                            <option value="Mythic">Mythic</option>
-                            <option value="Legendary">Legendary</option>
-                          </select>
-                        ) : <span style={{color:C.textDim}}>—</span>}
-                      </td>
+                      {/* Goal columns — three states:
+                           1. Fully maxed (Legendary + gear 100 + mastery 20): single "Maxed" spanning all 3 goal cols
+                           2. Gear maxed only (Legendary + gear 100): MAX badge on gear col, mastery still editable
+                           3. Normal: all dropdowns shown                                                          */}
+                      {(() => {
+                        if (isWidget) {
+                          // Widget goal column (unchanged)
+                          return (
+                            <>
+                              <td style={{...tdStyle,width:110}}><span style={{color:C.textDim}}>—</span></td>
+                              <td style={{...tdStyle,width:80,textAlign:"center"}}>
+                                {(s.widgetCurrent ?? 0) >= 10 ? (
+                                  <span style={{fontSize:10,fontWeight:800,color:C.green,
+                                    fontFamily:"'Space Mono',monospace",
+                                    background:C.green+"22",border:`1px solid ${C.green}44`,
+                                    padding:"2px 7px",borderRadius:4}}>MAX</span>
+                                ) : (
+                                  <select value={s.widgetGoal ?? 0}
+                                    onChange={e => setSlotField(heroIdx, slotIdx, "widgetGoal", Number(e.target.value))}
+                                    style={sel}>
+                                    {widgetOpts.filter(v => v >= (s.widgetCurrent ?? 0)).map(v =>
+                                      <option key={v} value={v}>{v}</option>)}
+                                  </select>
+                                )}
+                              </td>
+                              <td style={{...tdStyle,width:80,textAlign:"center"}}><span style={{color:C.textDim}}>—</span></td>
+                            </>
+                          );
+                        }
 
-                      {/* Goal: Gear Level */}
-                      <td style={{...tdStyle,width:80,textAlign:"center"}}>
-                        {isWidget ? (
-                          (s.widgetCurrent ?? 0) >= 10 ? (
-                            <span style={{fontSize:10,fontWeight:800,color:C.green,
-                              fontFamily:"'Space Mono',monospace",
-                              background:C.green+"22",border:`1px solid ${C.green}44`,
-                              padding:"2px 7px",borderRadius:4}}>MAX</span>
-                          ) : (
-                            <select value={s.widgetGoal ?? 0}
-                              onChange={e => setSlotField(heroIdx, slotIdx, "widgetGoal", Number(e.target.value))}
-                              style={sel}>
-                              {widgetOpts.filter(v => v >= (s.widgetCurrent ?? 0)).map(v =>
-                                <option key={v} value={v}>{v}</option>)}
-                            </select>
-                          )
-                        ) : (
-                          <select value={s.gearGoal ?? 0}
-                            onChange={e => setSlotField(heroIdx, slotIdx, "gearGoal", Number(e.target.value))}
-                            style={sel}>
-                            {gearOpts
-                              .filter(v => isLeg ? v >= (s.gearCurrent ?? 0) : true)
-                              .map(v => <option key={v} value={v}>{v}</option>)}
-                          </select>
-                        )}
-                      </td>
+                        const gearMaxed    = isLeg && (s.gearCurrent ?? 0) >= 100;
+                        const masteryMaxed = (s.masteryCurrent ?? 0) >= 20;
+                        const fullyMaxed   = gearMaxed && masteryMaxed;
 
-                      {/* Goal: Mastery Level (slots 1-4 only) */}
-                      <td style={{...tdStyle,width:80,textAlign:"center"}}>
-                        {!isWidget ? (
-                          <select value={s.masteryGoal ?? 0}
-                            onChange={e => setSlotField(heroIdx, slotIdx, "masteryGoal", Number(e.target.value))}
-                            style={sel}>
-                            {masteryOpts
-                              .filter(v => isLeg ? v >= (s.masteryCurrent ?? 0) : true)
-                              .map(v => <option key={v} value={v}>{v}</option>)}
-                          </select>
-                        ) : <span style={{color:C.textDim}}>—</span>}
-                      </td>
+                        const MaxBadge = ({ label = "MAX" }) => (
+                          <span style={{fontSize:10,fontWeight:800,color:C.green,
+                            fontFamily:"'Space Mono',monospace",
+                            background:C.green+"22",border:`1px solid ${C.green}44`,
+                            padding:"2px 7px",borderRadius:4}}>{label}</span>
+                        );
+
+                        if (fullyMaxed) {
+                          // Single "Maxed" cell spanning all 3 goal sub-columns
+                          return (
+                            <td colSpan={3} style={{...tdStyle,textAlign:"center"}}>
+                              <MaxBadge label="Maxed" />
+                            </td>
+                          );
+                        }
+
+                        return (
+                          <>
+                            {/* Goal: Status */}
+                            <td style={{...tdStyle,width:110}}>
+                              <select value={s.goalStatus ?? s.status ?? "Mythic"}
+                                onChange={e => setSlotField(heroIdx, slotIdx, "goalStatus", e.target.value)}
+                                style={sel}>
+                                <option value="Mythic">Mythic</option>
+                                <option value="Legendary">Legendary</option>
+                              </select>
+                            </td>
+
+                            {/* Goal: Gear Level */}
+                            <td style={{...tdStyle,width:80,textAlign:"center"}}>
+                              {gearMaxed ? <MaxBadge /> : (
+                                <select value={s.gearGoal ?? 0}
+                                  onChange={e => setSlotField(heroIdx, slotIdx, "gearGoal", Number(e.target.value))}
+                                  style={sel}>
+                                  {gearOpts
+                                    .filter(v => isLeg ? v >= (s.gearCurrent ?? 0) : true)
+                                    .map(v => <option key={v} value={v}>{v}</option>)}
+                                </select>
+                              )}
+                            </td>
+
+                            {/* Goal: Mastery Level */}
+                            <td style={{...tdStyle,width:80,textAlign:"center"}}>
+                              {masteryMaxed ? <MaxBadge /> : (
+                                <select value={s.masteryGoal ?? 0}
+                                  onChange={e => setSlotField(heroIdx, slotIdx, "masteryGoal", Number(e.target.value))}
+                                  style={sel}>
+                                  {masteryOpts
+                                    .filter(v => isLeg ? v >= (s.masteryCurrent ?? 0) : true)
+                                    .map(v => <option key={v} value={v}>{v}</option>)}
+                                </select>
+                              )}
+                            </td>
+                          </>
+                        );
+                      })()}
 
                       {/* Stones */}
                       <td style={{...tdMono,color: rowStones > 0 ? C.blue : C.textDim}}>
