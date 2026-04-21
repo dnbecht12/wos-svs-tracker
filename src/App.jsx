@@ -2671,7 +2671,7 @@ export default function App() {
     // 2. Clear localStorage so no stale data bleeds into the new character
     const SYNC_KEYS = [
       "wa-levels","wa-speedbuff","wa-buffs","wa-dailyshards",
-      "rc-levels","rc-collapse","cp-speedbuff","cp-vip-level",
+      "rc-levels","rc-collapse","cp-speedbuff","cp-vip-level","cp-purchased-queue",
       "experts-data","cg-slots","cc-slots","troops-inventory-v2",
       "daybreak-buffs","daybreak-prosperity","hg-heroes","hg-hero-stats","pets-data",
       "cp-buildings","cp-buffs","cp-cycle","cp-dailyfc","cp-agnes",

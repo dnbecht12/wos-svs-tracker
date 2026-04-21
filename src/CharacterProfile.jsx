@@ -93,6 +93,7 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
   // VIP march queue: +1 at VIP 6+ (cumulative benefit, not per-level stacking)
   const VIP_MARCH_QUEUE = [0,0,0,0,0,0,1,1,1,1,1,1,1]; // index = VIP level 0-12
   const vipMarchQueue = VIP_MARCH_QUEUE[Math.min(vipLevel, 12)] ?? 0;
+  const [purchasedQueue, setPurchasedQueue] = useLocalStorage("cp-purchased-queue", false);
 
   // Pet power — read from pets-data localStorage key (same as Pets tab)
   const petPower = React.useMemo(() => {
@@ -625,16 +626,31 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
         {(() => {
           const rcQ = getRCMarchQueue(rcLevels);
           const vipQ = vipMarchQueue;
-          const total = 1 + rcQ + vipQ; // 1 base + RC + VIP
+          const purchQ = purchasedQueue ? 1 : 0;
+          const total = 1 + rcQ + vipQ + purchQ;
           const breakdown = [
             { label: "Base", value: "1" },
-            { label: `Research Center (Command Tactics I/II/III)`, value: `+${rcQ}` },
+            { label: "Research Center (Command Tactics I/II/III)", value: `+${rcQ}` },
             { label: `VIP ${vipLevel} benefit`, value: vipQ > 0 ? `+${vipQ}` : "0 (need VIP 6+)" },
+            { label: "Purchased queue (real-money pack)", value: purchQ > 0 ? "+1" : "0" },
           ];
           return (
-            <Row label="March Queue" value={String(total)}
-              source="1 base + Research Center (Command Tactics I/II/III, max +3) + VIP 6+ (+1)"
-              breakdown={breakdown} />
+            <div>
+              <Row label="March Queue" value={String(total)}
+                source="1 base + Research Center (max +3) + VIP 6+ (+1) + optional purchased queue (+1)"
+                breakdown={breakdown} />
+              <div style={{ display:"flex", alignItems:"center", gap:8,
+                padding:"4px 16px 10px 16px", marginTop:-6 }}>
+                <label style={{ display:"flex", alignItems:"center", gap:6,
+                  cursor:"pointer", fontSize:11, color:C.textDim,
+                  userSelect:"none" }}>
+                  <input type="checkbox" checked={purchasedQueue}
+                    onChange={e => setPurchasedQueue(e.target.checked)}
+                    style={{ accentColor:C.accent, cursor:"pointer", width:13, height:13 }} />
+                  <span>+1 Purchased Queue (extra march queue from real-money pack)</span>
+                </label>
+              </div>
+            </div>
           );
         })()}
 
