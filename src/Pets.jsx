@@ -670,6 +670,34 @@ export default function PetsPage({ inv, setInv }) {
     totalSvs     += c.svs;
   });
 
+  // ── Live stat totals from all owned pets ──────────────────────────────────
+  const statTotals = React.useMemo(() => {
+    let troopAtk = 0, troopDef = 0;
+    let infLeth = 0, infHp = 0;
+    let lancLeth = 0, lancHp = 0;
+    let markLeth = 0, markHp = 0;
+
+    PETS.forEach(pet => {
+      const d = getPet(pet.name);
+      if (!d.level) return; // not tamed
+
+      // Troops' Attack & Defense from PET_STATS
+      const stat = getPetStat(pet.quality, d.level, d.advanced) ?? 0;
+      troopAtk += stat;
+      troopDef += stat;
+
+      // Per-troop refinement sub-stats (user-entered)
+      infLeth  += parseFloat(d.infLeth)  || 0;
+      infHp    += parseFloat(d.infHp)    || 0;
+      lancLeth += parseFloat(d.lancLeth) || 0;
+      lancHp   += parseFloat(d.lancHp)   || 0;
+      markLeth += parseFloat(d.markLeth) || 0;
+      markHp   += parseFloat(d.markHp)   || 0;
+    });
+
+    return { troopAtk, troopDef, infLeth, infHp, lancLeth, lancHp, markLeth, markHp };
+  }, [petData]);
+
   // Group pets by quality for section headers
   const groupOrder = ["C","N","R","SR","SSR"];
   const groups = groupOrder.map(q => ({
@@ -687,6 +715,58 @@ export default function PetsPage({ inv, setInv }) {
 
   return (
     <div className="fade-in">
+
+      {/* ── Pet Stat Totals ── */}
+      {(() => {
+        const { troopAtk, troopDef, infLeth, infHp, lancLeth, lancHp, markLeth, markHp } = statTotals;
+        const anyTamed = PETS.some(p => (getPet(p.name).level || 0) > 0);
+        if (!anyTamed) return null;
+        const rows = [
+          { label:"Troops' Attack",    value:troopAtk,  color:C.accent },
+          { label:"Troops' Defense",   value:troopDef,  color:C.accent },
+          { label:"Infantry Lethality",  value:infLeth,   color:C.blue   },
+          { label:"Infantry Health",     value:infHp,     color:C.blue   },
+          { label:"Lancer Lethality",    value:lancLeth,  color:C.green  },
+          { label:"Lancer Health",       value:lancHp,    color:C.green  },
+          { label:"Marksman Lethality",  value:markLeth,  color:C.amber  },
+          { label:"Marksman Health",     value:markHp,    color:C.amber  },
+        ];
+        return (
+          <div style={{ marginBottom:20, border:`1px solid ${C.border}`,
+            borderRadius:10, overflow:"hidden" }}>
+            <div style={{ padding:"10px 16px", background:C.surface,
+              borderBottom:`1px solid ${C.border}`,
+              display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+              <span style={{ fontSize:12, fontWeight:800, color:C.textPri,
+                fontFamily:"Syne,sans-serif" }}>Pet Stat Bonuses — All Pets</span>
+              <span style={{ fontSize:10, color:C.textDim,
+                fontFamily:"'Space Mono',monospace" }}>
+                {PETS.filter(p => (getPet(p.name).level||0) > 0).length} / {PETS.length} tamed
+              </span>
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr",
+              background:C.card }}>
+              {rows.map((row, i) => (
+                <div key={row.label} style={{
+                  display:"flex", alignItems:"center",
+                  justifyContent:"space-between",
+                  padding:"10px 16px",
+                  borderBottom: i < rows.length - 2 ? `1px solid ${C.border}` : "none",
+                  borderRight: i % 2 === 0 ? `1px solid ${C.border}` : "none",
+                  background: i < 2 ? C.accentBg : "transparent",
+                }}>
+                  <span style={{ fontSize:12, color:C.textSec }}>{row.label}</span>
+                  <span style={{ fontSize:13, fontWeight:800,
+                    fontFamily:"'Space Mono',monospace",
+                    color: row.value > 0 ? row.color : C.textDim }}>
+                    {row.value > 0 ? `+${row.value.toFixed(2)}%` : "—"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Generation Filter ── */}
       <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:14 }}>
