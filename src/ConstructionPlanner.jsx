@@ -838,14 +838,18 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
       "cp-dailyfc":    setDailyFCIncome,
       "cp-agnes":      setAgnesLevel,
     };
-    // Always call syncCPFromCloud — it will get userId from supabase.auth internally
-    // Also listen for wos-user-ready in case auth hasn't resolved yet
+    // Sync from cloud whenever the active character changes.
+    // Also listen for wos-user-ready in case auth hasn't resolved yet.
     syncCPFromCloud(null, activeCharId, setters);
-    const handler = (e) => syncCPFromCloud(e.detail.id, activeCharId, setters);
+    const handler = (e) => syncCPFromCloud(e.detail?.id || null, activeCharId, setters);
     window.addEventListener("wos-user-ready", handler, { once: true });
-    return () => window.removeEventListener("wos-user-ready", handler);
+    window.addEventListener("wos-char-ready", handler);
+    return () => {
+      window.removeEventListener("wos-user-ready", handler);
+      window.removeEventListener("wos-char-ready", handler);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [activeCharId]);
 
   // buffTotal = speedBuff% + remaining toggles
   const buffTotal = useMemo(() => {

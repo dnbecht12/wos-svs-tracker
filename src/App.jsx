@@ -2710,10 +2710,13 @@ export default function App() {
     //    Must happen AFTER the fetch above so data is already in localStorage.
     setSyncCharId(newCharId);
 
-    // 6. Wait two animation frames for React to flush all the queued setVal
-    //    state updates from the wos-char-ready handlers before we unmount the
-    //    spinner. Without this delay the page renders with stale hook values.
+    // 6. Wait for React to flush all queued setVal updates from wos-char-ready
+    //    handlers before unmounting the spinner.
     await new Promise(resolve => setTimeout(resolve, 100));
+
+    // 7. Bump profileVersion so CharacterProfile's localStorage-reading useMemos
+    //    all re-run with the new character's data.
+    setProfileVersion(v => v + 1);
     setIsSwitching(false);
 
   }, [user, activeCharId, flushSave, switchCharacter]);

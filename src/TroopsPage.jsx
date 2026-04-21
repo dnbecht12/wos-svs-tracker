@@ -133,12 +133,20 @@ function TroopsPage() {
   const [troops, setTroops] = useLocalStorage("troops-inventory-v2", defaultTroops());
   const [showPromote, setShowPromote] = React.useState(false);
 
+  // Bust localStorage-reading useMemos when character switches
+  const [charSwitchCount, setCharSwitchCount] = React.useState(0);
+  React.useEffect(() => {
+    const handler = () => setCharSwitchCount(n => n + 1);
+    window.addEventListener("wos-char-ready", handler);
+    return () => window.removeEventListener("wos-char-ready", handler);
+  }, []);
+
   // Read FC levels from construction tab for each troop type
   const fcLevels = React.useMemo(() => {
     const out = {};
     TROOP_TYPES.forEach(t => { out[t.id] = getBuildingFCLevel(t.building); });
     return out;
-  }, []);
+  }, [charSwitchCount]);
 
   // Promote state
   const [promoteForm, setPromoteForm] = React.useState({

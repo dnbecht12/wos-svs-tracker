@@ -293,6 +293,14 @@ function WarAcademyPage({ inv, setInv }) {
   const [buffs, setBuffs] = useLocalStorage("wa-buffs", { presSkill: false, presPos: false });
   const toggleBuff = k => setBuffs(prev => ({ ...prev, [k]: !prev[k] }));
 
+  // Bust localStorage-reading useMemos when character switches
+  const [charSwitchCount, setCharSwitchCount] = React.useState(0);
+  React.useEffect(() => {
+    const handler = () => setCharSwitchCount(n => n + 1);
+    window.addEventListener("wos-char-ready", handler);
+    return () => window.removeEventListener("wos-char-ready", handler);
+  }, []);
+
   const buffTotal = React.useMemo(() => {
     let t = speedBuff / 100;
     if (buffs.presSkill) t += 0.10;
@@ -311,7 +319,7 @@ function WarAcademyPage({ inv, setInv }) {
       const FC_ORDER = ["FC1","FC2","FC3","FC4","FC5","FC6","FC7","FC8","FC9","FC10"];
       return FC_ORDER.indexOf(wa.current) + 1; // 1-based
     } catch { return 0; }
-  }, []);
+  }, [charSwitchCount]);
 
   // ── SvS date calculation (Tuesday = SvS Day 2) ────────────────────────────
   const [dailyEarnShards, setDailyEarnShards] = useLocalStorage("wa-dailyshards", null);

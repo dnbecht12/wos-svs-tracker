@@ -1399,14 +1399,23 @@ export default function ResearchCenterPage({ inv, rcLevels, setRcLevels, rcColla
     try { return JSON.parse(localStorage.getItem("wa-buffs") || "{}"); } catch { return {}; }
   });
 
-  // Listen for wa-speedbuff changes made in War Academy tab (storage event)
+  // Listen for wa-speedbuff/wa-buffs changes from War Academy tab (cross-tab)
+  // and re-read on character switch
   React.useEffect(() => {
     const onStorage = (e) => {
       if (e.key === "wa-speedbuff") setSpeedBuffState(Number(e.newValue || 0));
       if (e.key === "wa-buffs") { try { setBuffsState(JSON.parse(e.newValue || "{}")); } catch {} }
     };
+    const onCharReady = () => {
+      try { setSpeedBuffState(Number(localStorage.getItem("wa-speedbuff") || 0)); } catch {}
+      try { setBuffsState(JSON.parse(localStorage.getItem("wa-buffs") || "{}")); } catch {}
+    };
     window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    window.addEventListener("wos-char-ready", onCharReady);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("wos-char-ready", onCharReady);
+    };
   }, []);
 
   const setSpeedBuff = (v) => {

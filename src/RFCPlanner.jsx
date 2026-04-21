@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { _isGuest } from "./useLocalStorage.js";
 import { buildCycles, getCurrentCycleNum, getCycleStartDate, toIso, fmtIso, fmtDate as fmtDateUtil, cycleLabelFull } from "./svsCalendar.js";
 import { supabase } from "./supabase.js";
@@ -276,6 +276,14 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
   const [estEventRfc,   setEstEventRfc]   = useState(()=>loadLS("rfc-est-event",0));
   const [toast,         setToast]         = useState("");
 
+  // Bust localStorage-reading useMemos when character switches
+  const [charSwitchCount, setCharSwitchCount] = useState(0);
+  useEffect(() => {
+    const handler = () => setCharSwitchCount(n => n + 1);
+    window.addEventListener("wos-char-ready", handler);
+    return () => window.removeEventListener("wos-char-ready", handler);
+  }, []);
+
   // Is the selected cycle in the past? If so, view-only.
   const isPastCycle = selectedCycle < currentCycle;
 
@@ -386,7 +394,7 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
   }),[rows,inv.refinedFC]);
 
   // RFC accumulation card values
-  const constructionRfcNeeded = useMemo(()=>getConstructionRfcNeeded(),[selectedCycle]);
+  const constructionRfcNeeded = useMemo(()=>getConstructionRfcNeeded(),[selectedCycle, charSwitchCount]);
   const projectedRfcAtSvS = rows[20]?.rollingRFC ?? inv.refinedFC;
   const rfcBalance = projectedRfcAtSvS - constructionRfcNeeded;
 
