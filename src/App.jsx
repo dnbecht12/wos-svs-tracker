@@ -2675,12 +2675,14 @@ export default function App() {
       "experts-data","cg-slots","cc-slots","troops-inventory-v2",
       "daybreak-buffs","daybreak-prosperity","hg-heroes","hg-hero-stats","pets-data",
       "cp-buildings","cp-buffs","cp-cycle","cp-dailyfc","cp-agnes",
+      "wos-svs-inventory","wos-rfc-saved-plans",
     ];
     SYNC_KEYS.forEach(k => {
       try { localStorage.removeItem(k); localStorage.removeItem(`${k}__ts`); } catch {}
     });
 
-    // 3. Fetch new character's data from Supabase into localStorage
+    // 3. Fetch new character's data from Supabase into localStorage FIRST,
+    //    then fire wos-char-ready so hooks read the already-populated values.
     if (user?.id) {
       const { data } = await supabase.from("user_data")
         .select("key, value, updated_at")
@@ -2694,12 +2696,14 @@ export default function App() {
       });
     }
 
-    // 4. Update sync char ID — this dispatches wos-char-ready which causes
-    //    all useLocalStorage hooks to re-read from localStorage immediately
-    setSyncCharId(newCharId);
-
-    // 5. Switch the active character in useCharacters state
+    // 4. Switch the active character in useCharacters state first so
+    //    components that read activeCharId get the new value together.
     switchCharacter(newCharId);
+
+    // 5. Update sync char ID — this dispatches wos-char-ready which causes
+    //    all useLocalStorage hooks to re-read from localStorage.
+    //    Must happen AFTER the fetch above so data is already in localStorage.
+    setSyncCharId(newCharId);
 
   }, [user, activeCharId, flushSave, switchCharacter]);
 
