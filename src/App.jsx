@@ -2705,12 +2705,15 @@ export default function App() {
     //    components that read activeCharId get the new value together.
     switchCharacter(newCharId);
 
-    // 5. Update sync char ID — this dispatches wos-char-ready which causes
-    //    all useLocalStorage hooks to re-read from localStorage.
+    // 5. Update sync char ID — this dispatches wos-char-ready synchronously,
+    //    which queues setVal calls in every useLocalStorage hook.
     //    Must happen AFTER the fetch above so data is already in localStorage.
     setSyncCharId(newCharId);
 
-    // 6. Clear the switching lock — data is now loaded and hooks have updated
+    // 6. Wait two animation frames for React to flush all the queued setVal
+    //    state updates from the wos-char-ready handlers before we unmount the
+    //    spinner. Without this delay the page renders with stale hook values.
+    await new Promise(resolve => setTimeout(resolve, 100));
     setIsSwitching(false);
 
   }, [user, activeCharId, flushSave, switchCharacter]);
