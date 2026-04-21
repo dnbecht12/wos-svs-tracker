@@ -1891,7 +1891,10 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                 const heroStatsForSlot = heroStats?.[heroVal] || defaultHeroStats();
 
                 return GEAR_SLOTS.map((gearSlot, slotIdx) => {
-                  const s        = hd.slots[slotIdx] || {};
+                  const DEFAULT_SLOT = { slot: gearSlot, status: "Mythic", goalStatus: "Mythic",
+                    gearCurrent: 0, gearGoal: 0, masteryCurrent: 0, masteryGoal: 0,
+                    widgetCurrent: 0, widgetGoal: 0 };
+                  const s        = { ...DEFAULT_SLOT, ...(hd.slots[slotIdx] || {}) };
                   const isWidget = slotIdx === 4;
                   const isLeg    = s.status === "Legendary";
 
@@ -1935,7 +1938,7 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                       {/* Gear Status dropdown (slots 1-4 only) */}
                       <td style={{...tdStyle,width:110}}>
                         {!isWidget ? (
-                          <select value={s.status ?? "Legendary"}
+                          <select value={s.status ?? "Mythic"}
                             onChange={e => setSlotField(heroIdx, slotIdx, "status", e.target.value)}
                             style={sel}>
                             <option value="Legendary">Legendary</option>
