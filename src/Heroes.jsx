@@ -2103,6 +2103,28 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                         const masteryMaxed = (s.masteryCurrent ?? 0) >= 20;
                         const fullyMaxed   = gearMaxed && masteryMaxed;
 
+                        // Glow logic — only for Mythic slots
+                        const gearDiff    = !isLeg ? (s.gearGoal ?? 0) - (s.gearCurrent ?? 0) : 0;
+                        const masteryDiff = !isLeg ? (s.masteryGoal ?? 0) - (s.masteryCurrent ?? 0) : 0;
+                        const goalStatusVal = s.goalStatus ?? s.status ?? "Mythic";
+                        const statusUpgrade = !isLeg && goalStatusVal === "Legendary";
+
+                        // Blue = goal > current, Red = goal < current
+                        const glowCell = (diff, forStatus = false) => {
+                          const active = forStatus ? statusUpgrade : diff !== 0;
+                          if (!active && !forStatus) {
+                            if (diff === 0) return {};
+                          }
+                          const up   = forStatus ? true : diff > 0;
+                          const down = !forStatus && diff < 0;
+                          if (!up && !down) return {};
+                          const color = up ? C.blue : C.red;
+                          return {
+                            background: up ? "rgba(56,139,253,0.10)" : "rgba(248,81,73,0.10)",
+                            boxShadow:  `inset 0 0 0 1px ${color}55`,
+                          };
+                        };
+
                         const MaxBadge = ({ label = "MAX" }) => (
                           <span style={{fontSize:10,fontWeight:800,color:C.green,
                             fontFamily:"'Space Mono',monospace",
@@ -2121,9 +2143,9 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
 
                         return (
                           <>
-                            {/* Goal: Status */}
-                            <td style={{...tdStyle,width:110}}>
-                              <select value={s.goalStatus ?? s.status ?? "Mythic"}
+                            {/* Goal: Status — glows blue if upgrading to Legendary */}
+                            <td style={{...tdStyle,width:110,...glowCell(0,true)}}>
+                              <select value={goalStatusVal}
                                 onChange={e => setSlotField(heroIdx, slotIdx, "goalStatus", e.target.value)}
                                 style={sel}>
                                 <option value="Mythic">Mythic</option>
@@ -2131,8 +2153,8 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                               </select>
                             </td>
 
-                            {/* Goal: Gear Level */}
-                            <td style={{...tdStyle,width:80,textAlign:"center"}}>
+                            {/* Goal: Gear Level — glows blue if goal > current, red if goal < current */}
+                            <td style={{...tdStyle,width:80,textAlign:"center",...glowCell(gearDiff)}}>
                               {gearMaxed ? <MaxBadge /> : (
                                 <select value={s.gearGoal ?? 0}
                                   onChange={e => setSlotField(heroIdx, slotIdx, "gearGoal", Number(e.target.value))}
@@ -2144,8 +2166,8 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                               )}
                             </td>
 
-                            {/* Goal: Mastery Level */}
-                            <td style={{...tdStyle,width:80,textAlign:"center"}}>
+                            {/* Goal: Mastery Level — glows blue if goal > current, red if goal < current */}
+                            <td style={{...tdStyle,width:80,textAlign:"center",...glowCell(masteryDiff)}}>
                               {masteryMaxed ? <MaxBadge /> : (
                                 <select value={s.masteryGoal ?? 0}
                                   onChange={e => setSlotField(heroIdx, slotIdx, "masteryGoal", Number(e.target.value))}
