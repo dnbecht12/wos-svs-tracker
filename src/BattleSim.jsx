@@ -1098,16 +1098,29 @@ function FighterPanel({ title, color, fighter, onChange, isUserPanel }) {
   const invRows = (ut) => autoData?.troopInventory?.[ut] || [];
 
   // Stat table rows
-  const STAT_ROWS = [
-    ["Infantry",  "infantry"],
-    ["Lancer",    "lancer"  ],
-    ["Marksman",  "marksman"],
-  ];
   const STAT_FIELDS = [
     ["Atk",  "atk"],
     ["Def",  "def"],
     ["Leth", "leth"],
     ["HP",   "hp"  ],
+  ];
+
+  // "All Troops" row = the minimum across all 3 unit types (the shared global portion)
+  // Type-specific row = that type's value minus the all-troops minimum (the extra on top)
+  const allTroopsStats = {};
+  STAT_FIELDS.forEach(([, field]) => {
+    allTroopsStats[field] = Math.min(
+      stats.infantry[field] || 0,
+      stats.lancer[field]   || 0,
+      stats.marksman[field] || 0,
+    );
+  });
+
+  const STAT_ROWS = [
+    ["All Troops", "all"     ],
+    ["Infantry",   "infantry"],
+    ["Lancer",     "lancer"  ],
+    ["Marksman",   "marksman"],
   ];
 
   // Special bonus rows
@@ -1562,21 +1575,36 @@ function FighterPanel({ title, color, fighter, onChange, isUserPanel }) {
                 </tr>
               </thead>
               <tbody>
-                {STAT_ROWS.map(([troopLabel, ut], ri) => (
-                  <tr key={ut} style={{ background: ri%2===0 ? "transparent" : C.surface }}>
-                    <td style={{ ...tdStyle, color:UNIT_COLORS[ut], fontWeight:700,
-                      textAlign:"left", paddingLeft:8 }}>{troopLabel}</td>
-                    {STAT_FIELDS.map(([,field]) => {
-                      const val = stats[ut][field] || 0;
-                      return (
-                        <td key={field} style={{ ...tdStyle,
-                          color: val > 0 ? C.green : C.textDim }}>
-                          {val > 0 ? `+${val.toFixed(1)}%` : "—"}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
+                {STAT_ROWS.map(([troopLabel, ut], ri) => {
+                  const isAll = ut === "all";
+                  const color = isAll ? C.textPri
+                    : ut === "infantry" ? C.green
+                    : ut === "lancer"   ? C.blue
+                    : C.amber;
+                  return (
+                    <tr key={ut} style={{ background: ri%2===0 ? "transparent" : C.surface }}>
+                      <td style={{ ...tdStyle, color, fontWeight: 700,
+                        textAlign:"left", paddingLeft:8,
+                        borderBottom: isAll ? `1px solid ${C.border}` : undefined }}>
+                        {troopLabel}
+                      </td>
+                      {STAT_FIELDS.map(([, field]) => {
+                        // All Troops row: show the minimum (shared global portion)
+                        // Per-type rows: show the type-specific EXTRA on top of All Troops
+                        const val = isAll
+                          ? (allTroopsStats[field] || 0)
+                          : Math.max(0, (stats[ut][field] || 0) - (allTroopsStats[field] || 0));
+                        return (
+                          <td key={field} style={{ ...tdStyle,
+                            color: val > 0 ? (isAll ? C.green : UNIT_COLORS[ut]) : C.textDim,
+                            borderBottom: isAll ? `1px solid ${C.border}` : undefined }}>
+                            {val > 0 ? `+${val.toFixed(1)}%` : "—"}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
 
