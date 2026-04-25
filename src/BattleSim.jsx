@@ -320,7 +320,10 @@ function simulateBattle(attacker, defender, isMonteCarlo) {
       if (!target) continue;
 
       const army = calcArmy(attCurrent[ut], armyMin);
-      const baseDmg = army * attacker.stats[ut].atk / defender.stats[target].def / 100;
+      // Lethality multiplier scales attacker effective ATK; HP multiplier scales defender effective DEF
+      const attLeth = attacker.stats[ut].lethMultiplier ?? 1;
+      const defHp   = defender.stats[target].hpMultiplier ?? 1;
+      const baseDmg = army * attacker.stats[ut].atk * attLeth / (defender.stats[target].def * defHp) / 100;
 
       const attFilt = getBenefitsForMatchup(attBenefits, ut, target, "attack");
       const defFilt = getBenefitsForMatchup(defBenefits, target, ut, "defense");
@@ -343,7 +346,9 @@ function simulateBattle(attacker, defender, isMonteCarlo) {
       if (!target) continue;
 
       const army = calcArmy(defCurrent[ut], armyMin);
-      const baseDmg = army * defender.stats[ut].atk / attacker.stats[target].def / 100;
+      const defLeth = defender.stats[ut].lethMultiplier ?? 1;
+      const attHp   = attacker.stats[target].hpMultiplier ?? 1;
+      const baseDmg = army * defender.stats[ut].atk * defLeth / (attacker.stats[target].def * attHp) / 100;
 
       const defFilt = getBenefitsForMatchup(defBenefits, ut, target, "attack");
       const attFilt = getBenefitsForMatchup(attBenefits, target, ut, "defense");
@@ -653,6 +658,46 @@ function getPetStatVal(quality, level, advanced) {
   if (!table || !level) return 0;
   const key = advanced ? `${level}a` : level;
   return table[key] ?? table[level] ?? 0;
+}
+
+// ── Pet skill effects — scale linearly with pet level / maxLevel ──────────────
+// Each entry defines what the skill does at max level and how it maps to sim stats.
+// Scaling: skillValue = (petLevel / maxLevel) * maxValue
+const PET_COMBAT_SKILLS = [
+  // name, maxLevel, what the skill affects at max, sim stat mapping
+  { name:"Titan Roc",            max:70,  label:"Enemy Troops' Health ↓",  stat:"enemyHp",    maxVal:5,      unit:"%" },
+  { name:"Snow Leopard",         max:80,  label:"Enemy Troop Lethality ↓", stat:"enemyLeth",  maxVal:5,      unit:"%" },
+  { name:"Cave Lion",            max:100, label:"Troops' Attack",           stat:"atk",        maxVal:10,     unit:"%" },
+  { name:"Snow Ape",             max:100, label:"Squad Capacity (deploy)",  stat:"deployCap",  maxVal:15000,  unit:""  },
+  { name:"Iron Rhino",           max:100, label:"Rally Capacity",           stat:"rallyCap",   maxVal:150000, unit:""  },
+  { name:"Sabertooth Tiger",     max:100, label:"Troops' Lethality",        stat:"leth",       maxVal:10,     unit:"%" },
+  { name:"Mammoth",              max:100, label:"Troops' Defense",          stat:"def",        maxVal:10,     unit:"%" },
+  { name:"Frost Gorilla",        max:100, label:"Troops' Health",           stat:"hp",         maxVal:10,     unit:"%" },
+  { name:"Frostscale Chameleon", max:100, label:"Enemy Troops' Defense ↓", stat:"enemyDef",   maxVal:10,     unit:"%" },
+];
+
+// Read pets-data from localStorage and compute active pet skill effects.
+// Returns array of { name, label, value, unit, stat } for each tamed combat pet.
+// Also returns aggregate stat bonuses for the sim.
+function calcPetSkillEffects() {
+  const active = [];
+  const bonuses = { atk:0, def:0, leth:0, hp:0, enemyAtk:0, enemyDef:0,
+                    enemyHp:0, enemyLeth:0, deployCap:0, rallyCap:0 };
+  try {
+    const raw = localStorage.getItem("pets-data");
+    if (!raw) return { active, bonuses };
+    const petsData = JSON.parse(raw);
+
+    for (const skill of PET_COMBAT_SKILLS) {
+      const d = petsData[skill.name];
+      if (!d || !d.level || d.level <= 0) continue;
+      const scaledVal = Math.round((d.level / skill.max) * skill.maxVal * 100) / 100;
+      active.push({ name: skill.name, label: skill.label,
+                    value: scaledVal, unit: skill.unit, stat: skill.stat });
+      if (bonuses[skill.stat] !== undefined) bonuses[skill.stat] += scaledVal;
+    }
+  } catch {}
+  return { active, bonuses };
 }
 
 // Parse RC buff string for troop stats: "+1.25% Infantry Attack" → { type: "infantry", stat: "atk", val: 1.25 }
@@ -975,6 +1020,10 @@ function FighterPanel({ title, color, fighter, onChange, isUserPanel }) {
   // buffs and petSkillsActive live in fighter state so prepareFighter can read them
   const buffs          = fighter.buffs          || {};
   const petSkillsActive = fighter.petSkillsActive || false;
+  const petSkillData = React.useMemo(() => {
+    if (!petSkillsActive) return { active: [], bonuses: {} };
+    return calcPetSkillEffects();
+  }, [petSkillsActive]);
   const setBuffs = (updater) => {
     const next = typeof updater === "function" ? updater(buffs) : updater;
     onChange({ ...fighter, buffs: next });
@@ -1130,17 +1179,20 @@ function FighterPanel({ title, color, fighter, onChange, isUserPanel }) {
         <div>
           <div style={LABEL_STYLE}>Deployment Cap</div>
           {isAuto ? (() => {
-            const deployBuff = buffs.deployBuff ?? 0;
-            const effCap = deployBuff > 0
-              ? Math.round(deployCapacity * (1 + deployBuff / 100))
-              : deployCapacity;
+            const deployBuff  = buffs.deployBuff ?? 0;
+            const petDeploy   = petSkillsActive ? (petSkillData.bonuses.deployCap || 0) : 0;
+            const effCap = Math.round((deployCapacity + petDeploy) * (1 + deployBuff / 100));
             return (
               <div style={{ ...INPUT_STYLE, background: C.surface,
                 color: C.green, fontWeight: 700 }}>
                 {fmt(effCap)}
-                {deployBuff > 0 && (
+                {(deployBuff > 0 || petDeploy > 0) && (
                   <span style={{ fontSize: 9, color: C.textDim, fontWeight: 400,
-                    marginLeft: 4 }}>({fmt(deployCapacity)} +{deployBuff}%)</span>
+                    marginLeft: 4 }}>
+                    ({fmt(deployCapacity)}
+                    {petDeploy > 0 ? ` +${fmt(petDeploy)} pet` : ""}
+                    {deployBuff > 0 ? ` +${deployBuff}%` : ""})
+                  </span>
                 )}
               </div>
             );
@@ -1212,8 +1264,9 @@ function FighterPanel({ title, color, fighter, onChange, isUserPanel }) {
       {(() => {
         // Effective deploy cap — Auto uses calculated value boosted by deploy buff %;
         // Manual uses the user-entered field.
-        const deployBuff = buffs.deployBuff ?? 0; // 0, 10, or 20
-        const baseCap = isAuto ? deployCapacity : (fighter.deployCapManual || 0);
+        const deployBuff = buffs.deployBuff ?? 0;
+        const petDeploy  = petSkillsActive ? (petSkillData.bonuses.deployCap || 0) : 0;
+        const baseCap = isAuto ? (deployCapacity + petDeploy) : (fighter.deployCapManual || 0);
         const effectiveCap = baseCap > 0
           ? Math.round(baseCap * (1 + deployBuff / 100))
           : 0;
@@ -1362,7 +1415,8 @@ function FighterPanel({ title, color, fighter, onChange, isUserPanel }) {
         const ratioSum  = UNIT_TYPES.reduce((s, ut) => s + (ratios[ut] || 0), 0);
 
         const deployBuff = buffs.deployBuff ?? 0;
-        const baseCap    = isAuto ? deployCapacity : (fighter.deployCapManual || 0);
+        const petDeploy2  = petSkillsActive ? (petSkillData.bonuses.deployCap || 0) : 0;
+        const baseCap    = isAuto ? (deployCapacity + petDeploy2) : (fighter.deployCapManual || 0);
         const effectiveCap = baseCap > 0 ? Math.round(baseCap * (1 + deployBuff / 100)) : 0;
 
         const toggleRatioMode = (val) => {
@@ -1525,6 +1579,40 @@ function FighterPanel({ title, color, fighter, onChange, isUserPanel }) {
                 ))}
               </tbody>
             </table>
+
+            {/* Pet Skills Active section */}
+            {petSkillsActive && petSkillData.active.length > 0 && (
+              <div style={{ borderTop: `1px solid ${C.border}` }}>
+                <div style={{ padding: "5px 8px", background: `${C.accent}22`,
+                  fontSize: 9, fontWeight: 700, color: C.accent,
+                  fontFamily: "'Space Mono',monospace", letterSpacing: "0.06em",
+                  textTransform: "uppercase" }}>
+                  Pet Skills Active
+                </div>
+                {petSkillData.active.map(skill => {
+                  const isBuff   = !skill.stat.startsWith("enemy") && skill.stat !== "deployCap" && skill.stat !== "rallyCap";
+                  const isDeploy = skill.stat === "deployCap";
+                  const isRally  = skill.stat === "rallyCap";
+                  const isEnemy  = skill.stat.startsWith("enemy");
+                  const valStr   = skill.unit === "%" ? `+${skill.value.toFixed(1)}%` : `+${Math.round(skill.value).toLocaleString()}`;
+                  const color    = isEnemy ? C.red : isDeploy || isRally ? C.blue : C.green;
+                  return (
+                    <div key={skill.name} style={{ display: "flex",
+                      justifyContent: "space-between", alignItems: "center",
+                      padding: "4px 8px", borderBottom: `1px solid ${C.border}22`,
+                      fontSize: 9, fontFamily: "'Space Mono',monospace" }}>
+                      <span style={{ color: C.textSec }}>
+                        <span style={{ color: C.accent, fontWeight: 600 }}>{skill.name}</span>
+                        {" — "}{skill.label}
+                      </span>
+                      <span style={{ color, fontWeight: 700, flexShrink: 0, marginLeft: 8 }}>
+                        {valStr}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
@@ -1821,15 +1909,28 @@ export default function BattleSimPage({ inv }) {
 
     const baseStats = buildFighterStats(troopObj, f.stats);
     const fb  = f.buffs || {};
-    const pet = f.petSkillsActive ? 10 : 0; // +10% Atk/Def from active pet combat skills
 
-    // Apply global situational buffs to all unit types
+    // Compute actual pet skill bonuses from saved pets-data (scales with pet level)
+    const petSkills = f.petSkillsActive ? calcPetSkillEffects() : { bonuses: {} };
+    const pb = petSkills.bonuses;
+
+    // Apply global situational buffs + pet skill bonuses to all unit types
     const boostedStats = {};
     for (const ut of UNIT_TYPES) {
+      const atkBuff  = (fb.atk||0) + (fb.petAtk||0) + (fb.apptAtk||0) + (pb.atk||0);
+      const defBuff  = (fb.def||0) + (fb.petDef||0) + (fb.apptDef||0) + (pb.def||0);
+      const lethBuff = (fb.leth||0) + (fb.petLeth||0) + (fb.apptLeth||0) + (pb.leth||0);
+      const hpBuff   = (fb.hp||0)   + (fb.petHp||0)  + (fb.apptHp||0)  + (pb.hp||0);
+
       boostedStats[ut] = {
         count: baseStats[ut].count,
-        atk: baseStats[ut].atk * (1 + ((fb.atk||0) + (fb.petAtk||0) + (fb.apptAtk||0) + pet) / 100),
-        def: baseStats[ut].def * (1 + ((fb.def||0) + (fb.petDef||0) + (fb.apptDef||0) + pet) / 100),
+        // ATK and DEF are used directly by the combat formula
+        atk: baseStats[ut].atk * (1 + atkBuff / 100),
+        def: baseStats[ut].def * (1 + defBuff / 100),
+        // Lethality and health bonuses increase effective ATK/DEF respectively
+        // (lethality multiplies attacker damage; health multiplies defender HP)
+        lethMultiplier: 1 + lethBuff / 100,
+        hpMultiplier:   1 + hpBuff   / 100,
       };
     }
 
