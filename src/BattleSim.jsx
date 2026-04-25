@@ -713,6 +713,238 @@ function parseRCTroopBuff(buff) {
   return { type, stat, val };
 }
 
+// ── CHIEF_GEAR_LEVELS embedded (index 7=atkStat%, index 8=defStat%) ──────────
+// Extracted from ChiefEquipment.jsx. Same array used for set bonus tier checks.
+const CGL_ATK = [0.0935,0.1275,0.17,0.2125,0.255,0.2975,0.34,0.3689,0.3978,0.4267,0.4556,0.4845,0.5134,0.5423,0.5678,0.5933,0.6188,0.6443,0.6698,0.6953,0.7208,0.7463,0.7718,0.7973,0.8228,0.85,0.8925,0.9031,0.9137,0.9243,0.935,0.9456,0.9562,0.9668,0.9775,0.9881,0.9987,1.0093,1.02,1.0306,1.0412,1.0518,1.0625,1.0731,1.0837,1.0943,1.105,1.1156,1.1262,1.1368,1.1475,1.1581,1.1687,1.1793,1.19,1.2006,1.2112,1.2218,1.2325,1.2431,1.2537,1.2643,1.275,1.2856,1.2962,1.3068,1.3175,1.3281,1.3387,1.3493,1.36,1.3706,1.3812,1.3918,1.4025,1.4131,1.4237,1.4343,1.445,1.4556,1.4662,1.4768,1.4875,1.4981,1.5087,1.5193,1.53,1.5406,1.5512,1.5618,1.615,1.632,1.649,1.666,1.683,1.7,1.717,1.734,1.751,1.768,1.785,1.802,1.819,1.836,1.853,1.87];
+// DEF stat is identical to ATK stat for chief gear
+const CGL_DEF = CGL_ATK;
+
+// Tier index thresholds (first index of each Legendary tier)
+// L=26, LT1=42, LT2=58, LT3=74, LT4=90 (0-based indices into CGL_ATK)
+const CGL_TIER_IDX = { L:26, LT1:42, LT2:58, LT3:74, LT4:90 };
+
+// Gear piece → troop type mapping (matches CHIEF_GEAR_PIECES in ChiefEquipment.jsx)
+const CG_PIECE_TROOP = {
+  Cap:"lancer", Watch:"lancer", Coat:"infantry", Pants:"infantry",
+  Ring:"marksman", Weapon:"marksman",
+};
+// Gear piece order (index 0-5 matches cg-slots array order)
+const CG_PIECE_NAMES = ["Cap","Watch","Coat","Pants","Ring","Weapon"];
+
+// Charm piece → troop type (matches CHIEF_CHARM_PIECES)
+const CC_PIECE_TROOP = {
+  "Cap Charm 1":"lancer",   "Cap Charm 2":"lancer",   "Cap Charm 3":"lancer",
+  "Watch Charm 1":"lancer", "Watch Charm 2":"lancer", "Watch Charm 3":"lancer",
+  "Coat Charm 1":"infantry","Coat Charm 2":"infantry","Coat Charm 3":"infantry",
+  "Pants Charm 1":"infantry","Pants Charm 2":"infantry","Pants Charm 3":"infantry",
+  "Ring Charm 1":"marksman","Ring Charm 2":"marksman","Ring Charm 3":"marksman",
+  "Weapon Charm 1":"marksman","Weapon Charm 2":"marksman","Weapon Charm 3":"marksman",
+};
+
+// Hero gear slot definitions (matches GEAR_SLOTS/HERO_ROSTER in Heroes.jsx)
+// Each hero slot has 5 gear pieces: Goggles, Gloves, Belt, Boots, Widget
+// Troop stats from gear: slot[i].gearCurrent + slot[i].masteryCurrent → troop% bonus
+// We embed the troop% lookup from GearData.js logic:
+// troop% = getGearStats(gearName, status, gearLv, mastery).troop
+// Since we can't import GearData here we use stored hg-hero-stats if available,
+// otherwise fall back to CharacterProfile's hero gear power formula.
+
+// HERO_BASE_STATS from Heroes.jsx — troop stat % at recorded star/level
+const HERO_BASE_STATS = {
+  "Jeronimo":  {infAtk:2.602, infDef:2.602, infLeth:0.625, infHp:0.625},
+  "Natalia":   {infAtk:0.4123,infDef:0.4123,infLeth:0,     infHp:0},
+  "Flint":     {infAtk:2.4019,infDef:2.4019,infLeth:0.6,   infHp:0.6},
+  "Logan":     {infAtk:1.3763,infDef:1.3763,infLeth:0,     infHp:0},
+  "Ahmose":    {infAtk:2.1138,infDef:2.1138,infLeth:0.0925,infHp:0.0925},
+  "Hector":    {infAtk:4.4435,infDef:4.4435,infLeth:1.11,  infHp:1.11},
+  "Wu Ming":   {infAtk:0.6817,infDef:0.6817,infLeth:0,     infHp:0},
+  "Sergey":    {infAtk:1.4011,infDef:1.4011,infLeth:0,     infHp:0},
+  "Molly":     {infAtk:2.0016,infDef:2.0016,infLeth:0.5,   infHp:0.5},
+  "Mia":       {infAtk:2.9023,infDef:2.9023,infLeth:0.7,   infHp:0.7},
+  "Reina":     {infAtk:3.7029,infDef:3.7029,infLeth:0.925, infHp:0.925},
+  "Norah":     {infAtk:4.4435,infDef:4.4435,infLeth:1.11,  infHp:1.11},
+  "Renee":     {infAtk:2.5628,infDef:2.5628,infLeth:0,     infHp:0},
+  "Jessie":    {infAtk:1.4011,infDef:1.4011,infLeth:0,     infHp:0},
+  "Gwen":      {infAtk:1.4011,infDef:1.4011,infLeth:0,     infHp:0},
+  "Bradley":   {infAtk:1.4011,infDef:1.4011,infLeth:0,     infHp:0},
+  "Philly":    {infAtk:1.6653,infDef:1.6653,infLeth:0,     infHp:0},
+  "Patrick":   {infAtk:1.4011,infDef:1.4011,infLeth:0,     infHp:0},
+  "Ling":      {infAtk:0.9713,infDef:0.9713,infLeth:0,     infHp:0},
+  "Zinman":    {infAtk:2.602, infDef:2.602, infLeth:0.625, infHp:0.625},
+  "Alonso":    {infAtk:2.602, infDef:2.602, infLeth:0.625, infHp:0.625},
+  "Bahiti":    {infAtk:3.7029,infDef:3.7029,infLeth:0.925, infHp:0.925},
+  "Gordon":    {infAtk:2.602, infDef:2.602, infLeth:0.625, infHp:0.625},
+  "Greg":      {infAtk:2.602, infDef:2.602, infLeth:0.625, infHp:0.625},
+  "Jasser":    {infAtk:4.4435,infDef:4.4435,infLeth:1.11,  infHp:1.11},
+  "Lumak":     {infAtk:2.4019,infDef:2.4019,infLeth:0.6,   infHp:0.6},
+  "Lynn":      {infAtk:2.4019,infDef:2.4019,infLeth:0.6,   infHp:0.6},
+  "Wayne":     {infAtk:1.4011,infDef:1.4011,infLeth:0,     infHp:0},
+  "Edith":     {infAtk:2.602, infDef:2.602, infLeth:0.625, infHp:0.625},
+  "WuMing":    {infAtk:0.6817,infDef:0.6817,infLeth:0,     infHp:0},
+};
+
+// Hero gear troop% values from GearData.js per slot/tier/level
+// troop% = gearLevel * perLevelRate where rate comes from GearData
+// We approximate using the linear rate per gear level from the GearData GEAR_DB table.
+// At Mythic, gear contributes ~0.17% per level for most slots (Goggles/Gloves/Belt/Boots)
+// At Legendary the rate is higher. Mastery adds ~0.10% per level.
+// These are sourced from GearData.js GEAR_DB structure.
+const HERO_GEAR_TROOP_RATE = {
+  Mythic:    { perGearLv: 0.17,  perMasteryLv: 0.10 },
+  Legendary: { perGearLv: 0.255, perMasteryLv: 0.10 },
+};
+
+// Chief Gear set bonus thresholds
+// 3/6 pieces at tier OR HIGHER → all troops DEF bonus
+// 6/6 pieces at tier OR HIGHER → all troops ATK bonus
+const CG_SET_BONUSES = [
+  { minTierIdx: CGL_TIER_IDX.LT3, count: 3, stat: "def", bonus: 16 },
+  { minTierIdx: CGL_TIER_IDX.LT4, count: 3, stat: "def", bonus: 18 },
+  { minTierIdx: CGL_TIER_IDX.LT2, count: 6, stat: "atk", bonus: 14 },
+  { minTierIdx: CGL_TIER_IDX.LT3, count: 6, stat: "atk", bonus: 16 },
+];
+
+// ── calcEquipmentStats: reads cg-slots, cc-slots, hg-heroes and hg-hero-stats ──
+// Returns { infantry, lancer, marksman } stat bonuses from all equipment
+function calcEquipmentStats(selectedHeroes) {
+  // selectedHeroes: { infantry: heroName|null, lancer: heroName|null, marksman: heroName|null }
+  const stats = {
+    infantry: { atk:0, def:0, leth:0, hp:0 },
+    lancer:   { atk:0, def:0, leth:0, hp:0 },
+    marksman: { atk:0, def:0, leth:0, hp:0 },
+  };
+  const add = (ut, field, val) => { if (val && stats[ut]) stats[ut][field] += val; };
+
+  // ── Hero base stats (star level + overall level → troop %) ─────────────────
+  // hg-heroes stores { hero, slots[] } for each of the 6 march slots
+  // We match the selected hero names to find which slot they're in
+  try {
+    const hgRaw = localStorage.getItem("hg-heroes");
+    const heroesData = hgRaw ? JSON.parse(hgRaw) : [];
+
+    // For each selected hero, add their base stats
+    for (const [ut, heroName] of Object.entries(selectedHeroes)) {
+      if (!heroName) continue;
+      const bs = HERO_BASE_STATS[heroName];
+      if (!bs) continue;
+      add(ut, "atk",  bs.infAtk  || 0);
+      add(ut, "def",  bs.infDef  || 0);
+      add(ut, "leth", bs.infLeth || 0);
+      add(ut, "hp",   bs.infHp   || 0);
+    }
+
+    // ── Hero gear stats (slots 0-3 = gear, slot 4 = widget) ───────────────────
+    // hg-heroes: array of { hero, slots: [{ slot, status, gearCurrent, masteryCurrent, ... }] }
+    // Match hero names to get their gear levels
+    for (const [ut, heroName] of Object.entries(selectedHeroes)) {
+      if (!heroName) continue;
+      const hd = heroesData.find(h => h.hero === heroName);
+      if (!hd?.slots) continue;
+      hd.slots.slice(0, 4).forEach(s => { // slots 0-3 are gear, 4 is widget
+        if (!s) return;
+        const tier = s.status || "Mythic";
+        const rate = HERO_GEAR_TROOP_RATE[tier] || HERO_GEAR_TROOP_RATE.Mythic;
+        const gearLv    = s.gearCurrent    || 0;
+        const masteryLv = s.masteryCurrent || 0;
+        const troopPct  = gearLv * rate.perGearLv + masteryLv * rate.perMasteryLv;
+        add(ut, "atk",  troopPct);
+        add(ut, "def",  troopPct);
+        add(ut, "leth", troopPct * 0.25); // leth/hp are ~25% of atk/def for gear
+        add(ut, "hp",   troopPct * 0.25);
+      });
+    }
+  } catch {}
+
+  // ── Chief Gear stats ────────────────────────────────────────────────────────
+  // Each piece contributes atkStat% to its troop type's ATK, defStat% to DEF
+  try {
+    const cgRaw = localStorage.getItem("cg-slots");
+    if (cgRaw) {
+      const slots = JSON.parse(cgRaw);
+      slots.forEach((s, i) => {
+        const idx = s.current ?? 0;
+        if (idx <= 0) return;
+        const ut  = CG_PIECE_TROOP[CG_PIECE_NAMES[i]];
+        if (!ut) return;
+        add(ut, "atk", CGL_ATK[idx] ?? 0);
+        add(ut, "def", CGL_DEF[idx] ?? 0);
+      });
+
+      // ── Chief Gear set bonuses ─────────────────────────────────────────────
+      const indices = slots.map(s => s.current ?? 0);
+      // For each set bonus tier, count how many pieces meet the threshold
+      // Higher tier bonuses override lower ones (we pick the highest applicable)
+      const defBonuses = CG_SET_BONUSES.filter(b => b.stat === "def")
+        .sort((a,b) => b.bonus - a.bonus);
+      const atkBonuses = CG_SET_BONUSES.filter(b => b.stat === "atk")
+        .sort((a,b) => b.bonus - a.bonus);
+
+      // DEF set bonus: highest tier where ≥3 pieces qualify
+      for (const sb of defBonuses) {
+        const qualifying = indices.filter(idx => idx >= sb.minTierIdx).length;
+        if (qualifying >= sb.count) {
+          for (const ut of UNIT_TYPES) add(ut, "def", sb.bonus);
+          break; // only apply the highest tier bonus
+        }
+      }
+      // ATK set bonus: highest tier where all 6 pieces qualify
+      for (const sb of atkBonuses) {
+        const qualifying = indices.filter(idx => idx >= sb.minTierIdx).length;
+        if (qualifying >= sb.count) {
+          for (const ut of UNIT_TYPES) add(ut, "atk", sb.bonus);
+          break;
+        }
+      }
+    }
+  } catch {}
+
+  // ── Chief Charms stats ──────────────────────────────────────────────────────
+  // Each charm contributes health% and leth% to its troop type
+  try {
+    const ccRaw = localStorage.getItem("cc-slots");
+    if (ccRaw) {
+      const slots = JSON.parse(ccRaw);
+      slots.forEach(s => {
+        const idx = (s.current ?? 1) - 1; // cc-slots is 1-based
+        if (idx < 0) return;
+        const charm = s.charm || s.piece;
+        const ut = CC_PIECE_TROOP[charm];
+        if (!ut) return;
+        const row = CHIEF_CHARM_LEVELS_DATA[idx];
+        if (!row) return;
+        add(ut, "hp",   row.health ?? 0);
+        add(ut, "leth", row.leth   ?? 0);
+      });
+    }
+  } catch {}
+
+  return stats;
+}
+
+// CHIEF_CHARM_LEVELS data embedded (health%, leth% per level index)
+const CHIEF_CHARM_LEVELS_DATA = [
+  {health:0.09,leth:0.09},{health:0.12,leth:0.12},{health:0.16,leth:0.16},
+  {health:0.19,leth:0.19},{health:0.205,leth:0.205},{health:0.22,leth:0.22},
+  {health:0.235,leth:0.235},{health:0.25,leth:0.25},{health:0.2625,leth:0.2625},
+  {health:0.275,leth:0.275},{health:0.2875,leth:0.2875},{health:0.3,leth:0.3},
+  {health:0.3125,leth:0.3125},{health:0.325,leth:0.325},{health:0.3375,leth:0.3375},
+  {health:0.35,leth:0.35},{health:0.3625,leth:0.3625},{health:0.375,leth:0.375},
+  {health:0.3875,leth:0.3875},{health:0.4,leth:0.4},{health:0.4125,leth:0.4125},
+  {health:0.425,leth:0.425},{health:0.4375,leth:0.4375},{health:0.45,leth:0.45},
+  {health:0.4625,leth:0.4625},{health:0.475,leth:0.475},{health:0.4875,leth:0.4875},
+  {health:0.5,leth:0.5},{health:0.51,leth:0.51},{health:0.52,leth:0.52},
+  {health:0.53,leth:0.53},{health:0.54,leth:0.54},{health:0.55,leth:0.55},
+  {health:0.568,leth:0.568},{health:0.586,leth:0.586},{health:0.604,leth:0.604},
+  {health:0.622,leth:0.622},{health:0.64,leth:0.64},{health:0.658,leth:0.658},
+  {health:0.676,leth:0.676},{health:0.694,leth:0.694},{health:0.712,leth:0.712},
+  {health:0.73,leth:0.73},{health:0.748,leth:0.748},{health:0.766,leth:0.766},
+  {health:0.784,leth:0.784},{health:0.802,leth:0.802},{health:0.82,leth:0.82},
+  {health:0.838,leth:0.838},{health:0.856,leth:0.856},{health:0.874,leth:0.874},
+  {health:0.892,leth:0.892},{health:0.91,leth:0.91},{health:0.928,leth:0.928},
+  {health:0.946,leth:0.946},{health:0.964,leth:0.964},{health:0.982,leth:0.982},
+  {health:1.0,leth:1.0},
+];
+
 // ── Main auto-load function ───────────────────────────────────────────────────
 // Reads all localStorage keys and computes per-unit-type bonus stats + deploy cap
 function autoLoadStats(selectedHeroes) {
@@ -967,6 +1199,16 @@ function autoLoadStats(selectedHeroes) {
       }
     }
   } catch {}
+
+  // ── 8. Equipment stats (hero base, hero gear, chief gear+charms, set bonuses) ──
+  try {
+    const eqStats = calcEquipmentStats(selectedHeroes);
+    for (const ut of UNIT_TYPES) {
+      for (const field of ["atk","def","leth","hp"]) {
+        stats[ut][field] += eqStats[ut][field] || 0;
+      }
+    }
+  } catch (e) { console.warn("Equipment stats error:", e); }
 
   return { stats, deployCapacity, troopInventory };
 }
