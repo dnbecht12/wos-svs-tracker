@@ -826,29 +826,32 @@ function autoLoadStats(selectedHeroes) {
   // BASE + WA(FlameSquad×3 + HeliosTraining×3) + ChiefGear + CommandCenter + RC + Romulus + Daybreak
   let deployCapacity = BASE_DEPLOY;
   try {
-    // ── WA: Flame Squad (×3 troop types) + Helios Training (×3 troop types) ──
+    // ── WA: Flame Squad + Helios Training — read level[cur][2] directly ──────
+    // Matches CharacterProfile.jsx: fsRes?.levels[cur]?.[2] + htRes?.levels[cur]?.[2]
     const waRaw = localStorage.getItem("wa-levels");
     if (waRaw) {
       const waLevels = JSON.parse(waRaw);
-      const FSC = [0, 200, 400, 600, 800, 1000]; // Flame Squad deploy per level (max lv5)
-      // Helios Training index [2] = deploy buff per level — from WA_RESEARCH heliosTraining levels
-      const HT_DEPLOY = [0, 250, 500, 750, 1000, 1250, 1500, 1750, 2000, 2250, 2500];
+      // Flame Squad index[2]: [0,200,400,600,800,1000] for levels 0-5
+      const FS = [0, 200, 400, 600, 800, 1000];
+      // Helios Training index[2]: [0,100,200,300,400,500,600,700,800,900,1000] for levels 0-10
+      const HT = [0, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000];
       for (const ut of ["Infantry","Lancer","Marksman"]) {
-        const fsLv = waLevels[ut]?.flameSquad?.cur      ?? 0;
-        const htLv = waLevels[ut]?.heliosTraining?.cur  ?? 0;
-        deployCapacity += FSC[Math.min(fsLv, 5)] ?? 0;
-        deployCapacity += HT_DEPLOY[Math.min(htLv, 10)] ?? 0;
+        const fsLv = waLevels[ut]?.flameSquad?.cur     ?? 0;
+        const htLv = waLevels[ut]?.heliosTraining?.cur ?? 0;
+        deployCapacity += FS[Math.min(fsLv, 5)]  ?? 0;
+        deployCapacity += HT[Math.min(htLv, 10)] ?? 0;
       }
     }
 
-    // ── Chief Gear — index [9] of each slot row = deploy bonus ──
-    // CHIEF_GEAR_LEVELS embed (matches ChiefEquipment.jsx exactly at index 9)
-    const CGL_DEPLOY = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-      40,50,60,70,80,90,100,110,120,130,140,150,160,170,180,190,290,300,310,320,
-      330,340,350,360,370,380,390,400,540,550,560,570,580,590,600,610,620,630,640,
-      650,660,670,680,690,790,800,810,820,830,840,850,860,870,880,890,900,910,920,
-      930,940,1050,1060,1070,1080,1090,1100,1110,1120,1130,1140,1150,1160,1170,
-      1180,1190,1200];
+    // ── Chief Gear — index [9] of CHIEF_GEAR_LEVELS = deploy bonus per slot ──
+    // Extracted directly from ChiefEquipment.jsx CHIEF_GEAR_LEVELS[i][9]
+    const CGL_DEPLOY = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+      40,50,60,70,80,90,100,110,120,130,140,150,160,170,180,190,
+      290,300,310,320,330,340,350,360,370,380,390,400,
+      410,420,430,440,
+      540,550,560,570,580,590,600,610,620,630,640,650,660,670,680,690,
+      790,800,810,820,830,840,850,860,870,880,890,900,910,920,930,940,
+      1050,1060,1070,1080,1090,1100,1110,1120,1130,1140,1150,1160,1170,1180,1190,1200];
     const cgRaw = localStorage.getItem("cg-slots");
     if (cgRaw) {
       JSON.parse(cgRaw).forEach(s => {
@@ -1126,12 +1129,22 @@ function FighterPanel({ title, color, fighter, onChange, isUserPanel }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
         <div>
           <div style={LABEL_STYLE}>Deployment Cap</div>
-          {isAuto ? (
-            <div style={{ ...INPUT_STYLE, background: C.surface,
-              color: C.green, fontWeight: 700 }}>
-              {fmt(deployCapacity)}
-            </div>
-          ) : (
+          {isAuto ? (() => {
+            const deployBuff = buffs.deployBuff ?? 0;
+            const effCap = deployBuff > 0
+              ? Math.round(deployCapacity * (1 + deployBuff / 100))
+              : deployCapacity;
+            return (
+              <div style={{ ...INPUT_STYLE, background: C.surface,
+                color: C.green, fontWeight: 700 }}>
+                {fmt(effCap)}
+                {deployBuff > 0 && (
+                  <span style={{ fontSize: 9, color: C.textDim, fontWeight: 400,
+                    marginLeft: 4 }}>({fmt(deployCapacity)} +{deployBuff}%)</span>
+                )}
+              </div>
+            );
+          })() : (
             <input type="number" min={0} step={100}
               value={fighter.deployCapManual ?? ""}
               placeholder="Enter cap…"
