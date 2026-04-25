@@ -822,56 +822,89 @@ function autoLoadStats(selectedHeroes) {
   } catch {}
 
   // ── 6. Deployment capacity ─────────────────────────────────────────────────
+  // Mirrors CharacterProfile.jsx deployCapacity useMemo exactly:
+  // BASE + WA(FlameSquad×3 + HeliosTraining×3) + ChiefGear + CommandCenter + RC + Romulus + Daybreak
   let deployCapacity = BASE_DEPLOY;
   try {
-    // WA Flame Squad (deploy per troop type × 3)
+    // ── WA: Flame Squad (×3 troop types) + Helios Training (×3 troop types) ──
     const waRaw = localStorage.getItem("wa-levels");
     if (waRaw) {
       const waLevels = JSON.parse(waRaw);
-      const FSC = [0,200,400,600,800,1000]; // Flame Squad deploy per level
-      const HTR = [0,0,0,0,0,0,0,0,0,0,0]; // Helios Training — deploy only (index 2 of dual)
-      // Flame Squad max lv 5, adds deploy
+      const FSC = [0, 200, 400, 600, 800, 1000]; // Flame Squad deploy per level (max lv5)
+      // Helios Training index [2] = deploy buff per level — from WA_RESEARCH heliosTraining levels
+      const HT_DEPLOY = [0, 250, 500, 750, 1000, 1250, 1500, 1750, 2000, 2250, 2500];
       for (const ut of ["Infantry","Lancer","Marksman"]) {
-        const fsLv = waLevels[ut]?.flameSquad?.cur ?? 0;
+        const fsLv = waLevels[ut]?.flameSquad?.cur      ?? 0;
+        const htLv = waLevels[ut]?.heliosTraining?.cur  ?? 0;
         deployCapacity += FSC[Math.min(fsLv, 5)] ?? 0;
+        deployCapacity += HT_DEPLOY[Math.min(htLv, 10)] ?? 0;
       }
     }
-    // Command Center
+
+    // ── Chief Gear — index [9] of each slot row = deploy bonus ──
+    // CHIEF_GEAR_LEVELS embed (matches ChiefEquipment.jsx exactly at index 9)
+    const CGL_DEPLOY = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+      40,50,60,70,80,90,100,110,120,130,140,150,160,170,180,190,290,300,310,320,
+      330,340,350,360,370,380,390,400,540,550,560,570,580,590,600,610,620,630,640,
+      650,660,670,680,690,790,800,810,820,830,840,850,860,870,880,890,900,910,920,
+      930,940,1050,1060,1070,1080,1090,1100,1110,1120,1130,1140,1150,1160,1170,
+      1180,1190,1200];
+    const cgRaw = localStorage.getItem("cg-slots");
+    if (cgRaw) {
+      JSON.parse(cgRaw).forEach(s => {
+        deployCapacity += CGL_DEPLOY[s.current ?? 0] ?? 0;
+      });
+    }
+
+    // ── Command Center ──
     const cpRaw = localStorage.getItem("cp-buildings");
     if (cpRaw) {
       const bldgs = JSON.parse(cpRaw);
       const cmd = bldgs.find(b => b.name === "Command");
-      if (cmd?.current) {
-        deployCapacity += CMD_CENTER_DEPLOY[cmd.current] ?? 0;
-      }
+      if (cmd?.current) deployCapacity += CMD_CENTER_DEPLOY[cmd.current] ?? 0;
     }
-    // Chief Gear (cg-slots) — each slot has a deploy contribution at slot.current
-    // From CharacterProfile: CHIEF_GEAR_LEVELS[current][9] = deploy bonus
-    // Simplified: skip for now, user can see it in Chief Profile
-    // RC deploy
+
+    // ── Research Center — regExpansion nodes ──
+    // Per-level cumulative deploy values (each level adds the listed amount)
+    const RC_DEPLOY_NODES = {
+      regExpansion1: [320, 320, 360],
+      regExpansion2: [320, 320, 760],
+      regExpansion3: [620, 580, 600, 1000],
+      regExpansion4: [990, 910, 1000, 1000, 1700],
+      regExpansion5: [1200, 1200, 1200, 1200, 1200, 2000],
+      regExpansion6: [2000, 2000, 2000, 2000, 2000, 3400],
+    };
     const rcRaw = localStorage.getItem("rc-levels");
     if (rcRaw) {
-      // RC deploy nodes — these are parsed via getRCDeployRally in the app
-      // We can't call that directly but we can approximate from known node pattern
-      // This is complex enough that we'll leave it to the user's Chief Profile value
+      const rcLevels = JSON.parse(rcRaw);
+      for (const [nodeId, perLvValues] of Object.entries(RC_DEPLOY_NODES)) {
+        const cur = rcLevels[nodeId]?.cur ?? 0;
+        for (let i = 0; i < Math.min(cur, perLvValues.length); i++) {
+          deployCapacity += perLvValues[i];
+        }
+      }
     }
-    // Romulus expert deploy
+
+    // ── Romulus expert (Commander's Crest affinity) ──
     const expRaw = localStorage.getItem("experts-data");
     if (expRaw) {
       const ed = JSON.parse(expRaw);
       const ROMULUS_DEPLOY = [0,300,600,1000,1500,2000,3000,4000,5500,7000,8500,10000];
       deployCapacity += ROMULUS_DEPLOY[Number(ed["Romulus"]?.affinity ?? 0)] ?? 0;
     }
-    // Daybreak deploy
+
+    // ── Daybreak Island ──
     const dbRaw = localStorage.getItem("daybreak-buffs");
     if (dbRaw) {
       const db = JSON.parse(dbRaw);
       deployCapacity += Number(String(db.deployCap ?? "").replace(/,/g,"")) || 0;
     }
-    // Hero deploy bonus: 13,470 per level-80 hero slot
+
+    // ── Hero deploy bonus: 13,470 per selected hero ──
     const heroCount = Object.values(selectedHeroes).filter(Boolean).length;
     deployCapacity += heroCount * HERO_TROOP_CAP;
-  } catch {}
+
+  } catch (e) { console.warn("Deploy cap calc error:", e); }
 
   // ── 7. Troop inventory ─────────────────────────────────────────────────────
   let troopInventory = { infantry: [], lancer: [], marksman: [] };
@@ -1737,14 +1770,29 @@ const SCENARIOS = [
 
 export default function BattleSimPage({ inv }) {
   const C = COLORS;
-  const [scenario, setScenario]       = useState("1v1");
-  const [monteCarlo, setMonteCarlo]   = useState(false);
-  const [mcRuns]                      = useState(500);
-  const [attacker, setAttacker]       = useState(() => initFighter());
-  const [defender, setDefender]       = useState(() => initFighter());
-  // Reinforcement: up to 3 extra defenders
-  const [reinforcements, setReinforcements] = useState([initFighter(), initFighter(), initFighter()]);
-  const [activeReinf, setActiveReinf] = useState([false, false, false]);
+
+  // ── Persist sim state across navigation via localStorage ──────────────────
+  const loadSaved = (key, fallback) => {
+    try { const r = localStorage.getItem(key); return r ? JSON.parse(r) : fallback; }
+    catch { return fallback; }
+  };
+  const save = (key, val) => { try { localStorage.setItem(key, JSON.stringify(val)); } catch {} };
+
+  const [scenario, setScenarioRaw]           = useState(() => loadSaved("bsim-scenario", "1v1"));
+  const [monteCarlo, setMonteCarloRaw]       = useState(() => loadSaved("bsim-mc", false));
+  const [mcRuns]                             = useState(500);
+  const [attacker, setAttackerRaw]           = useState(() => ({ ...initFighter(), ...loadSaved("bsim-attacker", {}) }));
+  const [defender, setDefenderRaw]           = useState(() => ({ ...initFighter(), ...loadSaved("bsim-defender", {}) }));
+  const [reinforcements, setReinforcementsRaw] = useState(() =>
+    loadSaved("bsim-reinf", null) ?? [initFighter(), initFighter(), initFighter()]);
+  const [activeReinf, setActiveReinfRaw]     = useState(() => loadSaved("bsim-activereinf", [false, false, false]));
+
+  const setScenario       = v => { setScenarioRaw(v);       save("bsim-scenario", v); };
+  const setMonteCarlo     = v => { setMonteCarloRaw(v);     save("bsim-mc", v); };
+  const setAttacker       = v => { setAttackerRaw(v);       save("bsim-attacker", v); };
+  const setDefender       = v => { setDefenderRaw(v);       save("bsim-defender", v); };
+  const setReinforcements = v => { setReinforcementsRaw(v); save("bsim-reinf", v); };
+  const setActiveReinf    = v => { setActiveReinfRaw(v);    save("bsim-activereinf", v); };
 
   const [result, setResult]           = useState(null);
   const [running, setRunning]         = useState(false);
