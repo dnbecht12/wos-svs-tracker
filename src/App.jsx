@@ -99,6 +99,7 @@ async function acceptSubmission(submission, forceAccept = false) {
 import ConstructionPlanner, { getBuildingPower, BUILDINGS_LIST } from "./ConstructionPlanner.jsx";
 import RFCPlanner from "./RFCPlanner.jsx";
 import SvSCalendar from "./SvSCalendar.jsx";
+import BattleSimPage from "./BattleSim.jsx";
 import PetsPage from "./Pets.jsx";
 import { useAuth } from "./useAuth.js";
 import { useCharacters, charLoadInventory, charSaveInventory, charLoadPlans, charSavePlan, charDeletePlan, savePlanSnapshot, loadPlanSnapshot } from "./useCharacters.js";
@@ -1937,6 +1938,7 @@ const PAGES = [
   // PLANNING
   { id:"rfc-planner",      label:"RFC Planner",      icon:"[R]", section:"Planning"                  },
   { id:"svs-calendar",     label:"SvS Calendar",     icon:"[C]", section:"Planning"                  },
+  { id:"battle-sim",       label:"Battle Simulator",  icon:"[B]", section:"Planning"                  },
 ];
 
 const PAGE_TITLES = {
@@ -1953,6 +1955,7 @@ const PAGE_TITLES = {
   "research-center": { title: "Research Center", sub: "Growth, Economy & Battle research trees — track per-level costs, buffs and time across all tiers" },
   "troops":     { title: "Troops", sub: "Troop inventory — track your Infantry, Lancer and Marksman counts by tier" },
   "svs-calendar":{ title: "SvS Calendar", sub: "Rolling 28-week schedule — SvS every 4th week, King of Icefield every 2nd week" },
+  "battle-sim":  { title: "Battle Simulator", sub: "Estimate troop casualties and battle outcomes using community-verified combat formulas" },
   "pets":          { title: "Pets", sub: "Pet levels, advancement costs, skill tracker and refinement stats" },
   "char-profile": { title: "Chief Profile", sub: "Total power summary — tech, gear, heroes, charms, military and growth stats" },
   alliance:     { title: "Alliance Scores", sub: "SvS prep scores and historical results" },
@@ -3388,6 +3391,7 @@ export default function App() {
             {page === "war-academy"  && <WarAcademyPage   inv={inv} setInv={setInv} />}
             {page === "research-center" && <ResearchCenterPage inv={inv} rcLevels={rcLevels} setRcLevels={setRcLevels} rcCollapse={rcCollapse} setRcCollapse={setRcCollapse} />}
             {page === "svs-calendar" && <SvSCalendar />}
+            {page === "battle-sim"   && <BattleSimPage inv={inv} />}
             {page === "char-profile" && <CharacterProfilePage hgHeroes={hgHeroes} inv={inv}
                 rcLevels={rcLevels} profileVersion={profileVersion}
                 cpSpeedBuff={cpSpeedBuff} setCpSpeedBuff={setCpSpeedBuff} />}
