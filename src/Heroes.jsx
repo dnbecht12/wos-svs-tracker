@@ -19,8 +19,8 @@ const COLORS = {
 // ─── Hero Roster (from whiteout_survival_heroes_v2.xlsx) ─────────────────────
 const HERO_ROSTER = [
   // Gen 1–9: all SSR
-  { name:"Jeronimo",   type:"Infantry", gen:"Gen 1", quality:"SSR" },
-  { name:"Natalia",    type:"Infantry", gen:"Gen 1", quality:"SSR" },
+  { name:"Jeronimo",   type:"Infantry", gen:"Gen 1", quality:"SSR", premium:true },
+  { name:"Natalia",    type:"Infantry", gen:"Gen 1", quality:"SSR", premium:true },
   { name:"Flint",      type:"Infantry", gen:"Gen 2", quality:"SSR" },
   { name:"Logan",      type:"Infantry", gen:"Gen 3", quality:"SSR" },
   { name:"Ahmose",     type:"Infantry", gen:"Gen 4", quality:"SSR" },
@@ -1358,6 +1358,9 @@ function HeroesPage({ genFilter, setGenFilter, heroStats, setHeroStats, setHgHer
   });
   const [sortBy,      setSortBy]      = useLocalStorage("heroes-sort",      "quality");
   const [favorites,   setFavorites]   = useLocalStorage("heroes-favorites", []);
+  // Premium heroes added to roster by user (Jeronimo, Natalia by default excluded)
+  const [rosterHeroes, setRosterHeroes] = useLocalStorage("heroes-roster-added", []);
+  const [showPremium, setShowPremium] = useState(false);
   const [filterType,  setFilterType]  = useState("");
   const [filterGen,   setFilterGen]   = useState("");
   const [filterName,  setFilterName]  = useState("");
@@ -1367,7 +1370,10 @@ function HeroesPage({ genFilter, setGenFilter, heroStats, setHeroStats, setHgHer
   const maxGenIdx = GEN_ORDER.indexOf(genFilter);
 
   // Apply gen-ceiling filter, then additional filters
+  // Premium heroes are excluded from main roster unless user has added them
+  const PREMIUM_HEROES = HERO_ROSTER.filter(h => h.premium);
   const visible = HERO_ROSTER.filter(h => {
+    if (h.premium && !rosterHeroes.includes(h.name)) return false; // hide premium unless added
     if (GEN_ORDER.indexOf(h.gen) > maxGenIdx) return false;
     if (filterType && h.type !== filterType) return false;
     if (filterGen  && h.gen  !== filterGen)  return false;
@@ -1382,6 +1388,8 @@ function HeroesPage({ genFilter, setGenFilter, heroStats, setHeroStats, setHgHer
                : sortHeroesByQuality(visible);
 
   const clearFilters = () => { setFilterType(""); setFilterGen(""); setFilterName(""); };
+  const addToRoster     = (name) => setRosterHeroes(prev => prev.includes(name) ? prev : [...prev, name]);
+  const removeFromRoster= (name) => setRosterHeroes(prev => prev.filter(n => n !== name));
 
   // Favorites in same sort order as roster
   const favHeroes = sorted.filter(h => favorites.includes(h.name));
@@ -1693,17 +1701,97 @@ function HeroesPage({ genFilter, setGenFilter, heroStats, setHeroStats, setHgHer
           </table>
         </div>
       </div>
+
+      {/* Premium / Purchasable Heroes — collapsed by default */}
+      <div style={{marginTop:8}}>
+        <button
+          onClick={() => setShowPremium(v => !v)}
+          style={{
+            width:"100%", padding:"9px 14px",
+            background:"transparent",
+            border:`1px dashed ${C.border}`,
+            borderRadius:8, cursor:"pointer",
+            display:"flex", alignItems:"center", justifyContent:"space-between",
+            color:C.textDim, fontSize:11,
+            fontFamily:"'Space Mono',monospace", letterSpacing:"0.5px",
+          }}
+        >
+          <span>
+            <span style={{marginRight:8}}>🔒</span>
+            Premium / Purchasable Heroes — Jeronimo &amp; Natalia
+            <span style={{marginLeft:10,fontSize:10,color:C.textDim}}>
+              (not available to all players)
+            </span>
+          </span>
+          <span>{showPremium ? "▲ Hide" : "▼ Show"}</span>
+        </button>
+
+        {showPremium && (
+          <div className="card" style={{marginTop:6, border:`1px solid ${C.border}`}}>
+            <div style={{padding:"10px 16px 6px", fontSize:11, color:C.textDim, fontFamily:"'Space Mono',monospace"}}>
+              These heroes must be purchased in-game and may not be available to free-to-play players.
+              Click "Add to Roster" to include them in your main hero table.
+            </div>
+            <div style={{overflowX:"auto"}}>
+              <table style={{width:"100%",borderCollapse:"collapse",fontSize:12}}>
+                <TableHeader />
+                <tbody>
+                  {PREMIUM_HEROES.map((hero, idx) => {
+                    const inRoster = rosterHeroes.includes(hero.name);
+                    return (
+                      <React.Fragment key={hero.name}>
+                        <HeroRow hero={hero} isFav={false} idx={idx} />
+                        <tr style={{background:"rgba(227,107,26,0.04)"}}>
+                          <td colSpan={20} style={{padding:"6px 14px 10px"}}>
+                            {inRoster ? (
+                              <div style={{display:"flex",alignItems:"center",gap:10}}>
+                                <span style={{fontSize:11,color:C.green,fontFamily:"'Space Mono',monospace"}}>
+                                  ✓ Added to your roster
+                                </span>
+                                <button
+                                  onClick={() => removeFromRoster(hero.name)}
+                                  style={{
+                                    fontSize:10, padding:"3px 10px", borderRadius:5, cursor:"pointer",
+                                    border:`1px solid ${C.red}66`, background:"transparent",
+                                    color:C.red, fontFamily:"'Space Mono',monospace",
+                                  }}
+                                >
+                                  Remove from roster
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => addToRoster(hero.name)}
+                                style={{
+                                  fontSize:11, padding:"5px 14px", borderRadius:6, cursor:"pointer",
+                                  border:`1px solid ${C.accent}66`,
+                                  background:`rgba(227,107,26,0.12)`,
+                                  color:C.accent, fontFamily:"'Space Mono',monospace", fontWeight:700,
+                                }}
+                              >
+                                + Add to Roster
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
 // ─── HeroGearPage ─────────────────────────────────────────────────────────────
 
-// Team label helpers
 const TEAM_LETTERS = ["A","B","C","D","E","F"];
 const teamLabel = t => `${t}-Team`;
 
-// Default teams data structure: { activeTeam:"A", teams:{ A:[3 slots] } }
 function defaultTeamsData() {
   return {
     activeTeam: "A",
@@ -1711,8 +1799,6 @@ function defaultTeamsData() {
   };
 }
 
-// Migrate old hg-heroes (6-slot flat array) → teams structure
-// Slots 0-2 → A-Team always. Slots 3-5 → B-Team ONLY if they have non-default data.
 function migrateOldHeroes(oldHeroes) {
   if (!oldHeroes || !Array.isArray(oldHeroes) || oldHeroes.length === 0) return null;
   const aTeam = oldHeroes.slice(0,3);
@@ -1728,13 +1814,12 @@ function migrateOldHeroes(oldHeroes) {
 function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, hgTeams, setHgTeams }) {
   const C = COLORS;
 
-  // ── Remove-team modal state ─────────────────────────────────────────────────
   const [showRemoveModal, setShowRemoveModal] = useState(false);
   const [removeTarget,    setRemoveTarget]    = useState("");
 
-  const teamLetters   = Object.keys(hgTeams.teams).sort();
-  const activeTeam    = hgTeams.activeTeam;
-  const heroData      = hgTeams.teams[activeTeam] || HERO_SLOTS.slice(0,3).map(s => defaultHeroState(s.type));
+  const teamLetters = Object.keys(hgTeams.teams).sort();
+  const activeTeam  = hgTeams.activeTeam;
+  const heroData    = hgTeams.teams[activeTeam] || HERO_SLOTS.slice(0,3).map(s => defaultHeroState(s.type));
 
   const setActiveTeam = (letter) => setHgTeams(prev => ({ ...prev, activeTeam: letter }));
 
@@ -1752,7 +1837,7 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
   const addTeam = () => {
     const used = Object.keys(hgTeams.teams).sort();
     const next = TEAM_LETTERS.find(l => !used.includes(l));
-    if (!next) return; // max 6 teams
+    if (!next) return;
     const newSlots = HERO_SLOTS.slice(0,3).map(s => defaultHeroState(s.type));
     setHgTeams(prev => ({
       activeTeam: next,
@@ -1761,7 +1846,7 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
   };
 
   const removeTeam = (letter) => {
-    if (teamLetters.length <= 1) return; // can't remove last team
+    if (teamLetters.length <= 1) return;
     setHgTeams(prev => {
       const newTeams = { ...prev.teams };
       delete newTeams[letter];
@@ -1773,7 +1858,6 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
     setRemoveTarget("");
   };
 
-  // Currently selected hero names (for deduplication within this team)
   const selectedHeroes = heroData.map(h => h.hero);
 
   const setHero = (slotIdx, heroName) => {
@@ -1843,7 +1927,6 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
     );
   };
 
-  // Totals for the ACTIVE team only (displayed in summary cards)
   const totals = useMemo(() => {
     let stones = 0, mithril = 0, mythic = 0;
     heroData.forEach(h => {
@@ -1877,10 +1960,10 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
   return (
     <div className="fade-in">
 
-      {/* ── Top bar: summary cards + team tabs + Add Team button ── */}
+      {/* ── Top bar: summary cards (horizontal) + team tabs + Add Team ── */}
       <div style={{display:"flex", alignItems:"flex-start", gap:16, marginBottom:20, flexWrap:"wrap"}}>
 
-        {/* Summary cards — horizontal row */}
+        {/* Summary cards — explicit flex row, always horizontal */}
         <div style={{display:"flex", gap:12, flexShrink:0}}>
           <StatCard label="Stones needed"  value={totals.stones}  sub={`have ${(inv.stones ?? 0).toLocaleString()}`}  color={totals.stones  > (inv.stones  ?? 0) ? "red" : undefined} />
           <StatCard label="Mithril needed" value={totals.mithril} sub={`have ${(inv.mithril ?? 0).toLocaleString()}`} color={totals.mithril > (inv.mithril ?? 0) ? "red" : undefined} />
@@ -1905,13 +1988,14 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
             </button>
           ))}
           {teamLetters.length < 6 && (
-            <button onClick={addTeam} style={{
-              padding:"8px 14px", borderRadius:6, cursor:"pointer",
-              fontFamily:"'Space Mono',monospace", fontSize:11,
-              border:`1px dashed ${C.border}`, background:"transparent",
-              color:C.textSec, display:"flex", alignItems:"center", gap:6,
-              transition:"all 0.15s",
-            }}
+            <button onClick={addTeam}
+              style={{
+                padding:"8px 14px", borderRadius:6, cursor:"pointer",
+                fontFamily:"'Space Mono',monospace", fontSize:11,
+                border:`1px dashed ${C.border}`, background:"transparent",
+                color:C.textSec, display:"flex", alignItems:"center", gap:6,
+                transition:"all 0.15s",
+              }}
               onMouseEnter={e => { e.currentTarget.style.borderColor = C.accent; e.currentTarget.style.color = C.accent; }}
               onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textSec; }}
             >
@@ -2010,7 +2094,6 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                       if (cS) { curPwr+=cS.power; curHeroMain+=cS.heroMain; curHeroHp+=cS.heroHp; curEscMain+=cS.escMain; curEscHp+=cS.escHp; curTroop+=cS.troop; curMast+=(gs.masteryCurrent??0)*10; }
                       if (gS) { goalPwr+=gS.power;goalHeroMain+=gS.heroMain;goalHeroHp+=gS.heroHp;goalEscMain+=gS.escMain;goalEscHp+=gS.escHp;goalTroop+=gS.troop;goalMast+=(gs.masteryGoal??0)*10; }
                     });
-                    const widgetVal = heroStatsForSlot?.widget ?? 0;
                     const Diff = ({cur,goal,pct}) => {
                       const diff = goal - cur;
                       if (diff === 0) return <span style={{color:C.textDim}}>—</span>;
@@ -2066,7 +2149,6 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                           {slot.label}
                         </td>
                       )}
-
                       {slotIdx === 0 && (
                         <td rowSpan={5} style={{...tdStyle,verticalAlign:"middle",minWidth:100,maxWidth:150}}>
                           <select value={heroVal}
@@ -2078,7 +2160,6 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                       )}
 
                       <td style={{...tdStyle,width:80,whiteSpace:"nowrap"}}>{gearSlot}</td>
-
                       <td style={{...tdStyle,width:110}}>
                         {!isWidget ? (
                           <select value={s.status ?? ""}
@@ -2106,7 +2187,6 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                           </select>
                         )}
                       </td>
-
                       <td style={{...tdStyle,width:80,textAlign:"center"}}>
                         {isWidget ? <span style={{color:C.textDim}}>—</span> : (
                           <select value={s.masteryCurrent ?? 0}
@@ -2121,37 +2201,24 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                         const gearMaxed    = !isWidget && isLeg && (s.gearCurrent ?? 0) >= 100;
                         const masteryMaxed = (s.masteryCurrent ?? 0) >= 20;
                         const fullyMaxed   = gearMaxed && masteryMaxed;
-
                         const goalStatusVal = s.goalStatus ?? s.status ?? "";
                         const curStatus     = s.status ?? "";
-
                         const blueStyle = { background:"rgba(56,139,253,0.12)", boxShadow:`inset 0 0 0 1px ${C.blue}66` };
                         const redStyle  = { background:"rgba(248,81,73,0.10)",  boxShadow:`inset 0 0 0 1px ${C.red}55`  };
-
-                        const statusGlow = () => {
-                          if (isLeg) return {};
-                          if (goalStatusVal === "Legendary" && curStatus === "Mythic") return blueStyle;
-                          return {};
-                        };
+                        const statusGlow = () => (!isLeg && goalStatusVal === "Legendary" && curStatus === "Mythic") ? blueStyle : {};
                         const gearGlow = () => {
                           if (isLeg) return {};
                           const diff = (s.gearGoal ?? 0) - (s.gearCurrent ?? 0);
-                          if (diff > 0) return blueStyle;
-                          if (diff < 0) return redStyle;
-                          return {};
+                          return diff > 0 ? blueStyle : diff < 0 ? redStyle : {};
                         };
                         const masteryGlow = () => {
                           const diff = (s.masteryGoal ?? 0) - (s.masteryCurrent ?? 0);
-                          if (diff > 0) return blueStyle;
-                          if (diff < 0) return redStyle;
-                          return {};
+                          return diff > 0 ? blueStyle : diff < 0 ? redStyle : {};
                         };
-
                         const MaxBadge = () => (
                           <span style={{fontSize:9,padding:"2px 6px",borderRadius:4,
                             background:C.green+"22",color:C.green,fontFamily:"'Space Mono',monospace",fontWeight:700}}>MAX</span>
                         );
-
                         if (isWidget) {
                           const wGoal = s.widgetGoal ?? 0;
                           const wCur  = s.widgetCurrent ?? 0;
@@ -2174,7 +2241,6 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                             </>
                           );
                         }
-
                         if (fullyMaxed) {
                           return (
                             <>
@@ -2191,7 +2257,6 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                             </>
                           );
                         }
-
                         return (
                           <>
                             <td style={{...tdStyle,width:110,...statusGlow()}}>
@@ -2203,31 +2268,26 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                                 <option value="Legendary">Legendary</option>
                               </select>
                             </td>
-
                             <td style={{...tdStyle,width:80,textAlign:"center",...gearGlow()}}>
                               {gearMaxed ? <MaxBadge /> : (
                                 <select value={s.gearGoal ?? 0}
                                   onChange={e => setSlotField(heroIdx, slotIdx, "gearGoal", Number(e.target.value))}
                                   style={sel}>
-                                  {gearOpts
-                                    .filter(v => isLeg ? v >= (s.gearCurrent ?? 0) : true)
+                                  {gearOpts.filter(v => isLeg ? v >= (s.gearCurrent ?? 0) : true)
                                     .map(v => <option key={v} value={v}>{v}</option>)}
                                 </select>
                               )}
                             </td>
-
                             <td style={{...tdStyle,width:80,textAlign:"center",...masteryGlow()}}>
                               {masteryMaxed ? <MaxBadge /> : (
                                 <select value={s.masteryGoal ?? 0}
                                   onChange={e => setSlotField(heroIdx, slotIdx, "masteryGoal", Number(e.target.value))}
                                   style={sel}>
-                                  {masteryOpts
-                                    .filter(v => isLeg ? v >= (s.masteryCurrent ?? 0) : true)
+                                  {masteryOpts.filter(v => isLeg ? v >= (s.masteryCurrent ?? 0) : true)
                                     .map(v => <option key={v} value={v}>{v}</option>)}
                                 </select>
                               )}
                             </td>
-
                             <td style={{...tdMono,color: rowStones > 0 ? C.blue : C.textDim}}>
                               {rowStones > 0 ? rowStones.toLocaleString() : "—"}
                             </td>
@@ -2286,14 +2346,9 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
             <div style={{fontSize:12, color:C.textDim, marginBottom:20}}>
               All hero gear data for the selected team will be permanently deleted.
             </div>
-            <select
-              value={removeTarget}
-              onChange={e => setRemoveTarget(e.target.value)}
-              style={{...sel, width:"100%", padding:"8px 10px", fontSize:13, marginBottom:20}}
-            >
-              {teamLetters.map(l => (
-                <option key={l} value={l}>{teamLabel(l)}</option>
-              ))}
+            <select value={removeTarget} onChange={e => setRemoveTarget(e.target.value)}
+              style={{...sel, width:"100%", padding:"8px 10px", fontSize:13, marginBottom:20}}>
+              {teamLetters.map(l => <option key={l} value={l}>{teamLabel(l)}</option>)}
             </select>
             <div style={{display:"flex", gap:10, justifyContent:"flex-end"}}>
               <button onClick={() => setShowRemoveModal(false)} style={{
