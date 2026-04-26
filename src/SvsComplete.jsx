@@ -402,7 +402,9 @@ function applyChanges(finalList, userId, charId) {
     sync("wos-svs-inventory",updated);
   }
 
-  window.dispatchEvent(new CustomEvent("wos-user-ready"));
+  // Fire wos-char-ready — this re-triggers readFromLocal() in every mounted useLocalStorage hook
+  // (wos-user-ready uses { once:true } so it won't fire again; wos-char-ready has no such limit)
+  window.dispatchEvent(new CustomEvent("wos-char-ready"));
 }
 
 // ─── Material label map ───────────────────────────────────────────────────────

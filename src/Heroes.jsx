@@ -1975,13 +1975,17 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
         {/* Complete Upgrades + Team tabs + Add Team button */}
         <div style={{display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", paddingTop:4}}>
           {onCompleteSvs && (
-            <button onClick={onCompleteSvs} style={{
-              padding:"8px 16px", borderRadius:7, cursor:"pointer",
-              border:"1px solid var(--c-accentDim)",
-              background:"rgba(227,107,26,0.12)",
-              color:"var(--c-accent)", fontSize:12, fontWeight:700,
-              fontFamily:"Syne,sans-serif", display:"flex", alignItems:"center", gap:6,
-            }}>⚔️ Complete Upgrades</button>
+            <div style={{display:"flex",alignItems:"center",gap:6}}>
+              <button onClick={onCompleteSvs} style={{
+                padding:"8px 16px", borderRadius:7, cursor:"pointer",
+                border:"1px solid var(--c-accentDim)",
+                background:"rgba(227,107,26,0.12)",
+                color:"var(--c-accent)", fontSize:12, fontWeight:700,
+                fontFamily:"Syne,sans-serif", display:"flex", alignItems:"center", gap:6,
+              }}>⚔️ Complete Upgrades</button>
+              <span title="Reviews all building goals for this tab. Lets you adjust what you actually achieved, then pushes those values to Current."
+                style={{fontSize:14,color:"var(--c-textDim)",cursor:"default",userSelect:"none",lineHeight:1}}>ⓘ</span>
+            </div>
           )}
           {teamLetters.map(letter => (
             <button key={letter}

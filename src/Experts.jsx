@@ -2293,7 +2293,7 @@ function ExpertsPage({ inv, setInv, onCompleteSvs }) {
 
       {/* Complete Upgrades button */}
       {onCompleteSvs && (
-        <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>
+        <div style={{ display:"flex", justifyContent:"flex-end", alignItems:"center", gap:6, marginBottom:12 }}>
           <button onClick={onCompleteSvs} style={{
             padding:"8px 16px", borderRadius:7, cursor:"pointer",
             border:"1px solid var(--c-accentDim)",
@@ -2302,6 +2302,8 @@ function ExpertsPage({ inv, setInv, onCompleteSvs }) {
             fontFamily:"Syne,sans-serif",
             display:"flex", alignItems:"center", gap:6,
           }}>⚔️ Complete Upgrades</button>
+          <span title="Reviews all Expert goals (levels, relationship, skills). Lets you adjust what you actually achieved, then pushes those values to Current and deducts materials from inventory."
+            style={{fontSize:14,color:"var(--c-textDim)",cursor:"default",userSelect:"none",lineHeight:1}}>ⓘ</span>
         </div>
       )}
       {/* ── Resource Summary Bar ── */}

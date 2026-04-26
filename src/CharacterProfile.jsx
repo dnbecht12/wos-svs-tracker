@@ -575,16 +575,20 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
       {/* Complete Upgrades button */}
       {onCompleteSvs && (
         <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>
-          <button onClick={onCompleteSvs} style={{
-            padding:"9px 18px", borderRadius:7, cursor:"pointer",
-            border:"1px solid var(--c-accentDim)",
-            background:"rgba(227,107,26,0.12)",
-            color:"var(--c-accent)", fontSize:12, fontWeight:700,
-            fontFamily:"Syne,sans-serif",
-            display:"flex", alignItems:"center", gap:7,
-          }}>
-            ⚔️ Complete Upgrades
-          </button>
+          <div style={{display:"flex",alignItems:"center",gap:6}}>
+            <button onClick={onCompleteSvs} style={{
+              padding:"9px 18px", borderRadius:7, cursor:"pointer",
+              border:"1px solid var(--c-accentDim)",
+              background:"rgba(227,107,26,0.12)",
+              color:"var(--c-accent)", fontSize:12, fontWeight:700,
+              fontFamily:"Syne,sans-serif",
+              display:"flex", alignItems:"center", gap:7,
+            }}>
+              ⚔️ Complete Upgrades
+            </button>
+            <span title="Reviews all goal levels across every tab. Lets you adjust what you actually achieved in SvS, then pushes those values to Current and deducts materials from inventory."
+              style={{fontSize:14,color:"var(--c-textDim)",cursor:"default",userSelect:"none",lineHeight:1}}>ⓘ</span>
+          </div>
         </div>
       )}
 
