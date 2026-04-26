@@ -55,9 +55,6 @@ const COMMAND_CENTER_STATS = {
   "FC10":{ rally:1090000, deploy:102000},
 };
 
-// Fixed power from non-FC buildings (all at max level, never changes)
-const NON_FC_BUILDING_POWER = 817958;
-
 // VIP badge colors per level group
 const VIP_BADGE_COLOR = (lv) => {
   if (lv === 0)            return { bg:"#4a4a4a", text:"#aaa",    border:"#666" };
@@ -345,6 +342,7 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
   const NON_FC_FIXED = 817958;
   const buildingPower = React.useMemo(() => {
     let fcTotal = 0;
+    let nonFcEnabled = false;
     try {
       const raw = localStorage.getItem("cp-buildings");
       if (raw) {
@@ -354,8 +352,10 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
           }
         });
       }
+      const nonFcRaw = localStorage.getItem("cp-nonfc-active");
+      if (nonFcRaw) nonFcEnabled = JSON.parse(nonFcRaw) === true;
     } catch {}
-    return fcTotal + NON_FC_FIXED;
+    return fcTotal + (nonFcEnabled ? NON_FC_FIXED : 0);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileVersion]);
 

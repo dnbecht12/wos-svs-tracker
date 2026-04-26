@@ -628,7 +628,7 @@ const DEFAULT_BUILDINGS = [
 ];
 
 // ─── Sync helpers ─────────────────────────────────────────────────────────────
-const CP_KEYS = ["cp-buildings","cp-buffs","cp-speedbuff","cp-cycle","cp-dailyfc","cp-agnes"];
+const CP_KEYS = ["cp-buildings","cp-buffs","cp-speedbuff","cp-cycle","cp-dailyfc","cp-agnes","cp-nonfc-active"];
 const _cpTimers = {};
 
 async function cpSyncToCloud(key, val, charId) {
@@ -768,6 +768,7 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
   const rfc = planSnapshot ? (planSnapshot.rfc ?? liveRFC) : liveRFC;
   const [dailyFCIncome, setDailyFCIncome] = useState(() => loadState("cp-dailyfc", 48));
   const [agnesLevel, setAgnesLevel] = useState(() => loadState("cp-agnes", 0));
+  const [nonFcActive, setNonFcActive] = useState(() => loadState("cp-nonfc-active", false));
 
   // ── Update Plan modal state ───────────────────────────────────────────────────
   const [showUpdateModal, setShowUpdateModal] = useState(false);
@@ -837,6 +838,7 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
       "cp-cycle":      setSelectedCycle,
       "cp-dailyfc":    setDailyFCIncome,
       "cp-agnes":      setAgnesLevel,
+      "cp-nonfc-active": setNonFcActive,
     };
     // Sync from cloud whenever the active character changes.
     // Also listen for wos-user-ready in case auth hasn't resolved yet.
@@ -1427,6 +1429,34 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
                 fontFamily:"Space Mono,monospace",letterSpacing:1}}>
                 BUILDINGS CAPPED AT FC 30 — ALWAYS AT MAX LEVEL
               </div>
+
+              {/* Activation checkbox — only shown when not yet confirmed */}
+              {!nonFcActive && (
+                <div style={{
+                  display:"flex", alignItems:"center", gap:10,
+                  padding:"10px 12px", marginBottom:10,
+                  borderRadius:6, background:C.surface,
+                  border:`1px dashed ${C.border}`,
+                }}>
+                  <input
+                    type="checkbox"
+                    id="nonfc-activate"
+                    checked={false}
+                    onChange={() => {
+                      setNonFcActive(true);
+                      saveState("cp-nonfc-active", true, activeCharId);
+                    }}
+                    style={{width:16,height:16,accentColor:C.accent,cursor:"pointer"}}
+                  />
+                  <label htmlFor="nonfc-activate" style={{
+                    fontSize:12, color:C.textSec, cursor:"pointer",
+                    fontFamily:"Space Mono,monospace",
+                  }}>
+                    Confirm these buildings are at max level to include their power
+                  </label>
+                </div>
+              )}
+
               {[
                 { name:"Hunter's Hut",      level:30, count:1, power:30470  },
                 { name:"Sawmill",           level:30, count:1, power:30470  },
@@ -1448,8 +1478,10 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
                       Lv.{b.level}{b.count > 1 ? ` ×${b.count}` : ""}
                     </span>
                   </div>
-                  <span style={{color:C.accent,fontFamily:"Space Mono,monospace",
-                    fontWeight:700}}>{b.power.toLocaleString()}</span>
+                  <span style={{color: nonFcActive ? C.accent : C.textDim,
+                    fontFamily:"Space Mono,monospace",fontWeight:700}}>
+                    {nonFcActive ? b.power.toLocaleString() : "—"}
+                  </span>
                 </div>
               ))}
               <div style={{display:"flex",justifyContent:"space-between",
@@ -1459,9 +1491,10 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
                   fontFamily:"Space Mono,monospace",letterSpacing:1}}>
                   TOTAL
                 </span>
-                <span style={{fontSize:14,fontWeight:800,color:C.accent,
+                <span style={{fontSize:14,fontWeight:800,
+                  color: nonFcActive ? C.accent : C.textDim,
                   fontFamily:"Space Mono,monospace"}}>
-                  817,958
+                  {nonFcActive ? "817,958" : "0"}
                 </span>
               </div>
             </div>

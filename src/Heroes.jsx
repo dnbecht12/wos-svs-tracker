@@ -301,8 +301,8 @@ function defaultHeroState(type) {
     hero: firstHero?.name ?? "",
     slots: GEAR_SLOTS.map(slot => ({
       slot,
-      status:       "Mythic",  // Gear Status (slots 1-4 only)
-      goalStatus:   "Mythic",  // Goal Gear Status
+      status:       "",  // Blank by default — user must choose Mythic or Legendary
+      goalStatus:   "",  // Blank by default
       gearCurrent:  0,
       gearGoal:     0,
       masteryCurrent: 0,
@@ -650,7 +650,7 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
               const slotIdx = GEAR_SLOTS.indexOf(slotName);
               const s = gearData?.slots?.[slotIdx];
               const gearName = SLOT_TO_GEAR(troopType, slotName);
-              const tier = s?.status || "Legendary";
+              const tier = s?.status || "Mythic"; // blank = treat as unset (show nothing meaningful)
               const gearLv = s?.gearCurrent ?? 0;
               const mastery = s?.masteryCurrent ?? 0;
               const isMythic = tier === "Mythic";
@@ -721,7 +721,7 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
               return (
                 <div style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:8,padding:"10px 12px"}}>
                   <div style={{fontSize:10,fontWeight:700,color:C.textDim,fontFamily:"'Space Mono',monospace",marginBottom:6}}>{slotName}</div>
-                  <div style={{fontSize:11,fontWeight:700,color:statusColor(s.status),marginBottom:3}}>{s.status || "Legendary"}</div>
+                  <div style={{fontSize:11,fontWeight:700,color:statusColor(s.status),marginBottom:3}}>{s.status || "— Not Set —"}</div>
                   <div style={{fontSize:11,color:C.textSec}}>Lvl <span style={{color:C.textPri,fontWeight:700}}>{s.gearCurrent ?? 0}</span></div>
                   <div style={{fontSize:11,color:C.textSec}}>Mastery <span style={{color:C.textPri,fontWeight:700}}>{s.masteryCurrent ?? 0}</span></div>
                 </div>
@@ -730,7 +730,7 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
 
             // Single-piece stat modal
             const GearStatModal = ({ slotName, gearName, s, onClose }) => {
-              const tier = s?.status || "Legendary";
+              const tier = s?.status || "Mythic"; // blank = treat as unset (show nothing meaningful)
               const gearLv = s?.gearCurrent ?? 0;
               const mastery = s?.masteryCurrent ?? 0;
               const isATK = GEAR_TYPE[gearName] === "ATK";
@@ -820,7 +820,7 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
                 const slotIdx = GEAR_SLOTS.indexOf(slot);
                 const s = gearData?.slots?.[slotIdx];
                 const gearName = SLOT_TO_GEAR(troopType, slot);
-                const tier = s?.status || "Legendary";
+                const tier = s?.status || "Mythic"; // blank = treat as unset (show nothing meaningful)
                 const gearLv = s?.gearCurrent ?? 0;
                 const mastery = s?.masteryCurrent ?? 0;
                 const stats = gearName && s ? getGearStats(gearName, tier, gearLv, mastery) : null;
@@ -1072,8 +1072,8 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
                 const slotIdx = GEAR_SLOTS.indexOf(slot);
                 const s = gearDataForPower?.slots?.[slotIdx];
                 const gearName = SLOT_TO_GEAR(hero.type, slot);
-                if (!s || !gearName) return sum;
-                const gs = getGearStats(gearName, s.status || "Legendary", s.gearCurrent ?? 0, s.masteryCurrent ?? 0);
+                if (!s || !gearName || !s.status) return sum; // skip if status unset
+                const gs = getGearStats(gearName, s.status, s.gearCurrent ?? 0, s.masteryCurrent ?? 0);
                 return sum + (gs?.power ?? 0);
               }, 0);
               const basePower = (ref.levelPower||0)+(ref.starPower||0)+(ref.skillPower||0)+(isSSR?(ref.gearStrength||0):0);
@@ -1107,8 +1107,8 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
                 const slotIdx = GEAR_SLOTS.indexOf(slot);
                 const s = gearDataForStats?.slots?.[slotIdx];
                 const gearName = SLOT_TO_GEAR(hero.type, slot);
-                if (!s || !gearName) return;
-                const gs = getGearStats(gearName, s.status || "Legendary", s.gearCurrent ?? 0, s.masteryCurrent ?? 0);
+                if (!s || !gearName || !s.status) return; // skip if status unset
+                const gs = getGearStats(gearName, s.status, s.gearCurrent ?? 0, s.masteryCurrent ?? 0);
                 if (!gs) return;
                 const isATK = GEAR_TYPE[gearName] === "ATK";
                 if (isATK) { gearHAtk += gs.heroMain; gearEAtk += gs.escMain; }
@@ -1924,7 +1924,7 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                     const anyChanged = gearSlots.some(gs =>
                       (gs.gearCurrent ?? 0) !== (gs.gearGoal ?? 0) ||
                       (gs.masteryCurrent ?? 0) !== (gs.masteryGoal ?? 0) ||
-                      (gs.goalStatus ?? gs.status ?? "Mythic") !== (gs.status ?? "Mythic")
+                      (gs.goalStatus ?? gs.status ?? "") !== (gs.status ?? "")
                     );
                     if (!anyChanged) return null;
 
@@ -1935,8 +1935,9 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                     gearSlots.forEach((gs, si) => {
                       const gearName = SLOT_TO_GEAR(slot.type, GEAR_SLOTS[si]);
                       if (!gearName) return;
-                      const curTier  = gs.status    || "Mythic";
+                      const curTier  = gs.status    || null; // null = skip if unset
                       const goalTier = gs.goalStatus || curTier;
+                      if (!curTier) return; // skip unset slots in summary
                       const cS = getGearStats(gearName, curTier,  gs.gearCurrent  ?? 0, gs.masteryCurrent ?? 0);
                       const gS = getGearStats(gearName, goalTier, gs.gearGoal     ?? 0, gs.masteryGoal    ?? 0);
                       if (cS) { curPwr+=cS.power; curHeroMain+=cS.heroMain; curHeroHp+=cS.heroHp; curEscMain+=cS.escMain; curEscHp+=cS.escHp; curTroop+=cS.troop; curMast+=(gs.masteryCurrent??0)*10; }
@@ -2032,9 +2033,10 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                       {/* Gear Status dropdown (slots 1-4 only) */}
                       <td style={{...tdStyle,width:110}}>
                         {!isWidget ? (
-                          <select value={s.status ?? "Mythic"}
+                          <select value={s.status ?? ""}
                             onChange={e => setSlotField(heroIdx, slotIdx, "status", e.target.value)}
                             style={sel}>
+                            <option value="">— Not Set —</option>
                             <option value="Legendary">Legendary</option>
                             <option value="Mythic">Mythic</option>
                           </select>
@@ -2104,8 +2106,8 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                         const fullyMaxed   = gearMaxed && masteryMaxed;
 
                         // Glow helpers — only ever fire on Mythic slots (isLeg = false)
-                        const goalStatusVal = s.goalStatus ?? s.status ?? "Mythic";
-                        const curStatus     = s.status ?? "Mythic";
+                        const goalStatusVal = s.goalStatus ?? s.status ?? "";
+                        const curStatus     = s.status ?? "";
 
                         // Each returns {} (no glow), blue style, or red style
                         const blueStyle = { background:"rgba(56,139,253,0.12)", boxShadow:`inset 0 0 0 1px ${C.blue}66` };
@@ -2155,6 +2157,7 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                               <select value={goalStatusVal}
                                 onChange={e => setSlotField(heroIdx, slotIdx, "goalStatus", e.target.value)}
                                 style={sel}>
+                                <option value="">— Not Set —</option>
                                 <option value="Mythic">Mythic</option>
                                 <option value="Legendary">Legendary</option>
                               </select>

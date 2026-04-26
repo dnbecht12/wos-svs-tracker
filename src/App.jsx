@@ -2687,7 +2687,7 @@ export default function App() {
       "rc-levels","rc-collapse","cp-speedbuff","cp-vip-level","cp-purchased-queue",
       "experts-data","cg-slots","cc-slots","troops-inventory-v2",
       "daybreak-buffs","daybreak-prosperity","hg-heroes","hg-hero-stats","pets-data",
-      "cp-buildings","cp-buffs","cp-cycle","cp-dailyfc","cp-agnes",
+      "cp-buildings","cp-buffs","cp-cycle","cp-dailyfc","cp-agnes","cp-nonfc-active",
       "wos-svs-inventory","wos-rfc-saved-plans",
     ];
     SYNC_KEYS.forEach(k => {
