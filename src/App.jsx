@@ -1395,25 +1395,17 @@ function AuthPanel({ user, loading, error, signUp, signIn, signInWithDiscord, cl
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function ResInput({ label, icon, field, value, onChange, color, tabIndex }) {
-  const [localVal, setLocalVal] = useState(value);
-  const [focused,  setFocused]  = useState(false);
+  const [localVal, setLocalVal] = useState(value ?? 0);
 
   const prevValue = useRef(value);
   useEffect(() => {
     if (prevValue.current !== value) {
       prevValue.current = value;
-      setLocalVal(value);
+      setLocalVal(value ?? 0);
     }
   }, [value]);
 
-  const handleFocus = () => setFocused(true);
-
-  const handleBlur = () => {
-    setFocused(false);
-    prevValue.current = localVal;
-    onChange(field, localVal);
-  };
-
+  const handleBlur  = () => { prevValue.current = localVal; onChange(field, localVal); };
   const handleChange = e => {
     const n = parseInt(e.target.value, 10);
     setLocalVal(isNaN(n) ? 0 : Math.max(0, n));
@@ -1425,20 +1417,13 @@ function ResInput({ label, icon, field, value, onChange, color, tabIndex }) {
       <div className="res-label">{label}</div>
       <input
         className="res-input"
-        type={focused ? "number" : "text"}
+        type="number"
         min={0}
         tabIndex={tabIndex}
-        value={focused ? localVal : (localVal === 0 ? "0" : Number(localVal).toLocaleString())}
+        value={localVal}
         onChange={handleChange}
-        onFocus={handleFocus}
         onBlur={handleBlur}
-        onKeyDown={e => {
-          // Enter advances to next field (same as Tab — handled by global listener)
-          if (e.key === "Enter") {
-            e.preventDefault();
-            e.target.dispatchEvent(new KeyboardEvent("keydown", { key:"Tab", bubbles:true, cancelable:true }));
-          }
-        }}
+        onFocus={e => e.target.select()}
         style={color ? { color } : {}}
       />
     </div>
