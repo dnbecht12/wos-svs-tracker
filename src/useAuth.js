@@ -70,6 +70,19 @@ export function useAuth() {
   }, []);
 
   const signOut = useCallback(async () => {
+    // Clear all user data from localStorage so the next guest/user starts fresh
+    const USER_DATA_KEYS = [
+      "wa-levels","wa-speedbuff","wa-buffs","wa-dailyshards",
+      "rc-levels","rc-collapse","cp-speedbuff","cp-vip-level","cp-purchased-queue",
+      "experts-data","cg-slots","cc-slots","troops-inventory-v2",
+      "daybreak-buffs","daybreak-prosperity","hg-heroes","hg-hero-stats","pets-data",
+      "cp-buildings","cp-buffs","cp-cycle","cp-dailyfc","cp-agnes",
+      "wos-svs-inventory","wos-rfc-saved-plans",
+      "rfc-cycle","rfc-monref","rfc-wdmode","rfc-actuals2",
+    ];
+    USER_DATA_KEYS.forEach(k => {
+      try { localStorage.removeItem(k); localStorage.removeItem(`${k}__ts`); } catch {}
+    });
     await supabase.auth.signOut();
   }, []);
 

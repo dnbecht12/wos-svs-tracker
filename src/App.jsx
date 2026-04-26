@@ -2763,7 +2763,17 @@ export default function App() {
   }, [user, activeCharId]);
 
   // ── Reset when user signs out ────────────────────────────────────────────────
-  useEffect(() => { if (!user) { invRef.current = INITIAL_INVENTORY; } }, [user]);
+  useEffect(() => {
+    if (!user) {
+      invRef.current = INITIAL_INVENTORY;
+      // Reset all synced state to initial values so the UI is blank for guests
+      setInvRaw(INITIAL_INVENTORY);
+      setSavedPlans({});
+      setRcLevels({});
+      setRcCollapse({});
+      setCpSpeedBuff(0);
+    }
+  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Update guest flag and sync all data from cloud on login
   useEffect(() => {

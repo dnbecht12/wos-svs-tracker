@@ -1499,8 +1499,8 @@ function ExpertsPage({ inv, setInv }) {
 
   // ── Expert Data Tables ──────────────────────────────────────────────────────
 
-  // Per-level sigil costs for each expert (index = level, value = sigils to reach that level)
-  const EXPERT_LEVEL_SIGILS = {
+  // Per-level affinity costs for each expert (index = level, value = affinity points to reach that level)
+  const EXPERT_LEVEL_AFFINITY = {
     Cyrille: [0,1000,200,210,220,230,240,260,280,300,320,340,360,380,400,420,440,460,480,500,520,540,560,580,600,620,640,660,680,700,730,760,790,820,850,880,910,940,970,1000,1040,1080,1120,1160,1200,1240,1280,1320,1360,1400,1450,1500,1550,1600,1650,1700,1750,1800,1850,1900,1950,2000,2050,2100,2150,2200,2250,2300,2350,2400,2450,2500,2550,2600,2650,2700,2750,2800,2850,2900,2950,3000,3050,3100,3150,3200,3250,3300,3350,3400,3450,3500,3550,3600,3650,3700,3750,3800,3850,3900,3950],
     Agnes:   [0,1000,240,260,270,280,290,320,340,360,390,410,440,460,480,510,530,560,580,600,630,650,680,700,720,750,770,800,820,840,880,920,950,990,1020,1060,1100,1130,1170,1210,1250,1300,1350,1400,1440,1490,1540,1590,1640,1680,1740,1800,1860,1920,1980,2040,2100,2160,2220,2280,2340,2400,2460,2520,2580,2640,2700,2760,2820,2880,2940,3000,3060,3120,3180,3240,3300,3360,3420,3480,3540,3600,3660,3720,3780,3840,3900,3960,4020,4080,4140,4200,4260,4320,4380,4440,4500,4560,4620,4680,4740],
     Romulus: [0,1000,1100,1160,1210,1270,1320,1430,1540,1650,1760,1870,1980,2090,2200,2310,2420,2530,2640,2750,2860,2970,3080,3190,3300,3520,3620,3720,3820,3920,4020,4180,4350,4510,4680,4840,5000,5170,5330,5500,5720,5940,6160,6380,6600,6820,7040,7260,7480,7700,7980,8250,8530,8800,9080,9350,9630,9900,10180,10450,10730,11000,11280,11560,11830,12110,12380,12660,12930,13210,13480,13750,14030,14300,14580,14850,15130,15400,15680,15950,16230,16500,16780,17050,17330,17600,17880,18150,18430,18700,18980,19250,19530,19800,20080,20350,20630,20900,21180,21450,21730],
@@ -1729,8 +1729,8 @@ function ExpertsPage({ inv, setInv }) {
 
   // ── Calculation helpers ──────────────────────────────────────────────────────
 
-  const calcLevelSigils = (expertName, curLv, goalLv) => {
-    const costs = EXPERT_LEVEL_SIGILS[expertName];
+  const calcLevelAffinity = (expertName, curLv, goalLv) => {
+    const costs = EXPERT_LEVEL_AFFINITY[expertName];
     if (!costs || goalLv <= curLv) return 0;
     let total = 0;
     for (let i = curLv + 1; i <= goalLv; i++) {
@@ -1766,7 +1766,7 @@ function ExpertsPage({ inv, setInv }) {
     const curB   = Number(d.affinity ?? 0);
     const goalB  = Number(d.goalAffinity ?? curB);
 
-    const levelSigils = calcLevelSigils(expert.name, curLv, goalLv);
+    const levelAffinity = calcLevelAffinity(expert.name, curLv, goalLv);
     const affinitySigils = calcAffinitySigils(expert.name, curB, goalB);
 
     let skillBooks = 0;
@@ -1777,9 +1777,10 @@ function ExpertsPage({ inv, setInv }) {
     });
 
     return {
-      sigils: levelSigils + affinitySigils,
+      affinity: levelAffinity,
+      sigils: affinitySigils,
       books: skillBooks,
-      levelSigils,
+      levelAffinity,
       affinitySigils,
     };
   };
@@ -2049,7 +2050,7 @@ function ExpertsPage({ inv, setInv }) {
             </div>
             {goalLv > curLv && (
               <div style={{ marginLeft:8, fontSize:12, color:C.amber, fontFamily:"'Space Mono',monospace" }}>
-                🔶 {totals.levelSigils.toLocaleString()} sigils
+                🔐 {totals.levelAffinity.toLocaleString()} affinity
               </div>
             )}
             {curLv === MAX_LEVEL && (
@@ -2088,7 +2089,7 @@ function ExpertsPage({ inv, setInv }) {
           </div>
           {goalB > curB && (
             <div style={{ marginTop:6, fontSize:12, color:C.amber, fontFamily:"'Space Mono',monospace" }}>
-              🔶 {totals.affinitySigils.toLocaleString()} affinity sigils · Bonus: {BONUS_VALUES[expert.name]?.[curB]} → {BONUS_VALUES[expert.name]?.[goalB]}
+              🔶 {totals.affinitySigils.toLocaleString()} sigils (advancement) · Bonus: {BONUS_VALUES[expert.name]?.[curB]} → {BONUS_VALUES[expert.name]?.[goalB]}
             </div>
           )}
           {curB === MAX_AFFINITY && (
@@ -2208,7 +2209,7 @@ function ExpertsPage({ inv, setInv }) {
         <ExpertPowerDisplay expert={expert} d={d} C={C} />
 
         {/* ── Summary Footer ── */}
-        {(totals.sigils > 0 || totals.books > 0) && (
+        {(totals.affinity > 0 || totals.sigils > 0 || totals.books > 0) && (
           <div style={{
             marginTop:14, padding:"12px 14px", borderRadius:8,
             background:C.card, border:`1px solid ${C.border}`,
@@ -2219,9 +2220,20 @@ function ExpertsPage({ inv, setInv }) {
               Upgrade Summary
             </div>
             <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+              {totals.affinity > 0 && (
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                  <span style={{ fontSize:12, color:C.textPri }}>🔐 Affinity needed <span style={{ fontSize:10, color:C.textDim }}>(leveling)</span></span>
+                  <div style={{ textAlign:"right" }}>
+                    <span style={{ fontSize:13, fontWeight:700, fontFamily:"'Space Mono',monospace",
+                      color:C.textPri }}>
+                      {totals.affinity.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              )}
               {totals.sigils > 0 && (
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                  <span style={{ fontSize:12, color:C.textPri }}>🔶 Sigils needed</span>
+                  <span style={{ fontSize:12, color:C.textPri }}>🔶 Sigils needed <span style={{ fontSize:10, color:C.textDim }}>(advancement)</span></span>
                   <div style={{ textAlign:"right" }}>
                     <span style={{ fontSize:13, fontWeight:700, fontFamily:"'Space Mono',monospace",
                       color: sigShortfall > 0 ? C.red : C.green }}>
@@ -2271,8 +2283,9 @@ function ExpertsPage({ inv, setInv }) {
   // ── Main render ──────────────────────────────────────────────────────────────
 
   // Total costs across all experts
-  const grandTotalBooks  = EXPERTS.reduce((sum, e) => sum + getExpertTotals(e).books, 0);
-  const grandTotalSigils = EXPERTS.reduce((sum, e) => sum + getExpertTotals(e).sigils, 0);
+  const grandTotalBooks    = EXPERTS.reduce((sum, e) => sum + getExpertTotals(e).books, 0);
+  const grandTotalSigils   = EXPERTS.reduce((sum, e) => sum + getExpertTotals(e).sigils, 0);
+  const grandTotalAffinity = EXPERTS.reduce((sum, e) => sum + getExpertTotals(e).affinity, 0);
   const generalSigils = inv.generalSigils ?? 0;
   const books = inv.books ?? 0;
 
@@ -2310,6 +2323,11 @@ function ExpertsPage({ inv, setInv }) {
                   color: (item.label.includes("Books") ? grandTotalBooks > books : grandTotalSigils > generalSigils) ? C.red : C.green }}>
                   {item.label.includes("Books") ? grandTotalBooks.toLocaleString() : grandTotalSigils.toLocaleString()} needed
                 </div>
+                {item.label.includes("Sigils") && grandTotalAffinity > 0 && (
+                  <div style={{ fontSize:10, color:C.textDim, fontFamily:"'Space Mono',monospace", marginTop:2 }}>
+                    🔐 {grandTotalAffinity.toLocaleString()} affinity
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -2393,10 +2411,16 @@ function ExpertsPage({ inv, setInv }) {
                     fontFamily:"'Space Mono',monospace" }}>
                     {ownSigils.toLocaleString()} 🔶
                   </div>
+                  {totals.affinity > 0 && (
+                    <div style={{ fontSize:9, color:C.textDim,
+                      fontFamily:"'Space Mono',monospace", marginTop:1 }}>
+                      🔐 {totals.affinity.toLocaleString()} aff
+                    </div>
+                  )}
                   {totals.sigils > 0 && (
                     <div style={{ fontSize:9, color: totals.sigils > ownSigils ? C.red : C.green,
                       fontFamily:"'Space Mono',monospace", marginTop:1 }}>
-                      {totals.sigils.toLocaleString()} needed
+                      {totals.sigils.toLocaleString()} sigils
                     </div>
                   )}
                   {totals.books > 0 && (
