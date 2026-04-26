@@ -2224,8 +2224,7 @@ function ExpertsPage({ inv, setInv }) {
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                   <span style={{ fontSize:12, color:C.textPri }}>🔐 Affinity needed <span style={{ fontSize:10, color:C.textDim }}>(leveling)</span></span>
                   <div style={{ textAlign:"right" }}>
-                    <span style={{ fontSize:13, fontWeight:700, fontFamily:"'Space Mono',monospace",
-                      color:C.textPri }}>
+                    <span style={{ fontSize:13, fontWeight:700, fontFamily:"'Space Mono',monospace", color:C.textPri }}>
                       {totals.affinity.toLocaleString()}
                     </span>
                   </div>
@@ -2323,11 +2322,6 @@ function ExpertsPage({ inv, setInv }) {
                   color: (item.label.includes("Books") ? grandTotalBooks > books : grandTotalSigils > generalSigils) ? C.red : C.green }}>
                   {item.label.includes("Books") ? grandTotalBooks.toLocaleString() : grandTotalSigils.toLocaleString()} needed
                 </div>
-                {item.label.includes("Sigils") && grandTotalAffinity > 0 && (
-                  <div style={{ fontSize:10, color:C.textDim, fontFamily:"'Space Mono',monospace", marginTop:2 }}>
-                    🔐 {grandTotalAffinity.toLocaleString()} affinity
-                  </div>
-                )}
               </div>
             )}
           </div>

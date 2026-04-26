@@ -70,12 +70,11 @@ export function useAuth() {
   }, []);
 
   const signOut = useCallback(async () => {
-    // Clear all user data from localStorage so the next guest/user starts fresh
     const USER_DATA_KEYS = [
       "wa-levels","wa-speedbuff","wa-buffs","wa-dailyshards",
       "rc-levels","rc-collapse","cp-speedbuff","cp-vip-level","cp-purchased-queue",
       "experts-data","cg-slots","cc-slots","troops-inventory-v2",
-      "daybreak-buffs","daybreak-prosperity","hg-heroes","hg-hero-stats","pets-data",
+      "daybreak-buffs","daybreak-prosperity","hg-heroes","hg-hero-stats","hg-teams","pets-data",
       "cp-buildings","cp-buffs","cp-cycle","cp-dailyfc","cp-agnes","cp-nonfc-active",
       "wos-svs-inventory","wos-rfc-saved-plans",
       "rfc-cycle","rfc-monref","rfc-wdmode","rfc-actuals2",

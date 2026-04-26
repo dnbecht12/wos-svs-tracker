@@ -2609,7 +2609,20 @@ export default function App() {
   // Shared hero state — gen filter and hero stats synced between HeroesPage and HeroGearPage
   const [genFilter,   setGenFilter]  = useLocalStorage("hg-gen-filter", "Gen 9");
   const [heroStats,   setHeroStats]  = useLocalStorage("hg-hero-stats", defaultAllHeroStats());
-  const [hgHeroes,    setHgHeroes]   = useLocalStorage("hg-heroes", HERO_SLOTS.map(s => defaultHeroState(s.type)));
+  // hg-teams stores multi-team hero gear data. On first load, migrate old hg-heroes (6-slot) if present.
+  const [hgTeams, setHgTeams] = useLocalStorage("hg-teams", (() => {
+    try {
+      const old = localStorage.getItem("hg-heroes");
+      if (old) {
+        const parsed = JSON.parse(old);
+        const migrated = migrateOldHeroes(parsed);
+        if (migrated) return migrated;
+      }
+    } catch {}
+    return defaultTeamsData();
+  })());
+  // Derived: flat array of ALL heroes across all teams for CharacterProfile power calc
+  const hgHeroes = Object.values(hgTeams?.teams || {}).flat();
   const [heroStatsVersion, setHeroStatsVersion] = useState(0);
   // Research Center — cloud-synced so state persists across devices and tab switches
   const [rcLevels,    setRcLevels]    = useLocalStorage("rc-levels", {});
@@ -2686,8 +2699,8 @@ export default function App() {
       "wa-levels","wa-speedbuff","wa-buffs","wa-dailyshards",
       "rc-levels","rc-collapse","cp-speedbuff","cp-vip-level","cp-purchased-queue",
       "experts-data","cg-slots","cc-slots","troops-inventory-v2",
-      "daybreak-buffs","daybreak-prosperity","hg-heroes","hg-hero-stats","pets-data",
-      "cp-buildings","cp-buffs","cp-cycle","cp-dailyfc","cp-agnes","cp-nonfc-active",
+      "daybreak-buffs","daybreak-prosperity","hg-heroes","hg-hero-stats","hg-teams","pets-data",
+      "cp-buildings","cp-buffs","cp-cycle","cp-dailyfc","cp-agnes",
       "wos-svs-inventory","wos-rfc-saved-plans",
     ];
     SYNC_KEYS.forEach(k => {
@@ -2763,17 +2776,7 @@ export default function App() {
   }, [user, activeCharId]);
 
   // ── Reset when user signs out ────────────────────────────────────────────────
-  useEffect(() => {
-    if (!user) {
-      invRef.current = INITIAL_INVENTORY;
-      // Reset all synced state to initial values so the UI is blank for guests
-      setInvRaw(INITIAL_INVENTORY);
-      setSavedPlans({});
-      setRcLevels({});
-      setRcCollapse({});
-      setCpSpeedBuff(0);
-    }
-  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!user) { invRef.current = INITIAL_INVENTORY; } }, [user]);
 
   // Update guest flag and sync all data from cloud on login
   useEffect(() => {
@@ -3391,7 +3394,7 @@ export default function App() {
             {page === "heroes"      && <HeroesPage    genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} setHgHeroes={setHgHeroes} currentUser={user} activeCharacter={activeCharacter} hgHeroes={hgHeroes} heroStatsVersion={heroStatsVersion} />}
             {page === "admin"       && user?.id === ADMIN_UID && <AdminPage onStatsUpdated={() => setHeroStatsVersion(v => v + 1)} />}
 
-            {page === "hero-gear"    && <HeroGearPage    inv={inv} genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} hgHeroes={hgHeroes} setHgHeroes={setHgHeroes} />}
+            {page === "hero-gear"    && <HeroGearPage    inv={inv} genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} hgTeams={hgTeams} setHgTeams={setHgTeams} />}
             {page === "troops"       && <TroopsPage />}
             {page === "chief-gear"   && <ChiefGearPage   inv={inv} />}
             {page === "chief-charms" && <ChiefCharmsPage inv={inv} />}

@@ -55,6 +55,7 @@ const COMMAND_CENTER_STATS = {
   "FC10":{ rally:1090000, deploy:102000},
 };
 
+
 // VIP badge colors per level group
 const VIP_BADGE_COLOR = (lv) => {
   if (lv === 0)            return { bg:"#4a4a4a", text:"#aaa",    border:"#666" };
@@ -150,7 +151,7 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
         const s = hd.slots?.[slotIdx];
         if (!s) return;
         const gearName = SLOT_TO_GEAR(troopType, slot);
-        if (!gearName || !s.status) return; // skip if status is blank/unset
+        if (!gearName || !s.status) return; // skip if status unset
         const gs = getGearStats(gearName, s.status, s.gearCurrent ?? 0, s.masteryCurrent ?? 0);
         total += gs?.power ?? 0;
       });

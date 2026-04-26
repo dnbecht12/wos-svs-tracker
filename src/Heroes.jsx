@@ -1073,7 +1073,7 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
                 const s = gearDataForPower?.slots?.[slotIdx];
                 const gearName = SLOT_TO_GEAR(hero.type, slot);
                 if (!s || !gearName) return sum;
-                if (!s.status) return sum; // skip if status unset
+                if (!s.status) return sum;
                 const gs = getGearStats(gearName, s.status, s.gearCurrent ?? 0, s.masteryCurrent ?? 0);
                 return sum + (gs?.power ?? 0);
               }, 0);
@@ -1108,7 +1108,7 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
                 const slotIdx = GEAR_SLOTS.indexOf(slot);
                 const s = gearDataForStats?.slots?.[slotIdx];
                 const gearName = SLOT_TO_GEAR(hero.type, slot);
-                if (!s || !gearName || !s.status) return; // skip if status unset
+                if (!s || !gearName || !s.status) return;
                 const gs = getGearStats(gearName, s.status, s.gearCurrent ?? 0, s.masteryCurrent ?? 0);
                 if (!gs) return;
                 const isATK = GEAR_TYPE[gearName] === "ATK";
@@ -1699,27 +1699,90 @@ function HeroesPage({ genFilter, setGenFilter, heroStats, setHeroStats, setHgHer
 
 // ─── HeroGearPage ─────────────────────────────────────────────────────────────
 
-function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, hgHeroes, setHgHeroes }) {
-  const heroData    = hgHeroes;
-  const setHeroData = setHgHeroes;
+// Team label helpers
+const TEAM_LETTERS = ["A","B","C","D","E","F"];
+const teamLabel = t => `${t}-Team`;
 
-  // Collapse state for the second hero group (Infantry 2 / Marksman 2 / Lancer 2)
-  const [showSecondGroup, setShowSecondGroup] = useLocalStorage("hg-show-second-group", true);
+// Default teams data structure: { activeTeam:"A", teams:{ A:[3 slots] } }
+function defaultTeamsData() {
+  return {
+    activeTeam: "A",
+    teams: { A: HERO_SLOTS.slice(0,3).map(s => defaultHeroState(s.type)) },
+  };
+}
 
-  // Currently selected hero names per slot (for deduplication)
+// Migrate old hg-heroes (6-slot flat array) → teams structure
+// Slots 0-2 → A-Team always. Slots 3-5 → B-Team ONLY if they have non-default data.
+function migrateOldHeroes(oldHeroes) {
+  if (!oldHeroes || !Array.isArray(oldHeroes) || oldHeroes.length === 0) return null;
+  const aTeam = oldHeroes.slice(0,3);
+  const bSlots = oldHeroes.slice(3,6);
+  const hasData = bSlots.some(h =>
+    h?.slots?.some(s => s.status || (s.gearCurrent ?? 0) > 0 || (s.masteryCurrent ?? 0) > 0)
+  );
+  const result = { activeTeam:"A", teams:{ A: aTeam } };
+  if (hasData) result.teams.B = bSlots;
+  return result;
+}
+
+function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, hgTeams, setHgTeams }) {
+  const C = COLORS;
+
+  // ── Remove-team modal state ─────────────────────────────────────────────────
+  const [showRemoveModal, setShowRemoveModal] = useState(false);
+  const [removeTarget,    setRemoveTarget]    = useState("");
+
+  const teamLetters   = Object.keys(hgTeams.teams).sort();
+  const activeTeam    = hgTeams.activeTeam;
+  const heroData      = hgTeams.teams[activeTeam] || HERO_SLOTS.slice(0,3).map(s => defaultHeroState(s.type));
+
+  const setActiveTeam = (letter) => setHgTeams(prev => ({ ...prev, activeTeam: letter }));
+
+  const setHeroData = (updater) =>
+    setHgTeams(prev => ({
+      ...prev,
+      teams: {
+        ...prev.teams,
+        [prev.activeTeam]: typeof updater === "function"
+          ? updater(prev.teams[prev.activeTeam] || [])
+          : updater,
+      },
+    }));
+
+  const addTeam = () => {
+    const used = Object.keys(hgTeams.teams).sort();
+    const next = TEAM_LETTERS.find(l => !used.includes(l));
+    if (!next) return; // max 6 teams
+    const newSlots = HERO_SLOTS.slice(0,3).map(s => defaultHeroState(s.type));
+    setHgTeams(prev => ({
+      activeTeam: next,
+      teams: { ...prev.teams, [next]: newSlots },
+    }));
+  };
+
+  const removeTeam = (letter) => {
+    if (teamLetters.length <= 1) return; // can't remove last team
+    setHgTeams(prev => {
+      const newTeams = { ...prev.teams };
+      delete newTeams[letter];
+      const remaining = Object.keys(newTeams).sort();
+      const newActive = prev.activeTeam === letter ? remaining[0] : prev.activeTeam;
+      return { activeTeam: newActive, teams: newTeams };
+    });
+    setShowRemoveModal(false);
+    setRemoveTarget("");
+  };
+
+  // Currently selected hero names (for deduplication within this team)
   const selectedHeroes = heroData.map(h => h.hero);
 
-  // Update a specific hero slot's hero selection
   const setHero = (slotIdx, heroName) => {
     setHeroData(prev => prev.map((h, i) =>
       i === slotIdx ? { ...h, hero: heroName } : h
     ));
   };
 
-  // Update a gear slot field with goal-floor enforcement + widget sync to heroStats
   const setSlotField = (heroIdx, slotIdx, field, value) => {
-    // Widget sync: if setting widgetCurrent, update heroStats OUTSIDE the setHeroData
-    // updater — calling setState inside another setState updater is unreliable in React
     if (field === "widgetCurrent" && slotIdx === 4) {
       const heroName = heroData[heroIdx]?.hero;
       if (heroName) {
@@ -1729,58 +1792,37 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
         }));
       }
     }
-
     setHeroData(prev => prev.map((h, hi) => {
       if (hi !== heroIdx) return h;
-
       return {
         ...h,
         slots: h.slots.map((s, si) => {
           if (si !== slotIdx) return s;
-          const isWidget   = si === 4;
+          const isWidget    = si === 4;
           const isLegendary = s.status === "Legendary";
           const locked = isWidget || isLegendary;
-
           let updated = { ...s, [field]: value };
-
-          // When setting gearCurrent, sync gearGoal to match if goal was <= old current
-          // (goal was "tracking" current — keep it in sync). Works for both Mythic and Legendary.
           if (field === "gearCurrent") {
-            const oldCur = s.gearCurrent ?? 0;
             const oldGoal = s.gearGoal ?? 0;
-            if (oldGoal <= oldCur) updated.gearGoal = value; // goal was at or below current — follow it
-            else if (isLegendary && (updated.gearGoal ?? 0) < value) updated.gearGoal = value; // Legendary floor
+            if (oldGoal <= (s.gearCurrent ?? 0)) updated.gearGoal = value;
+            else if (isLegendary && (updated.gearGoal ?? 0) < value) updated.gearGoal = value;
           }
-          // When setting masteryCurrent, sync masteryGoal similarly
           if (field === "masteryCurrent" && !isWidget) {
-            const oldCurM = s.masteryCurrent ?? 0;
             const oldGoalM = s.masteryGoal ?? 0;
-            if (oldGoalM <= oldCurM) updated.masteryGoal = value;
+            if (oldGoalM <= (s.masteryCurrent ?? 0)) updated.masteryGoal = value;
             else if (isLegendary && (updated.masteryGoal ?? 0) < value) updated.masteryGoal = value;
           }
-          // If widgetCurrent is set above widgetGoal, clamp goal up to match
           if (field === "widgetCurrent" && isWidget) {
             if ((updated.widgetGoal ?? 0) < value) updated.widgetGoal = value;
           }
-          // Prevent gear goal from being set below current for locked slots
-          if (field === "gearGoal" && locked) {
-            updated.gearGoal = Math.max(value, s.gearCurrent ?? 0);
-          }
-          if (field === "masteryGoal" && isLegendary && !isWidget) {
-            updated.masteryGoal = Math.max(value, s.masteryCurrent ?? 0);
-          }
-          if (field === "widgetGoal" && isWidget) {
-            updated.widgetGoal = Math.max(value, s.widgetCurrent ?? 0);
-          }
-          // If switching status, also update goalStatus to match
+          if (field === "gearGoal" && locked)    updated.gearGoal    = Math.max(value, s.gearCurrent ?? 0);
+          if (field === "masteryGoal" && isLegendary && !isWidget) updated.masteryGoal = Math.max(value, s.masteryCurrent ?? 0);
+          if (field === "widgetGoal" && isWidget) updated.widgetGoal  = Math.max(value, s.widgetCurrent ?? 0);
           if (field === "status") {
             updated.goalStatus = value;
-            // When switching to Legendary, sync goals to current as floor
             if (value === "Legendary") {
-              if ((updated.gearGoal ?? 0) < (updated.gearCurrent ?? 0))
-                updated.gearGoal = updated.gearCurrent ?? 0;
-              if ((updated.masteryGoal ?? 0) < (updated.masteryCurrent ?? 0))
-                updated.masteryGoal = updated.masteryCurrent ?? 0;
+              if ((updated.gearGoal ?? 0)    < (updated.gearCurrent ?? 0))    updated.gearGoal    = updated.gearCurrent ?? 0;
+              if ((updated.masteryGoal ?? 0) < (updated.masteryCurrent ?? 0)) updated.masteryGoal = updated.masteryCurrent ?? 0;
             }
           }
           return updated;
@@ -1789,11 +1831,9 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
     }));
   };
 
-  // Filter heroes for a given type by cumulative generation
   const filteredHeroes = (type, currentSlotIdx) => {
     const maxGenIdx = GEN_ORDER.indexOf(genFilter);
-    // Heroes selected in OTHER slots of the same type
-    const usedByOthers = HERO_SLOTS
+    const usedByOthers = HERO_SLOTS.slice(0,3)
       .map((s, i) => i !== currentSlotIdx && s.type === type ? selectedHeroes[i] : null)
       .filter(Boolean);
     return HERO_ROSTER.filter(h =>
@@ -1803,15 +1843,15 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
     );
   };
 
-  // Totals across all slots
+  // Totals for the ACTIVE team only (displayed in summary cards)
   const totals = useMemo(() => {
     let stones = 0, mithril = 0, mythic = 0;
     heroData.forEach(h => {
       h.slots.forEach((s, si) => {
-        if (si === 4) return; // Widget — no costs
+        if (si === 4) return;
         const isLeg = s.status === "Legendary";
-        const gc    = calcGearCosts(s.gearCurrent, s.gearGoal, isLeg);
-        const mc    = calcMasteryCosts(s.masteryCurrent, s.masteryGoal);
+        const gc = calcGearCosts(s.gearCurrent, s.gearGoal, isLeg);
+        const mc = calcMasteryCosts(s.masteryCurrent, s.masteryGoal);
         stones  += mc.stones;
         mithril += gc.mithril;
         mythic  += gc.mythic + mc.mythic;
@@ -1820,12 +1860,10 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
     return { stones, mithril, mythic };
   }, [heroData]);
 
-  // Number dropdowns
-  const gearOpts    = Array.from({length:101}, (_,i) => i); // 0-100
-  const masteryOpts = Array.from({length:21},  (_,i) => i); // 0-20
-  const widgetOpts  = Array.from({length:11},  (_,i) => i); // 0-10
+  const gearOpts    = Array.from({length:101}, (_,i) => i);
+  const masteryOpts = Array.from({length:21},  (_,i) => i);
+  const widgetOpts  = Array.from({length:11},  (_,i) => i);
 
-  const C = COLORS;
   const sel = { background:C.card, border:`1px solid ${C.border}`, borderRadius:5,
                 color:C.textPri, fontSize:11, padding:"2px 4px", fontFamily:"'Space Mono',monospace",
                 outline:"none", cursor:"pointer" };
@@ -1839,18 +1877,53 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
   return (
     <div className="fade-in">
 
-      {/* Summary tiles */}
-      <div className="stat-grid" style={{marginBottom:20}}>
-        <StatCard label="Stones needed"  value={totals.stones}  sub={`have ${(inv.stones ?? 0).toLocaleString()}`}  color={totals.stones  > (inv.stones  ?? 0) ? "red" : undefined} />
-        <StatCard label="Mithril needed" value={totals.mithril} sub={`have ${(inv.mithril ?? 0).toLocaleString()}`} color={totals.mithril > (inv.mithril ?? 0) ? "red" : undefined} />
-        <StatCard label="Mythic needed"  value={totals.mythic}  sub={`have ${(inv.mythicGear ?? 0).toLocaleString()}`} color={totals.mythic > (inv.mythicGear ?? 0) ? "red" : undefined} />
+      {/* ── Top bar: summary cards + team tabs + Add Team button ── */}
+      <div style={{display:"flex", alignItems:"flex-start", gap:16, marginBottom:20, flexWrap:"wrap"}}>
+
+        {/* Summary cards */}
+        <div className="stat-grid" style={{flex:"0 0 auto", marginBottom:0}}>
+          <StatCard label="Stones needed"  value={totals.stones}  sub={`have ${(inv.stones ?? 0).toLocaleString()}`}  color={totals.stones  > (inv.stones  ?? 0) ? "red" : undefined} />
+          <StatCard label="Mithril needed" value={totals.mithril} sub={`have ${(inv.mithril ?? 0).toLocaleString()}`} color={totals.mithril > (inv.mithril ?? 0) ? "red" : undefined} />
+          <StatCard label="Mythic needed"  value={totals.mythic}  sub={`have ${(inv.mythicGear ?? 0).toLocaleString()}`} color={totals.mythic > (inv.mythicGear ?? 0) ? "red" : undefined} />
+        </div>
+
+        {/* Team tabs + Add Team button */}
+        <div style={{display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", paddingTop:4}}>
+          {teamLetters.map(letter => (
+            <button key={letter}
+              onClick={() => setActiveTeam(letter)}
+              style={{
+                padding:"8px 18px", borderRadius:6, cursor:"pointer",
+                fontFamily:"'Space Mono',monospace", fontSize:12, fontWeight:700,
+                border:`2px solid ${activeTeam === letter ? C.accent : C.border}`,
+                background: activeTeam === letter ? C.accent + "22" : C.card,
+                color: activeTeam === letter ? C.accent : C.textSec,
+                transition:"all 0.15s",
+              }}
+            >
+              {teamLabel(letter)}
+            </button>
+          ))}
+          {teamLetters.length < 6 && (
+            <button onClick={addTeam} style={{
+              padding:"8px 14px", borderRadius:6, cursor:"pointer",
+              fontFamily:"'Space Mono',monospace", fontSize:11,
+              border:`1px dashed ${C.border}`, background:"transparent",
+              color:C.textSec, display:"flex", alignItems:"center", gap:6,
+              transition:"all 0.15s",
+            }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = C.accent; e.currentTarget.style.color = C.accent; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = C.border; e.currentTarget.style.color = C.textSec; }}
+            >
+              <span style={{fontSize:16, lineHeight:1}}>+</span> Add Team
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="card">
         <div className="card-header" style={{flexWrap:"wrap",gap:12}}>
-          <div className="card-title">Hero Gear Upgrade Calculator</div>
-
-          {/* Generation filter */}
+          <div className="card-title">Hero Gear — {teamLabel(activeTeam)}</div>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
             <span style={{fontSize:11,color:C.textDim,fontFamily:"'Space Mono',monospace"}}>Generation filter</span>
             <select value={genFilter} onChange={e => setGenFilter(e.target.value)} style={{...sel,fontSize:12,padding:"4px 8px"}}>
@@ -1885,58 +1958,20 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
               </tr>
             </thead>
             <tbody>
-              {HERO_SLOTS.map((slot, heroIdx) => {
+              {HERO_SLOTS.slice(0,3).map((slot, heroIdx) => {
                 const hd      = heroData[heroIdx] || defaultHeroState(slot.type);
                 const heroes  = filteredHeroes(slot.type, heroIdx);
-                // ensure selected hero is still valid after gen filter change
                 const heroVal = heroes.find(h => h.name === hd.hero) ? hd.hero : (heroes[0]?.name ?? "");
-
-                // Sync widget current from heroStats if available
                 const heroStatsForSlot = heroStats?.[heroVal] || defaultHeroStats();
 
-                // Toggle button shown once at the boundary between group 1 and group 2
-                const toggleRow = heroIdx === 3 ? (
-                  <tr key="group2-toggle">
-                    <td colSpan={13} style={{padding:"4px 0"}}>
-                      <button
-                        onClick={() => setShowSecondGroup(v => !v)}
-                        style={{
-                          width:"100%", padding:"7px 12px",
-                          background: showSecondGroup ? "rgba(56,139,253,0.08)" : "rgba(56,139,253,0.04)",
-                          border:"1px dashed var(--c-border)",
-                          borderRadius:6, cursor:"pointer",
-                          display:"flex", alignItems:"center", justifyContent:"center", gap:8,
-                          color:"var(--c-textSec)", fontSize:11,
-                          fontFamily:"'Space Mono',monospace", letterSpacing:"0.5px",
-                        }}
-                      >
-                        <span style={{fontSize:13}}>{showSecondGroup ? "▲" : "▼"}</span>
-                        {showSecondGroup
-                          ? "Hide Secondary Heroes"
-                          : "Show Secondary Heroes (Infantry 2 · Marksman 2 · Lancer 2)"}
-                      </button>
-                    </td>
-                  </tr>
-                ) : null;
-
                 return GEAR_SLOTS.map((gearSlot, slotIdx) => {
-                  // When group 2 is collapsed, render only the toggle row for hero 3 slot 0,
-                  // and return null for everything else in heroes 3-5
-                  if (heroIdx >= 3 && !showSecondGroup) {
-                    if (heroIdx === 3 && slotIdx === 0) {
-                      return <React.Fragment key={`${slot.slotId}-${gearSlot}`}>{toggleRow}</React.Fragment>;
-                    }
-                    return null;
-                  }
-
-                  const DEFAULT_SLOT = { slot: gearSlot, status: "Mythic", goalStatus: "Mythic",
+                  const DEFAULT_SLOT = { slot: gearSlot, status: "", goalStatus: "",
                     gearCurrent: 0, gearGoal: 0, masteryCurrent: 0, masteryGoal: 0,
                     widgetCurrent: 0, widgetGoal: 0 };
                   const s        = { ...DEFAULT_SLOT, ...(hd.slots[slotIdx] || {}) };
                   const isWidget = slotIdx === 4;
                   const isLeg    = s.status === "Legendary";
 
-                  // Calculated costs
                   const gc = isWidget ? {mithril:0,mythic:0}
                            : calcGearCosts(s.gearCurrent ?? 0, s.gearGoal ?? 0, isLeg);
                   const mc = isWidget ? {stones:0,mythic:0}
@@ -1949,14 +1984,11 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                                   : slot.type === "Lancer"   ? C.blue
                                   : C.amber;
 
-                  // ── Combined stat summary — rendered once after the Widget row ──
                   const combinedSummary = (() => {
                     if (slotIdx !== 4) return null;
-
-                    // Check if any of the 4 gear slots (not widget) has a change
                     const gearSlots = [0,1,2,3].map(si => {
-                      const ds = { slot: GEAR_SLOTS[si], status: "Mythic", goalStatus: "Mythic",
-                        gearCurrent: 0, gearGoal: 0, masteryCurrent: 0, masteryGoal: 0 };
+                      const ds = { slot: GEAR_SLOTS[si], status: "", goalStatus: "",
+                        gearCurrent:0, gearGoal:0, masteryCurrent:0, masteryGoal:0 };
                       return { ...ds, ...(hd.slots[si] || {}) };
                     });
                     const anyChanged = gearSlots.some(gs =>
@@ -1965,76 +1997,58 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                       (gs.goalStatus ?? gs.status ?? "") !== (gs.status ?? "")
                     );
                     if (!anyChanged) return null;
-
-                    // Sum current and goal stats across all 4 gear slots
                     let curPwr=0, curHeroMain=0, curHeroHp=0, curEscMain=0, curEscHp=0, curTroop=0, curMast=0;
                     let goalPwr=0,goalHeroMain=0,goalHeroHp=0,goalEscMain=0,goalEscHp=0,goalTroop=0,goalMast=0;
-
                     gearSlots.forEach((gs, si) => {
                       const gearName = SLOT_TO_GEAR(slot.type, GEAR_SLOTS[si]);
                       if (!gearName) return;
-                      const curTier  = gs.status    || null;
+                      const curTier  = gs.status || null;
                       const goalTier = gs.goalStatus || curTier;
-                      if (!curTier) return; // skip unset slots
+                      if (!curTier) return;
                       const cS = getGearStats(gearName, curTier,  gs.gearCurrent  ?? 0, gs.masteryCurrent ?? 0);
                       const gS = getGearStats(gearName, goalTier, gs.gearGoal     ?? 0, gs.masteryGoal    ?? 0);
                       if (cS) { curPwr+=cS.power; curHeroMain+=cS.heroMain; curHeroHp+=cS.heroHp; curEscMain+=cS.escMain; curEscHp+=cS.escHp; curTroop+=cS.troop; curMast+=(gs.masteryCurrent??0)*10; }
-                      if (gS) { goalPwr+=gS.power; goalHeroMain+=gS.heroMain; goalHeroHp+=gS.heroHp; goalEscMain+=gS.escMain; goalEscHp+=gS.escHp; goalTroop+=gS.troop; goalMast+=(gs.masteryGoal??0)*10; }
+                      if (gS) { goalPwr+=gS.power;goalHeroMain+=gS.heroMain;goalHeroHp+=gS.heroHp;goalEscMain+=gS.escMain;goalEscHp+=gS.escHp;goalTroop+=gS.troop;goalMast+=(gs.masteryGoal??0)*10; }
                     });
-
-                    // Skip if all zeros
-                    if (curPwr === 0 && goalPwr === 0) return null;
-                    // Skip if nothing actually changed
-                    if (curPwr===goalPwr && curHeroMain===goalHeroMain && curHeroHp===goalHeroHp &&
-                        curEscMain===goalEscMain && curEscHp===goalEscHp && curTroop===goalTroop && curMast===goalMast) return null;
-
-                    const isATK = GEAR_TYPE[SLOT_TO_GEAR(slot.type, GEAR_SLOTS[0])] === "ATK";
-                    const STAT_LABELS = ["Gear Pwr", isATK ? "Hero Atk" : "Hero Def", "Hero HP",
-                                         isATK ? "Esc Atk" : "Esc Def", "Esc HP",
-                                         isATK ? "Trp Leth" : "Trp HP", "Trp Mast"];
-                    const isPct = [false, false, false, false, false, true, true];
-                    const curVals  = [curPwr,  curHeroMain,  curHeroHp,  curEscMain,  curEscHp,  curTroop,  curMast];
-                    const goalVals = [goalPwr, goalHeroMain, goalHeroHp, goalEscMain, goalEscHp, goalTroop, goalMast];
-                    const chgVals  = curVals.map((v, i) => goalVals[i] - v);
-                    const fmtVal = (val, pct) => pct ? val.toFixed(2)+"%" : Math.round(val).toLocaleString();
-                    const chgColor = v => v > 0 ? C.green : v < 0 ? C.red : C.textDim;
-                    const tdStat = {padding:"4px 8px",fontSize:10,fontFamily:"'Space Mono',monospace",
-                                    borderRight:`1px solid ${C.border}`,textAlign:"center"};
-                    const rows = [
-                      { label:"Current", color:C.textSec, bg:"transparent",          vals:curVals,  isChange:false },
-                      { label:"Goal",    color:C.blue,    bg:"rgba(56,139,253,0.06)", vals:goalVals, isChange:false },
-                      { label:"Change",  color:C.green,   bg:"rgba(63,185,80,0.06)",  vals:chgVals,  isChange:true  },
-                    ];
-
+                    const widgetVal = heroStatsForSlot?.widget ?? 0;
+                    const Diff = ({cur,goal,pct}) => {
+                      const diff = goal - cur;
+                      if (diff === 0) return <span style={{color:C.textDim}}>—</span>;
+                      const col = diff > 0 ? C.blue : C.red;
+                      return <span style={{color:col}}>{diff>0?"+":""}{pct?diff.toFixed(1):Math.round(diff).toLocaleString()}{pct?"%":""}</span>;
+                    };
+                    const Row2 = ({label,cur,goal,pct}) => (
+                      <tr>
+                        <td style={{padding:"1px 6px",color:C.textDim,fontSize:10,whiteSpace:"nowrap"}}>{label}</td>
+                        <td style={{padding:"1px 6px",fontFamily:"'Space Mono',monospace",fontSize:10,textAlign:"right",color:C.textSec}}>{pct?cur.toFixed(1)+"%":Math.round(cur).toLocaleString()}</td>
+                        <td style={{padding:"1px 6px",fontFamily:"'Space Mono',monospace",fontSize:10,textAlign:"right"}}><Diff cur={cur} goal={goal} pct={pct}/></td>
+                        <td style={{padding:"1px 6px",fontFamily:"'Space Mono',monospace",fontSize:10,textAlign:"right",color:C.textPri}}>{pct?goal.toFixed(1)+"%":Math.round(goal).toLocaleString()}</td>
+                      </tr>
+                    );
                     return (
                       <tr key={`${slot.slotId}-combined-stats`} style={{background:"rgba(56,139,253,0.04)"}}>
-                        <td colSpan={12} style={{padding:"6px 10px",borderBottom:`1px solid ${C.border}`}}>
-                          <div style={{fontSize:9,fontFamily:"'Space Mono',monospace",color:C.textDim,
-                            marginBottom:4,textTransform:"uppercase",letterSpacing:"0.5px"}}>
-                            All Gear — Combined Stats
+                        <td colSpan={13} style={{padding:"6px 10px"}}>
+                          <div style={{fontSize:10,fontWeight:700,color:C.blue,fontFamily:"'Space Mono',monospace",marginBottom:4,letterSpacing:"0.5px"}}>
+                            {heroVal} — CURRENT vs GOAL
                           </div>
-                          <div style={{display:"flex",gap:0,borderRadius:6,overflow:"hidden",border:`1px solid ${C.border}`}}>
+                          <div style={{overflowX:"auto"}}>
                             <table style={{borderCollapse:"collapse",width:"100%",fontSize:10}}>
                               <thead>
-                                <tr>
-                                  <td style={{...tdStat,width:60,color:C.textDim,background:"transparent",borderRight:`1px solid ${C.border}`}}/>
-                                  {STAT_LABELS.map(l => (
-                                    <td key={"hl"+l} style={{...tdStat,color:C.textDim,fontWeight:700,background:"transparent",fontSize:9,whiteSpace:"nowrap"}}>{l}</td>
-                                  ))}
+                                <tr style={{borderBottom:`1px solid ${C.border}`}}>
+                                  <th style={{padding:"1px 6px",textAlign:"left",color:C.textDim,fontSize:9,fontWeight:700,textTransform:"uppercase",letterSpacing:"1px",whiteSpace:"nowrap"}}>Stat</th>
+                                  <th style={{padding:"1px 6px",textAlign:"right",color:C.textDim,fontSize:9,fontWeight:700,letterSpacing:"1px"}}>Current</th>
+                                  <th style={{padding:"1px 6px",textAlign:"right",color:C.textDim,fontSize:9,fontWeight:700,letterSpacing:"1px"}}>Change</th>
+                                  <th style={{padding:"1px 6px",textAlign:"right",color:C.textDim,fontSize:9,fontWeight:700,letterSpacing:"1px"}}>Goal</th>
                                 </tr>
                               </thead>
                               <tbody>
-                                {rows.map(row => (
-                                  <tr key={row.label} style={{background:row.bg}}>
-                                    <td style={{...tdStat,color:row.color,fontWeight:700,fontSize:9,whiteSpace:"nowrap"}}>{row.label}</td>
-                                    {row.vals.map((v, i) => (
-                                      <td key={row.label+STAT_LABELS[i]} style={{...tdStat,
-                                        color: row.isChange ? chgColor(v) : C.textPri}}>
-                                        {row.isChange && v > 0 ? "+" : ""}{fmtVal(v, isPct[i])}
-                                      </td>
-                                    ))}
-                                  </tr>
-                                ))}
+                                <Row2 label="Gear Power"       cur={curPwr}      goal={goalPwr}      />
+                                <Row2 label="Hero Main Stat"   cur={curHeroMain} goal={goalHeroMain} pct />
+                                <Row2 label="Hero HP"          cur={curHeroHp}   goal={goalHeroHp}   pct />
+                                <Row2 label="Escort Main Stat" cur={curEscMain}  goal={goalEscMain}  pct />
+                                <Row2 label="Escort HP"        cur={curEscHp}    goal={goalEscHp}    pct />
+                                <Row2 label="Troop Capacity"   cur={curTroop}    goal={goalTroop}    />
+                                <Row2 label="Mastery Score"    cur={curMast}     goal={goalMast}     />
                               </tbody>
                             </table>
                           </div>
@@ -2045,17 +2059,14 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
 
                   return (
                     <React.Fragment key={`${slot.slotId}-${gearSlot}`}>
-                    {heroIdx === 3 && slotIdx === 0 && toggleRow}
                     <tr style={{background: slotIdx % 2 === 0 ? "transparent" : "var(--c-surface)"}}>
 
-                      {/* Type — only on first row of each hero */}
                       {slotIdx === 0 && (
                         <td rowSpan={5} style={{...tdStyle,verticalAlign:"middle",fontWeight:700,color:typeColor,width:80,whiteSpace:"nowrap"}}>
                           {slot.label}
                         </td>
                       )}
 
-                      {/* Hero dropdown — only on first row */}
                       {slotIdx === 0 && (
                         <td rowSpan={5} style={{...tdStyle,verticalAlign:"middle",minWidth:100,maxWidth:150}}>
                           <select value={heroVal}
@@ -2066,10 +2077,8 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                         </td>
                       )}
 
-                      {/* Slot name */}
-                      <td style={{...tdStyle,color:C.textPri,fontWeight:600}}>{gearSlot}</td>
+                      <td style={{...tdStyle,width:80,whiteSpace:"nowrap"}}>{gearSlot}</td>
 
-                      {/* Gear Status dropdown (slots 1-4 only) */}
                       <td style={{...tdStyle,width:110}}>
                         {!isWidget ? (
                           <select value={s.status ?? ""}
@@ -2082,7 +2091,6 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                         ) : <span style={{color:C.textDim}}>—</span>}
                       </td>
 
-                      {/* Current: Gear Level */}
                       <td style={{...tdStyle,width:80,textAlign:"center"}}>
                         {isWidget ? (
                           <select value={s.widgetCurrent ?? 0}
@@ -2099,62 +2107,29 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                         )}
                       </td>
 
-                      {/* Current: Mastery Level (slots 1-4 only) */}
                       <td style={{...tdStyle,width:80,textAlign:"center"}}>
-                        {!isWidget ? (
+                        {isWidget ? <span style={{color:C.textDim}}>—</span> : (
                           <select value={s.masteryCurrent ?? 0}
                             onChange={e => setSlotField(heroIdx, slotIdx, "masteryCurrent", Number(e.target.value))}
                             style={sel}>
                             {masteryOpts.map(v => <option key={v} value={v}>{v}</option>)}
                           </select>
-                        ) : <span style={{color:C.textDim}}>—</span>}
+                        )}
                       </td>
 
-                      {/* Goal columns — three states:
-                           1. Fully maxed (Legendary + gear 100 + mastery 20): single "Maxed" spanning all 3 goal cols
-                           2. Gear maxed only (Legendary + gear 100): MAX badge on gear col, mastery still editable
-                           3. Normal: all dropdowns shown                                                          */}
                       {(() => {
-                        if (isWidget) {
-                          // Widget goal column (unchanged)
-                          return (
-                            <>
-                              <td style={{...tdStyle,width:110}}><span style={{color:C.textDim}}>—</span></td>
-                              <td style={{...tdStyle,width:80,textAlign:"center"}}>
-                                {(s.widgetCurrent ?? 0) >= 10 ? (
-                                  <span style={{fontSize:10,fontWeight:800,color:C.green,
-                                    fontFamily:"'Space Mono',monospace",
-                                    background:C.green+"22",border:`1px solid ${C.green}44`,
-                                    padding:"2px 7px",borderRadius:4}}>MAX</span>
-                                ) : (
-                                  <select value={s.widgetGoal ?? 0}
-                                    onChange={e => setSlotField(heroIdx, slotIdx, "widgetGoal", Number(e.target.value))}
-                                    style={sel}>
-                                    {widgetOpts.filter(v => v >= (s.widgetCurrent ?? 0)).map(v =>
-                                      <option key={v} value={v}>{v}</option>)}
-                                  </select>
-                                )}
-                              </td>
-                              <td style={{...tdStyle,width:80,textAlign:"center"}}><span style={{color:C.textDim}}>—</span></td>
-                            </>
-                          );
-                        }
-
-                        const gearMaxed    = isLeg && (s.gearCurrent ?? 0) >= 100;
+                        const gearMaxed    = !isWidget && isLeg && (s.gearCurrent ?? 0) >= 100;
                         const masteryMaxed = (s.masteryCurrent ?? 0) >= 20;
                         const fullyMaxed   = gearMaxed && masteryMaxed;
 
-                        // Glow helpers — only ever fire on Mythic slots (isLeg = false)
                         const goalStatusVal = s.goalStatus ?? s.status ?? "";
                         const curStatus     = s.status ?? "";
 
-                        // Each returns {} (no glow), blue style, or red style
                         const blueStyle = { background:"rgba(56,139,253,0.12)", boxShadow:`inset 0 0 0 1px ${C.blue}66` };
                         const redStyle  = { background:"rgba(248,81,73,0.10)",  boxShadow:`inset 0 0 0 1px ${C.red}55`  };
 
                         const statusGlow = () => {
                           if (isLeg) return {};
-                          // Only blue: upgrading current Mythic → goal Legendary
                           if (goalStatusVal === "Legendary" && curStatus === "Mythic") return blueStyle;
                           return {};
                         };
@@ -2166,32 +2141,59 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                           return {};
                         };
                         const masteryGlow = () => {
-                          if (isLeg) return {};
                           const diff = (s.masteryGoal ?? 0) - (s.masteryCurrent ?? 0);
                           if (diff > 0) return blueStyle;
                           if (diff < 0) return redStyle;
                           return {};
                         };
 
-                        const MaxBadge = ({ label = "MAX" }) => (
-                          <span style={{fontSize:10,fontWeight:800,color:C.green,
-                            fontFamily:"'Space Mono',monospace",
-                            background:C.green+"22",border:`1px solid ${C.green}44`,
-                            padding:"2px 7px",borderRadius:4}}>{label}</span>
+                        const MaxBadge = () => (
+                          <span style={{fontSize:9,padding:"2px 6px",borderRadius:4,
+                            background:C.green+"22",color:C.green,fontFamily:"'Space Mono',monospace",fontWeight:700}}>MAX</span>
                         );
 
-                        if (fullyMaxed) {
-                          // Single "Maxed" cell spanning all 3 goal sub-columns
+                        if (isWidget) {
+                          const wGoal = s.widgetGoal ?? 0;
+                          const wCur  = s.widgetCurrent ?? 0;
+                          const wGlow = wGoal > wCur ? blueStyle : wGoal < wCur ? redStyle : {};
                           return (
-                            <td colSpan={3} style={{...tdStyle,textAlign:"center"}}>
-                              <MaxBadge label="Maxed" />
-                            </td>
+                            <>
+                              <td style={{...tdStyle,...statusGlow()}}><span style={{color:C.textDim}}>—</span></td>
+                              <td style={{...tdStyle,width:80,textAlign:"center",...wGlow}}>
+                                <select value={wGoal}
+                                  onChange={e => setSlotField(heroIdx, slotIdx, "widgetGoal", Number(e.target.value))}
+                                  style={sel}>
+                                  {widgetOpts.map(v => <option key={v} value={v}>{v}</option>)}
+                                </select>
+                              </td>
+                              <td style={{...tdStyle,...masteryGlow()}}><span style={{color:C.textDim}}>—</span></td>
+                              <td style={{...tdMono,color:C.textDim}}>—</td>
+                              <td style={{...tdMono,color:C.textDim}}>—</td>
+                              <td style={{...tdMono,color:C.textDim}}>—</td>
+                              <td style={{...tdMono,color:C.textDim}}>—</td>
+                            </>
+                          );
+                        }
+
+                        if (fullyMaxed) {
+                          return (
+                            <>
+                              <td colSpan={3} style={{...tdStyle,textAlign:"center"}}>
+                                <span style={{fontSize:10,padding:"3px 10px",borderRadius:4,
+                                  background:C.green+"22",color:C.green,fontFamily:"'Space Mono',monospace",fontWeight:700}}>
+                                  ✓ MAXED
+                                </span>
+                              </td>
+                              <td style={{...tdMono,color:C.textDim}}>—</td>
+                              <td style={{...tdMono,color:C.textDim}}>—</td>
+                              <td style={{...tdMono,color:C.textDim}}>—</td>
+                              <td style={{...tdMono,color:C.textDim}}>—</td>
+                            </>
                           );
                         }
 
                         return (
                           <>
-                            {/* Goal: Status — glows blue if upgrading to Legendary */}
                             <td style={{...tdStyle,width:110,...statusGlow()}}>
                               <select value={goalStatusVal}
                                 onChange={e => setSlotField(heroIdx, slotIdx, "goalStatus", e.target.value)}
@@ -2202,7 +2204,6 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                               </select>
                             </td>
 
-                            {/* Goal: Gear Level — glows blue if goal > current, red if goal < current */}
                             <td style={{...tdStyle,width:80,textAlign:"center",...gearGlow()}}>
                               {gearMaxed ? <MaxBadge /> : (
                                 <select value={s.gearGoal ?? 0}
@@ -2215,7 +2216,6 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                               )}
                             </td>
 
-                            {/* Goal: Mastery Level — glows blue if goal > current, red if goal < current */}
                             <td style={{...tdStyle,width:80,textAlign:"center",...masteryGlow()}}>
                               {masteryMaxed ? <MaxBadge /> : (
                                 <select value={s.masteryGoal ?? 0}
@@ -2227,27 +2227,20 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                                 </select>
                               )}
                             </td>
+
+                            <td style={{...tdMono,color: rowStones > 0 ? C.blue : C.textDim}}>
+                              {rowStones > 0 ? rowStones.toLocaleString() : "—"}
+                            </td>
+                            <td style={{...tdMono,color: rowMithril > 0 ? C.accent : C.textDim}}>
+                              {rowMithril > 0 ? rowMithril.toLocaleString() : "—"}
+                            </td>
+                            <td style={{...tdMono,color: rowMythic > 0 ? C.green : C.textDim}}>
+                              {rowMythic > 0 ? rowMythic.toLocaleString() : "—"}
+                            </td>
+                            <td style={{...tdMono,color:C.textDim}}>—</td>
                           </>
                         );
                       })()}
-
-                      {/* Stones */}
-                      <td style={{...tdMono,color: rowStones > 0 ? C.blue : C.textDim}}>
-                        {rowStones > 0 ? rowStones.toLocaleString() : "—"}
-                      </td>
-
-                      {/* Mithril */}
-                      <td style={{...tdMono,color: rowMithril > 0 ? C.accent : C.textDim}}>
-                        {rowMithril > 0 ? rowMithril.toLocaleString() : "—"}
-                      </td>
-
-                      {/* Mythic Needed */}
-                      <td style={{...tdMono,color: rowMythic > 0 ? C.green : C.textDim}}>
-                        {rowMythic > 0 ? rowMythic.toLocaleString() : "—"}
-                      </td>
-
-                      {/* SVS PTS */}
-                      <td style={{...tdMono,color:C.textDim}}>—</td>
                     </tr>
                     {combinedSummary}
                     </React.Fragment>
@@ -2257,10 +2250,68 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
             </tbody>
           </table>
         </div>
+
+        {/* Remove Team button */}
+        {teamLetters.length > 1 && (
+          <div style={{padding:"12px 16px", borderTop:`1px solid ${C.border}`, display:"flex", justifyContent:"flex-end"}}>
+            <button
+              onClick={() => { setRemoveTarget(activeTeam); setShowRemoveModal(true); }}
+              style={{
+                padding:"7px 16px", borderRadius:6, cursor:"pointer",
+                border:`1px solid ${C.red}66`, background:"transparent",
+                color:C.red, fontSize:11, fontFamily:"'Space Mono',monospace",
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = C.red+"18"}
+              onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+            >
+              Remove Team…
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* ── Remove Team modal ── */}
+      {showRemoveModal && (
+        <div style={{
+          position:"fixed", inset:0, background:"rgba(0,0,0,0.6)",
+          display:"flex", alignItems:"center", justifyContent:"center", zIndex:9999,
+        }} onClick={() => setShowRemoveModal(false)}>
+          <div style={{
+            background:C.card, border:`1px solid ${C.border}`, borderRadius:12,
+            padding:"28px 32px", minWidth:320, maxWidth:400,
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{fontSize:16, fontWeight:800, color:C.textPri, fontFamily:"Syne,sans-serif", marginBottom:6}}>
+              Remove a Team
+            </div>
+            <div style={{fontSize:12, color:C.textDim, marginBottom:20}}>
+              All hero gear data for the selected team will be permanently deleted.
+            </div>
+            <select
+              value={removeTarget}
+              onChange={e => setRemoveTarget(e.target.value)}
+              style={{...sel, width:"100%", padding:"8px 10px", fontSize:13, marginBottom:20}}
+            >
+              {teamLetters.map(l => (
+                <option key={l} value={l}>{teamLabel(l)}</option>
+              ))}
+            </select>
+            <div style={{display:"flex", gap:10, justifyContent:"flex-end"}}>
+              <button onClick={() => setShowRemoveModal(false)} style={{
+                padding:"8px 18px", borderRadius:6, cursor:"pointer",
+                border:`1px solid ${C.border}`, background:"transparent", color:C.textSec, fontSize:12,
+              }}>Cancel</button>
+              <button onClick={() => removeTeam(removeTarget)} style={{
+                padding:"8px 18px", borderRadius:6, cursor:"pointer",
+                border:"none", background:C.red, color:"#fff", fontSize:12, fontWeight:700,
+              }}>Remove {teamLabel(removeTarget)}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
 // Expert data, components, and power constants — see ./Experts.jsx
 
 // ─── Formatting helpers (also used in Experts.jsx independently) ─────────────
