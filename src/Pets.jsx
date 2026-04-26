@@ -640,8 +640,8 @@ const PetDrawer = React.memo(function PetDrawer({ pet, data, onChange, inv }) {
 export default function PetsPage({ inv, setInv }) {
   const C = COLORS;
   const [petData, setPetData] = useLocalStorage("pets-data", {});
-  const [collapsed, setCollapsed] = React.useState({});
-  const [genFilter, setGenFilter] = React.useState(7); // show up to gen N
+  const [openCard, setOpenCard] = React.useState(null); // which pet card is expanded
+  const [genFilter, setGenFilter] = useLocalStorage("pets-gen-filter", 7);
 
   const getPet = name => petData[name] || defaultPetState();
   const setPet = (name, updates) => {
@@ -699,7 +699,7 @@ export default function PetsPage({ inv, setInv }) {
   }, [petData]);
 
   // Group pets by quality for section headers
-  const groupOrder = ["C","N","R","SR","SSR"];
+  const groupOrder = ["SSR","SR","R","N","C"]; // SSR first, down to Common
   const groups = groupOrder.map(q => ({
     quality: q,
     label: qualityLabel(q),
@@ -851,47 +851,155 @@ export default function PetsPage({ inv, setInv }) {
 
       {/* ── Pet Groups ── */}
       {groups.map(group => {
-        const isOpen = collapsed[group.quality] !== false; // open by default
         const qColor = qualityColor(group.quality);
         return (
-          <div key={group.quality} style={{ marginBottom:16 }}>
-            {/* Group header */}
-            <div onClick={() => setCollapsed(p => ({
-                ...p, [group.quality]: !isOpen
-              }))}
-              style={{ display:"flex", alignItems:"center",
-                justifyContent:"space-between", padding:"10px 16px",
-                background:C.surface, border:`1px solid ${C.border}`,
-                borderRadius: isOpen ? "10px 10px 0 0" : 10,
-                cursor:"pointer", userSelect:"none",
-                borderLeft:`3px solid ${qColor}` }}>
-              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                <span style={{ fontSize:12, fontWeight:800, color:qColor,
-                  fontFamily:"'Space Mono',monospace" }}>{group.label}</span>
-                <span style={{ fontSize:11, color:C.textDim }}>
-                  {group.pets.length} pet{group.pets.length !== 1 ? "s" : ""}
-                </span>
-              </div>
-              <span style={{ color:C.textDim, fontSize:13 }}>
-                {isOpen ? "▲" : "▼"}
+          <div key={group.quality} style={{ marginBottom:20 }}>
+            {/* Quality section header */}
+            <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10,
+              paddingBottom:8, borderBottom:`2px solid ${qColor}33` }}>
+              <span style={{ fontSize:13, fontWeight:800, color:qColor,
+                fontFamily:"'Space Mono',monospace", letterSpacing:"0.5px" }}>
+                {group.label}
+              </span>
+              <span style={{ fontSize:10, color:C.textDim,
+                fontFamily:"'Space Mono',monospace" }}>
+                {group.pets.length} pet{group.pets.length !== 1 ? "s" : ""}
               </span>
             </div>
 
-            {isOpen && (
-              <div style={{ border:`1px solid ${C.border}`,
-                borderTop:"none", borderRadius:"0 0 10px 10px",
-                padding:"12px", background:C.card }}>
-                {group.pets.map(pet => (
-                  <PetDrawer
-                    key={pet.name}
-                    pet={pet}
-                    data={getPet(pet.name)}
-                    onChange={updates => setPet(pet.name, updates)}
-                    inv={inv}
-                  />
-                ))}
-              </div>
-            )}
+            {/* Pet card grid */}
+            <div style={{ display:"grid",
+              gridTemplateColumns:"repeat(auto-fill, minmax(260px, 1fr))", gap:12 }}>
+              {group.pets.map(pet => {
+                const d = getPet(pet.name);
+                const isOpen = openCard === pet.name;
+                const isTamed = (d.level || 0) > 0;
+                const curPower = isTamed
+                  ? (getPetPower(pet.quality, d.level, d.advanced) ?? 0)
+                  : null;
+                const curStat = isTamed
+                  ? (getPetStat(pet.quality, d.level, d.advanced) ?? 0)
+                  : null;
+                const pct = Math.round(((d.level || 0) / pet.maxLevel) * 100);
+                const costs = calcPetCosts(pet.quality, d.level, d.advanced, d.goalLevel, d.goalAdv);
+                const hasCost = costs.manual > 0 || costs.potion > 0 || costs.serum > 0;
+
+                return (
+                  <div key={pet.name} style={{
+                    borderRadius:10, overflow:"hidden",
+                    border:`1px solid ${isOpen ? qColor : C.border}`,
+                    transition:"border-color 0.2s",
+                    gridColumn: isOpen ? "1 / -1" : "auto",
+                  }}>
+                    {/* Card header — always visible */}
+                    <div
+                      onClick={() => setOpenCard(isOpen ? null : pet.name)}
+                      style={{ background:C.card, padding:"14px 16px", cursor:"pointer",
+                        borderBottom: isOpen ? `1px solid ${qColor}44` : "none",
+                        display:"flex", alignItems:"center", gap:12,
+                        transition:"background 0.15s", userSelect:"none" }}
+                      onMouseEnter={e => e.currentTarget.style.background = C.surface}
+                      onMouseLeave={e => e.currentTarget.style.background = C.card}
+                    >
+                      {/* Quality badge avatar */}
+                      <div style={{
+                        width:42, height:42, borderRadius:8, flexShrink:0,
+                        background:qColor+"22", border:`2px solid ${qColor}66`,
+                        display:"flex", alignItems:"center", justifyContent:"center",
+                        fontSize:12, fontWeight:800, color:qColor,
+                        fontFamily:"'Space Mono',monospace",
+                      }}>
+                        {pet.quality}
+                      </div>
+
+                      {/* Name + level bar */}
+                      <div style={{ flex:1, minWidth:0 }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:2 }}>
+                          <span style={{ fontSize:14, fontWeight:800, color:C.textPri,
+                            fontFamily:"Syne,sans-serif" }}>
+                            {pet.name}
+                          </span>
+                          {isTamed && d.advanced && (
+                            <span style={{ fontSize:9, padding:"1px 5px", borderRadius:4,
+                              background:C.amber+"22", color:C.amber,
+                              border:`1px solid ${C.amber}44`,
+                              fontFamily:"'Space Mono',monospace", fontWeight:700 }}>
+                              ADV
+                            </span>
+                          )}
+                          {pet.skillType === "combat" ? (
+                            <span style={{ fontSize:9, padding:"1px 5px", borderRadius:4,
+                              background:C.red+"22", color:C.red,
+                              border:`1px solid ${C.red}33`,
+                              fontFamily:"'Space Mono',monospace" }}>COMBAT</span>
+                          ) : (
+                            <span style={{ fontSize:9, padding:"1px 5px", borderRadius:4,
+                              background:C.blue+"22", color:C.blue,
+                              border:`1px solid ${C.blue}33`,
+                              fontFamily:"'Space Mono',monospace" }}>UTILITY</span>
+                          )}
+                        </div>
+                        <div style={{ fontSize:10, color:C.textDim,
+                          fontFamily:"'Space Mono',monospace", marginBottom:5 }}>
+                          Gen {pet.gen} · Max Lv {pet.maxLevel}
+                        </div>
+                        {/* Level progress bar */}
+                        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                          <div style={{ flex:1, height:4, borderRadius:2,
+                            background:C.border, overflow:"hidden" }}>
+                            <div style={{ height:"100%", width:`${pct}%`,
+                              background: pct >= 100 ? C.green : qColor,
+                              borderRadius:2, transition:"width 0.3s" }} />
+                          </div>
+                          <span style={{ fontSize:10, color: isTamed ? qColor : C.textDim,
+                            fontFamily:"'Space Mono',monospace", fontWeight:700, flexShrink:0 }}>
+                            {isTamed ? `Lv ${d.level}` : "Not Tamed"}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Right col: power + cost hint + chevron */}
+                      <div style={{ textAlign:"right", flexShrink:0, minWidth:80 }}>
+                        {curPower ? (
+                          <div style={{ fontSize:11, fontWeight:700, color:qColor,
+                            fontFamily:"'Space Mono',monospace" }}>
+                            {(curPower/1000).toFixed(0)}K pwr
+                          </div>
+                        ) : (
+                          <div style={{ fontSize:10, color:C.textDim,
+                            fontFamily:"'Space Mono',monospace" }}>—</div>
+                        )}
+                        {curStat ? (
+                          <div style={{ fontSize:10, color:C.textDim,
+                            fontFamily:"'Space Mono',monospace" }}>
+                            +{curStat.toFixed(2)}% A/D
+                          </div>
+                        ) : null}
+                        {hasCost && (
+                          <div style={{ fontSize:9, color:C.amber,
+                            fontFamily:"'Space Mono',monospace", marginTop:2 }}>
+                            {costs.manual}📖 goal
+                          </div>
+                        )}
+                        <div style={{ fontSize:14, color:C.textDim, marginTop:4 }}>
+                          {isOpen ? "▲" : "▼"}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Expanded drawer */}
+                    {isOpen && (
+                      <PetDrawer
+                        pet={pet}
+                        data={getPet(pet.name)}
+                        onChange={updates => setPet(pet.name, updates)}
+                        inv={inv}
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
         );
       })}

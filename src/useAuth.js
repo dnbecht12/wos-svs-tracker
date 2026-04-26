@@ -76,7 +76,7 @@ export function useAuth() {
       "experts-data","cg-slots","cc-slots","troops-inventory-v2",
       "daybreak-buffs","daybreak-prosperity","hg-heroes","hg-hero-stats","hg-teams","pets-data",
       "cp-buildings","cp-buffs","cp-cycle","cp-dailyfc","cp-agnes","cp-nonfc-active",
-      "wos-svs-inventory","wos-rfc-saved-plans","heroes-roster-added",
+      "wos-svs-inventory","wos-rfc-saved-plans","heroes-roster-added","pets-gen-filter",
       "rfc-cycle","rfc-monref","rfc-wdmode","rfc-actuals2",
     ];
     USER_DATA_KEYS.forEach(k => {
