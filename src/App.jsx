@@ -2877,6 +2877,30 @@ export default function App() {
         // Fire wos-user-ready so all useLocalStorage hooks re-read from localStorage
         window.dispatchEvent(new CustomEvent("wos-user-ready"));
 
+        // ── hg-teams migration ───────────────────────────────────────────────
+        // If cloud has no hg-teams (or has an empty/default one) but does have
+        // hg-heroes data, migrate the old flat array to the teams structure.
+        // This handles cases where a broken session wrote empty hg-teams to cloud.
+        const cloudTeamsRow = cloudMap.get("hg-teams");
+        const cloudTeamsVal = cloudTeamsRow?.value;
+        const teamsIsEmpty = !cloudTeamsVal ||
+          (cloudTeamsVal?.teams && Object.values(cloudTeamsVal.teams).flat()
+            .every(h => !h?.hero));
+
+        if (teamsIsEmpty) {
+          // Try to get hero data from hg-heroes (cloud or localStorage)
+          const cloudHeroesRow = cloudMap.get("hg-heroes");
+          const heroesSource = cloudHeroesRow?.value ||
+            (() => { try { const r = localStorage.getItem("hg-heroes"); return r ? JSON.parse(r) : null; } catch { return null; } })();
+          if (heroesSource && Array.isArray(heroesSource) && heroesSource.some(h => h?.hero)) {
+            const migrated = migrateOldHeroes(heroesSource);
+            if (migrated) {
+              localStorage.setItem("hg-teams", JSON.stringify(migrated));
+              scheduleSync("hg-teams", migrated);
+            }
+          }
+        }
+
         // Force-write hg-heroes and hg-hero-stats to Supabase if missing from cloud
         // These may never have been in localStorage so the push-up loop misses them
         if (!cloudMap.has("hg-heroes")) {
@@ -3481,7 +3505,7 @@ export default function App() {
             {page === "heroes"      && <HeroesPage    genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} setHgHeroes={setHgHeroes} currentUser={user} activeCharacter={activeCharacter} hgHeroes={hgHeroes} heroStatsVersion={heroStatsVersion} />}
             {page === "admin"       && user?.id === ADMIN_UID && <AdminPage onStatsUpdated={() => setHeroStatsVersion(v => v + 1)} />}
 
-            {page === "hero-gear"    && <HeroGearPage    inv={inv} genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} hgHeroes={hgHeroes} setHgHeroes={setHgHeroes} />}
+            {page === "hero-gear"    && <HeroGearPage    inv={inv} genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} hgTeams={hgTeams} setHgTeams={setHgTeams} onCompleteSvs={() => setSvsModal({ open:true, scope:"hero-gear" })} />}
             {page === "troops"       && <TroopsPage />}
             {page === "chief-gear"   && <ChiefGearPage   inv={inv}  onCompleteSvs={() => setSvsModal({ open:true, scope:"chief-gear" })}/>}
             {page === "chief-charms" && <ChiefCharmsPage inv={inv}  onCompleteSvs={() => setSvsModal({ open:true, scope:"chief-charms" })}/>}
