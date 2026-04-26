@@ -105,8 +105,7 @@ import { useAuth } from "./useAuth.js";
 import { useCharacters, charLoadInventory, charSaveInventory, charLoadPlans, charSavePlan, charDeletePlan, savePlanSnapshot, loadPlanSnapshot } from "./useCharacters.js";
 import { GEAR_DB, EMPOWERMENT, GEAR_TYPE, HERO_GEAR_SET, SLOT_TO_GEAR, getGearStats, getUnlockedEmpowerments } from "./GearData.js";
 import { HeroesPage, HeroGearPage, HERO_ROSTER, HERO_SLOTS, GEAR_SLOTS,
-         defaultAllHeroStats, defaultHeroState, defaultTeamsData, migrateOldHeroes,
-         isSSRHero, heroWidget }
+         defaultAllHeroStats, defaultHeroState, isSSRHero, heroWidget }
   from "./Heroes.jsx";
 import { AdminPage, ReportIssueModal, ThreadView, submitIssue, sendMessage,
          fetchUserThreads, markMessagesReadByUser, closeThread }
@@ -594,6 +593,24 @@ const GLOBAL_STYLE = `
 `;
 
 // ThreadView — see ./AdminPanel.jsx
+
+// ─── UserArchivedMessages — collapsed archived thread list for user ────────────
+function UserArchivedMessages({ threads, renderT, C }) {
+  const [open, setOpen] = React.useState(false);
+  return (
+    <div style={{marginTop:16}}>
+      <button onClick={() => setOpen(o => !o)}
+        style={{width:"100%", padding:"8px 14px", background:"var(--c-surface)",
+          border:"1px solid var(--c-border)", borderRadius:8, cursor:"pointer",
+          display:"flex", alignItems:"center", justifyContent:"space-between",
+          color:"var(--c-textDim)", fontSize:11, fontFamily:"'Space Mono',monospace"}}>
+        <span>📁 Archived / Ended ({threads.length})</span>
+        <span>{open ? "▲ collapse" : "▼ expand"}</span>
+      </button>
+      {open && <div style={{marginTop:8}}>{threads.map(renderT)}</div>}
+    </div>
+  );
+}
 
 // ─── Profile Management Modal ─────────────────────────────────────────────────
 
@@ -1231,38 +1248,49 @@ function ProfileModal({ open, onClose, initialSection="account",
                     No messages yet. Use the footer button to contact the Tundra Commander!
                   </div>
                 )}
-                {threadList.map(thread => {
-                  const lastMsg = thread.messages[thread.messages.length - 1];
-                  const hasUnread = thread.messages.some(m => !m.read_by_user && m.sender === "admin");
+                {(() => {
+                  const activeT   = threadList.filter(t => !t.thread_closed);
+                  const archivedT = threadList.filter(t => t.thread_closed);
+                  const renderT = thread => {
+                    const hasUnread = thread.messages.some(m => !m.read_by_user && m.sender === "admin");
+                    return (
+                      <ThreadView
+                        key={thread.thread_id}
+                        thread={thread}
+                        user={user}
+                        hasUnread={hasUnread}
+                        onReply={async (text) => {
+                          const ok = await sendMessage({
+                            thread_id:     thread.thread_id,
+                            user_id:       user.id,
+                            user_name:     user.user_metadata?.full_name || user.email,
+                            category:      thread.category,
+                            sender:        "user",
+                            message:       text,
+                            wants_response: true,
+                            read_by_admin: false,
+                            read_by_user:  true,
+                            thread_closed: false,
+                          });
+                          if (ok) fetchUserThreads(user.id).then(setUserMessages);
+                        }}
+                        onClose={async () => {
+                          await closeThread(thread.thread_id);
+                          fetchUserThreads(user.id).then(setUserMessages);
+                        }}
+                        C={C}
+                      />
+                    );
+                  };
                   return (
-                    <ThreadView
-                      key={thread.thread_id}
-                      thread={thread}
-                      user={user}
-                      hasUnread={hasUnread}
-                      onReply={async (text) => {
-                        const ok = await sendMessage({
-                          thread_id:     thread.thread_id,
-                          user_id:       user.id,
-                          user_name:     user.user_metadata?.full_name || user.email,
-                          category:      thread.category,
-                          sender:        "user",
-                          message:       text,
-                          wants_response: true,
-                          read_by_admin: false,
-                          read_by_user:  true,
-                          thread_closed: false,
-                        });
-                        if (ok) fetchUserThreads(user.id).then(setUserMessages);
-                      }}
-                      onClose={async () => {
-                        await closeThread(thread.thread_id);
-                        fetchUserThreads(user.id).then(setUserMessages);
-                      }}
-                      C={C}
-                    />
+                    <>
+                      {activeT.map(renderT)}
+                      {archivedT.length > 0 && (
+                        <UserArchivedMessages threads={archivedT} renderT={renderT} C={C} />
+                      )}
+                    </>
                   );
-                })}
+                })()}
               </div>
             );
           })()}
@@ -2610,35 +2638,7 @@ export default function App() {
   // Shared hero state — gen filter and hero stats synced between HeroesPage and HeroGearPage
   const [genFilter,   setGenFilter]  = useLocalStorage("hg-gen-filter", "Gen 9");
   const [heroStats,   setHeroStats]  = useLocalStorage("hg-hero-stats", defaultAllHeroStats());
-  // hg-teams stores multi-team hero gear data. On first load, migrate old hg-heroes (6-slot) if present.
-  const [hgTeams, setHgTeams] = useLocalStorage("hg-teams", (() => {
-    try {
-      const old = localStorage.getItem("hg-heroes");
-      if (old) {
-        const parsed = JSON.parse(old);
-        const migrated = migrateOldHeroes(parsed);
-        if (migrated) return migrated;
-      }
-    } catch {}
-    return defaultTeamsData();
-  })());
-  // Derived: flat array of ALL heroes across all teams for CharacterProfile power calc
-  const hgHeroes = Object.values(hgTeams?.teams || {}).flat();
-  // Shim: HeroesPage calls setHgHeroes(prev => newArray) on widget sync.
-  // We route that through setHgTeams by applying the updater to each team's slots.
-  const setHgHeroes = (updater) => {
-    setHgTeams(prev => {
-      const allSlots = Object.values(prev.teams).flat();
-      const updatedFlat = typeof updater === "function" ? updater(allSlots) : updater;
-      // Re-distribute the updated flat array back into teams (3 slots per team)
-      const teamLetters = Object.keys(prev.teams).sort();
-      const newTeams = {};
-      teamLetters.forEach((letter, ti) => {
-        newTeams[letter] = updatedFlat.slice(ti * 3, ti * 3 + 3);
-      });
-      return { ...prev, teams: newTeams };
-    });
-  };
+  const [hgHeroes,    setHgHeroes]   = useLocalStorage("hg-heroes", HERO_SLOTS.map(s => defaultHeroState(s.type)));
   const [heroStatsVersion, setHeroStatsVersion] = useState(0);
   // Research Center — cloud-synced so state persists across devices and tab switches
   const [rcLevels,    setRcLevels]    = useLocalStorage("rc-levels", {});
@@ -2673,12 +2673,60 @@ export default function App() {
     setPendingAdminCount((issues.count||0)+(subs.count||0)+(msgs.count||0));
   }, []);
 
-  // Periodically refresh admin badge count every 30s
+  // ── Real-time subscriptions ──────────────────────────────────────────────────
+  // Admin: listen for new submissions, issues, and user messages → update badge instantly
   useEffect(() => {
     if (user?.id !== ADMIN_UID) return;
-    const interval = setInterval(refreshAdminCount, 30000);
-    return () => clearInterval(interval);
+    refreshAdminCount(); // initial load
+    const channel = supabase
+      .channel("admin-realtime")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "stat_submissions" },
+        () => refreshAdminCount())
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "stat_submissions" },
+        () => refreshAdminCount())
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "issue_reports" },
+        () => refreshAdminCount())
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "issue_reports" },
+        () => refreshAdminCount())
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "user_messages" },
+        (payload) => {
+          if (payload.new?.sender === "user") refreshAdminCount();
+        })
+      .subscribe();
+    return () => supabase.removeChannel(channel);
   }, [user, refreshAdminCount]);
+
+  // User: listen for new admin messages and issue notifications → update red dot instantly
+  useEffect(() => {
+    if (!user?.id || user.id === ADMIN_UID) return;
+    const channel = supabase
+      .channel(`user-realtime-${user.id}`)
+      .on("postgres_changes",
+        { event: "INSERT", schema: "public", table: "user_messages",
+          filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          if (payload.new?.sender === "admin") {
+            // New admin reply — add to userMessages state immediately
+            setUserMessages(prev => [...prev, payload.new]);
+          }
+        })
+      .on("postgres_changes",
+        { event: "UPDATE", schema: "public", table: "user_messages",
+          filter: `user_id=eq.${user.id}` },
+        () => {
+          // Thread status changed (e.g. closed) — refresh
+          fetchUserThreads(user.id).then(setUserMessages);
+        })
+      .on("postgres_changes",
+        { event: "INSERT", schema: "public", table: "issue_notifications",
+          filter: `user_id=eq.${user.id}` },
+        (payload) => {
+          // New issue notification — add to notifications state immediately
+          if (payload.new) setNotifications(prev => [...prev, payload.new]);
+        })
+      .subscribe();
+    return () => supabase.removeChannel(channel);
+  }, [user]);
 
   const [sidebarOpen,    setSidebarOpen]   = useState(false);
   const [profileOpen,    setProfileOpen]   = useState(false);
@@ -2715,7 +2763,7 @@ export default function App() {
       "wa-levels","wa-speedbuff","wa-buffs","wa-dailyshards",
       "rc-levels","rc-collapse","cp-speedbuff","cp-vip-level","cp-purchased-queue",
       "experts-data","cg-slots","cc-slots","troops-inventory-v2",
-      "daybreak-buffs","daybreak-prosperity","hg-heroes","hg-hero-stats","hg-teams","pets-data",
+      "daybreak-buffs","daybreak-prosperity","hg-heroes","hg-hero-stats","pets-data",
       "cp-buildings","cp-buffs","cp-cycle","cp-dailyfc","cp-agnes",
       "wos-svs-inventory","wos-rfc-saved-plans",
     ];
@@ -2792,16 +2840,7 @@ export default function App() {
   }, [user, activeCharId]);
 
   // ── Reset when user signs out ────────────────────────────────────────────────
-  useEffect(() => {
-    if (!user) {
-      invRef.current = INITIAL_INVENTORY;
-      setInvRaw(INITIAL_INVENTORY);
-      setSavedPlans({});
-      setRcLevels({});
-      setRcCollapse({});
-      setCpSpeedBuff(0);
-    }
-  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!user) { invRef.current = INITIAL_INVENTORY; } }, [user]);
 
   // Update guest flag and sync all data from cloud on login
   useEffect(() => {
@@ -3419,7 +3458,7 @@ export default function App() {
             {page === "heroes"      && <HeroesPage    genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} setHgHeroes={setHgHeroes} currentUser={user} activeCharacter={activeCharacter} hgHeroes={hgHeroes} heroStatsVersion={heroStatsVersion} />}
             {page === "admin"       && user?.id === ADMIN_UID && <AdminPage onStatsUpdated={() => setHeroStatsVersion(v => v + 1)} />}
 
-            {page === "hero-gear"    && <HeroGearPage    inv={inv} genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} hgTeams={hgTeams} setHgTeams={setHgTeams} />}
+            {page === "hero-gear"    && <HeroGearPage    inv={inv} genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} hgHeroes={hgHeroes} setHgHeroes={setHgHeroes} />}
             {page === "troops"       && <TroopsPage />}
             {page === "chief-gear"   && <ChiefGearPage   inv={inv} />}
             {page === "chief-charms" && <ChiefCharmsPage inv={inv} />}

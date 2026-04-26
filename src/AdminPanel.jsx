@@ -402,7 +402,8 @@ function AdminPage({ onStatsUpdated }) {
   const [note,          setNote]          = useState({});
   const [busy,          setBusy]          = useState({});
   const [validating,    setValidating]    = useState(null);
-  const [reviewedOpen,  setReviewedOpen]  = useState(true);
+  const [reviewedOpen,  setReviewedOpen]  = useState(false);
+  const [archivedOpen,  setArchivedOpen]  = useState(false);
 
   // Issues state
   const [issues,        setIssues]        = useState([]);
@@ -1276,7 +1277,9 @@ function AdminPage({ onStatsUpdated }) {
               <div style={{color:C.textDim,fontSize:12,fontFamily:"'Space Mono',monospace",
                 padding:"20px 0",textAlign:"center"}}>No messages yet.</div>
             );
-            return threadList.map(thread => {
+            const activeThreads   = threadList.filter(t => !t.thread_closed);
+            const archivedThreads = threadList.filter(t => t.thread_closed);
+            const renderThread = thread => {
               const hasUnread = thread.messages.some(m => !m.read_by_admin && m.sender==="user");
               return (
                 <div key={thread.thread_id}
@@ -1397,7 +1400,33 @@ function AdminPage({ onStatsUpdated }) {
                   </div>
                 </div>
               );
-            });
+            };
+            return (
+              <>
+                {activeThreads.length === 0 && archivedThreads.length === 0 && (
+                  <div style={{color:C.textDim,fontSize:12,fontFamily:"'Space Mono',monospace",
+                    padding:"20px 0",textAlign:"center"}}>No messages yet.</div>
+                )}
+                {activeThreads.map(renderThread)}
+                {archivedThreads.length > 0 && (
+                  <div style={{marginTop:16}}>
+                    <button onClick={()=>setArchivedOpen(o=>!o)}
+                      style={{width:"100%",padding:"8px 14px",background:C.surface,
+                        border:`1px solid ${C.border}`,borderRadius:8,cursor:"pointer",
+                        display:"flex",alignItems:"center",justifyContent:"space-between",
+                        color:C.textDim,fontSize:11,fontFamily:"'Space Mono',monospace"}}>
+                      <span>📁 Archived / Ended ({archivedThreads.length})</span>
+                      <span>{archivedOpen ? "▲ collapse" : "▼ expand"}</span>
+                    </button>
+                    {archivedOpen && (
+                      <div style={{marginTop:8}}>
+                        {archivedThreads.map(renderThread)}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            );
           })()}
         </div>
       )}
