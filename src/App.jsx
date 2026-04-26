@@ -105,10 +105,8 @@ import { useAuth } from "./useAuth.js";
 import { useCharacters, charLoadInventory, charSaveInventory, charLoadPlans, charSavePlan, charDeletePlan, savePlanSnapshot, loadPlanSnapshot } from "./useCharacters.js";
 import { GEAR_DB, EMPOWERMENT, GEAR_TYPE, HERO_GEAR_SET, SLOT_TO_GEAR, getGearStats, getUnlockedEmpowerments } from "./GearData.js";
 import { HeroesPage, HeroGearPage, HERO_ROSTER, HERO_SLOTS, GEAR_SLOTS,
-         defaultAllHeroStats, defaultHeroState, defaultTeamsData, migrateOldHeroes,
-         isSSRHero, heroWidget }
+         defaultAllHeroStats, defaultHeroState, isSSRHero, heroWidget }
   from "./Heroes.jsx";
-import { SvsCompleteModal } from "./SvsComplete.jsx";
 import { AdminPage, ReportIssueModal, ThreadView, submitIssue, sendMessage,
          fetchUserThreads, markMessagesReadByUser, closeThread }
   from "./AdminPanel.jsx";
@@ -367,6 +365,9 @@ const GLOBAL_STYLE = `
   input[type=number] { -moz-appearance: textfield; }
   input[type=number]::-webkit-outer-spin-button,
   input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+  /* Tab-navigation within tables: all input/select in a table tab through each other */
+  table input, table select { tabindex: 0; }
 
   .app { display: flex; min-height: 100vh; }
 
@@ -1432,13 +1433,18 @@ function ResInput({ label, icon, field, value, onChange, color, tabIndex }) {
         onFocus={handleFocus}
         onBlur={handleBlur}
         onKeyDown={e => {
-          if (e.key === "Enter") {
+          if (e.key === "Enter" || e.key === "Tab") {
             e.preventDefault();
-            // Move to next focusable element (same behavior as Tab)
-            const focusable = Array.from(document.querySelectorAll('input[tabindex]')).sort((a,b) => (Number(a.tabIndex)||0) - (Number(b.tabIndex)||0));
-            const cur = focusable.indexOf(e.target);
-            if (cur >= 0 && cur < focusable.length - 1) focusable[cur+1].focus();
-            else e.target.blur();
+            // Collect all inputs with a tabIndex, sorted numerically
+            const all = Array.from(document.querySelectorAll("input, select"))
+              .filter(el => el.tabIndex > 0)
+              .sort((a, b) => a.tabIndex - b.tabIndex);
+            const cur = all.indexOf(e.target);
+            if (cur === -1) return;
+            const next = e.shiftKey
+              ? all[(cur - 1 + all.length) % all.length]
+              : all[(cur + 1) % all.length];
+            if (next) { next.focus(); if (next.tagName === "INPUT") next.select(); }
           }
         }}
         style={color ? { color } : {}}
@@ -2611,30 +2617,7 @@ export default function App() {
   // Shared hero state — gen filter and hero stats synced between HeroesPage and HeroGearPage
   const [genFilter,   setGenFilter]  = useLocalStorage("hg-gen-filter", "Gen 9");
   const [heroStats,   setHeroStats]  = useLocalStorage("hg-hero-stats", defaultAllHeroStats());
-  const [hgTeams, setHgTeams] = useLocalStorage("hg-teams", (() => {
-    try {
-      const old = localStorage.getItem("hg-heroes");
-      if (old) {
-        const parsed = JSON.parse(old);
-        const migrated = migrateOldHeroes(parsed);
-        if (migrated) return migrated;
-      }
-    } catch {}
-    return defaultTeamsData();
-  })());
-  // Flat array of all heroes across all teams — for CharacterProfile power calc
-  const hgHeroes = Object.values(hgTeams?.teams || {}).flat();
-  // Shim: HeroesPage calls setHgHeroes(updater) on widget sync — route through setHgTeams
-  const setHgHeroes = (updater) => {
-    setHgTeams(prev => {
-      const allSlots = Object.values(prev.teams).flat();
-      const updatedFlat = typeof updater === "function" ? updater(allSlots) : updater;
-      const letters = Object.keys(prev.teams).sort();
-      const newTeams = {};
-      letters.forEach((letter, ti) => { newTeams[letter] = updatedFlat.slice(ti * 3, ti * 3 + 3); });
-      return { ...prev, teams: newTeams };
-    });
-  };
+  const [hgHeroes,    setHgHeroes]   = useLocalStorage("hg-heroes", HERO_SLOTS.map(s => defaultHeroState(s.type)));
   const [heroStatsVersion, setHeroStatsVersion] = useState(0);
   // Research Center — cloud-synced so state persists across devices and tab switches
   const [rcLevels,    setRcLevels]    = useLocalStorage("rc-levels", {});
@@ -2647,7 +2630,6 @@ export default function App() {
   const [reportIssueOpen, setReportIssueOpen] = useState(false);
   const [guideOpen,       setGuideOpen]       = useState(false);
   const [contactOpen,     setContactOpen]     = useState(false);
-  const [svsModal,        setSvsModal]        = useState({ open:false, scope:"all" });
   const [userMessages,    setUserMessages]    = useState([]); // logged-in user's threads
   const [notifications,   setNotifications]   = useState([]);
   const [savedAt,       setSavedAt]      = useState(null);
@@ -2712,7 +2694,7 @@ export default function App() {
       "wa-levels","wa-speedbuff","wa-buffs","wa-dailyshards",
       "rc-levels","rc-collapse","cp-speedbuff","cp-vip-level","cp-purchased-queue",
       "experts-data","cg-slots","cc-slots","troops-inventory-v2",
-      "daybreak-buffs","daybreak-prosperity","hg-heroes","hg-hero-stats","hg-teams","pets-data",
+      "daybreak-buffs","daybreak-prosperity","hg-heroes","hg-hero-stats","pets-data",
       "cp-buildings","cp-buffs","cp-cycle","cp-dailyfc","cp-agnes",
       "wos-svs-inventory","wos-rfc-saved-plans",
     ];
@@ -2899,6 +2881,43 @@ export default function App() {
 
   useEffect(() => { setSavedAt(new Date().toLocaleTimeString()); }, []);
 
+  // ── Global Tab navigation within tables and inventory grids ─────────────────
+  // Intercepts Tab/Shift+Tab when the focused element is inside a <table> or
+  // a .res-grid/.tab-scope container, keeping focus within that scope.
+  // For inputs with explicit tabIndex (Inventory page), delegates to tabIndex order.
+  useEffect(() => {
+    const FOCUSABLE = 'input:not([disabled]):not([type="hidden"]), select:not([disabled])';
+    const SCOPE_SELECTOR = "table, .res-grid, .tab-scope";
+    const handler = (e) => {
+      if (e.key !== "Tab") return;
+      const active = document.activeElement;
+      if (!active) return;
+
+      // If the element has an explicit positive tabIndex, let the ResInput
+      // onKeyDown handler take care of it (already preventDefault'd there).
+      // We only handle elements without explicit tabIndex (table select/input rows).
+      if (active.tabIndex > 0) return;
+
+      const scope = active.closest(SCOPE_SELECTOR);
+      if (!scope) return;
+      e.preventDefault();
+
+      const fields = Array.from(scope.querySelectorAll(FOCUSABLE))
+        .filter(el => el.tabIndex >= 0); // skip tabIndex=-1 (explicitly excluded)
+      const idx = fields.indexOf(active);
+      if (idx === -1) return;
+      const next = e.shiftKey
+        ? fields[(idx - 1 + fields.length) % fields.length]
+        : fields[(idx + 1) % fields.length];
+      if (next) {
+        next.focus();
+        if (next.tagName === "INPUT") next.select();
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, []);
+
   // ── Plan snapshot: set starting inventory ────────────────────────────────────
   const handleSetSnapshot = useCallback(() => {
     const snapshot = {
@@ -3039,13 +3058,6 @@ export default function App() {
 
       {/* Contact Modal */}
       <ContactModal open={contactOpen} onClose={() => setContactOpen(false)} user={user} />
-      <SvsCompleteModal
-        open={svsModal.open}
-        scope={svsModal.scope}
-        onClose={() => setSvsModal(prev => ({ ...prev, open:false }))}
-        userId={user?.id}
-        charId={activeCharId}
-      />
 
       {/* Guide Modal */}
       <GuideModal open={guideOpen} onClose={() => setGuideOpen(false)} />
@@ -3404,8 +3416,7 @@ export default function App() {
                 onSetSnapshot={handleSetSnapshot}
                 onUpdatePlan={handleUpdatePlan}
                 cpSpeedBuff={cpSpeedBuff} setCpSpeedBuff={setCpSpeedBuff}
-                activeCharId={activeCharId}
-                onCompleteSvs={() => setSvsModal({ open:true, scope:"construction" })} />}
+                activeCharId={activeCharId} />}
             {page === "rfc-planner"  && <RFCPlanner inv={inv} setInv={setInv}
                 savedPlans={user ? savedPlans : {}}
                 onSavePlan={user ? handleSavePlan : ()=>{}}
@@ -3415,18 +3426,18 @@ export default function App() {
             {page === "heroes"      && <HeroesPage    genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} setHgHeroes={setHgHeroes} currentUser={user} activeCharacter={activeCharacter} hgHeroes={hgHeroes} heroStatsVersion={heroStatsVersion} />}
             {page === "admin"       && user?.id === ADMIN_UID && <AdminPage onStatsUpdated={() => setHeroStatsVersion(v => v + 1)} />}
 
-            {page === "hero-gear"    && <HeroGearPage    inv={inv} genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} hgTeams={hgTeams} setHgTeams={setHgTeams}  onCompleteSvs={() => setSvsModal({ open:true, scope:"hero-gear" })}/>}
+            {page === "hero-gear"    && <HeroGearPage    inv={inv} genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} hgHeroes={hgHeroes} setHgHeroes={setHgHeroes} />}
             {page === "troops"       && <TroopsPage />}
-            {page === "chief-gear"   && <ChiefGearPage   inv={inv}  onCompleteSvs={() => setSvsModal({ open:true, scope:"chief-gear" })}/>}
-            {page === "chief-charms" && <ChiefCharmsPage inv={inv}  onCompleteSvs={() => setSvsModal({ open:true, scope:"chief-charms" })}/>}
-            {page === "experts"      && <ExpertsPage      inv={inv} setInv={setInv}  onCompleteSvs={() => setSvsModal({ open:true, scope:"experts" })}/>}
-            {page === "pets"           && <PetsPage inv={inv} setInv={setInv}  onCompleteSvs={() => setSvsModal({ open:true, scope:"pets" })}/>}
+            {page === "chief-gear"   && <ChiefGearPage   inv={inv} />}
+            {page === "chief-charms" && <ChiefCharmsPage inv={inv} />}
+            {page === "experts"      && <ExpertsPage      inv={inv} setInv={setInv} />}
+            {page === "pets"           && <PetsPage inv={inv} setInv={setInv} />}
             {page === "daybreak-island" && <DaybreakIslandPage />}
-            {page === "war-academy"  && <WarAcademyPage   inv={inv} setInv={setInv}  onCompleteSvs={() => setSvsModal({ open:true, scope:"war-academy" })}/>}
-            {page === "research-center" && <ResearchCenterPage inv={inv} rcLevels={rcLevels} setRcLevels={setRcLevels} rcCollapse={rcCollapse} setRcCollapse={setRcCollapse}  onCompleteSvs={() => setSvsModal({ open:true, scope:"research-center" })}/>}
+            {page === "war-academy"  && <WarAcademyPage   inv={inv} setInv={setInv} />}
+            {page === "research-center" && <ResearchCenterPage inv={inv} rcLevels={rcLevels} setRcLevels={setRcLevels} rcCollapse={rcCollapse} setRcCollapse={setRcCollapse} />}
             {page === "svs-calendar" && <SvSCalendar />}
             {page === "battle-sim"   && <BattleSimPage inv={inv} />}
-            {page === "char-profile" && <CharacterProfilePage hgHeroes={hgHeroes} inv={inv} onCompleteSvs={() => setSvsModal({ open:true, scope:"all" })}
+            {page === "char-profile" && <CharacterProfilePage hgHeroes={hgHeroes} inv={inv}
                 rcLevels={rcLevels} profileVersion={profileVersion}
                 cpSpeedBuff={cpSpeedBuff} setCpSpeedBuff={setCpSpeedBuff} />}
             </>)}
