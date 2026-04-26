@@ -105,7 +105,8 @@ import { useAuth } from "./useAuth.js";
 import { useCharacters, charLoadInventory, charSaveInventory, charLoadPlans, charSavePlan, charDeletePlan, savePlanSnapshot, loadPlanSnapshot } from "./useCharacters.js";
 import { GEAR_DB, EMPOWERMENT, GEAR_TYPE, HERO_GEAR_SET, SLOT_TO_GEAR, getGearStats, getUnlockedEmpowerments } from "./GearData.js";
 import { HeroesPage, HeroGearPage, HERO_ROSTER, HERO_SLOTS, GEAR_SLOTS,
-         defaultAllHeroStats, defaultHeroState, isSSRHero, heroWidget }
+         defaultAllHeroStats, defaultHeroState, defaultTeamsData, migrateOldHeroes,
+         isSSRHero, heroWidget }
   from "./Heroes.jsx";
 import { SvsCompleteModal } from "./SvsComplete.jsx";
 import { AdminPage, ReportIssueModal, ThreadView, submitIssue, sendMessage,
