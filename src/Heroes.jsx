@@ -1880,8 +1880,8 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
       {/* ── Top bar: summary cards + team tabs + Add Team button ── */}
       <div style={{display:"flex", alignItems:"flex-start", gap:16, marginBottom:20, flexWrap:"wrap"}}>
 
-        {/* Summary cards */}
-        <div className="stat-grid" style={{flex:"0 0 auto", marginBottom:0}}>
+        {/* Summary cards — horizontal row */}
+        <div style={{display:"flex", gap:12, flexShrink:0}}>
           <StatCard label="Stones needed"  value={totals.stones}  sub={`have ${(inv.stones ?? 0).toLocaleString()}`}  color={totals.stones  > (inv.stones  ?? 0) ? "red" : undefined} />
           <StatCard label="Mithril needed" value={totals.mithril} sub={`have ${(inv.mithril ?? 0).toLocaleString()}`} color={totals.mithril > (inv.mithril ?? 0) ? "red" : undefined} />
           <StatCard label="Mythic needed"  value={totals.mythic}  sub={`have ${(inv.mythicGear ?? 0).toLocaleString()}`} color={totals.mythic > (inv.mythicGear ?? 0) ? "red" : undefined} />

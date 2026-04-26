@@ -216,8 +216,8 @@ function ThreadView({ thread, user, hasUnread, onReply, onClose, C, isAdmin=fals
             );
           })}
 
-          {/* Reply area */}
-          {!thread.thread_closed && (thread.messages[0]?.wants_response || isAdmin) && (
+          {/* Reply area — always available while thread is open */}
+          {!thread.thread_closed && (
             <div style={{ marginTop: 8, display: "flex", gap: 8 }}>
               <input
                 value={replyText}
