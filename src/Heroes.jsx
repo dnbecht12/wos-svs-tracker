@@ -2348,4 +2348,5 @@ function heroWidget(heroName, widgetVal) {
 }
 
 export { HeroesPage, HeroGearPage, HERO_ROSTER, HERO_SLOTS, GEAR_SLOTS,
-         defaultAllHeroStats, defaultHeroState, isSSRHero, heroWidget };
+         defaultAllHeroStats, defaultHeroState, defaultTeamsData, migrateOldHeroes,
+         isSSRHero, heroWidget };
