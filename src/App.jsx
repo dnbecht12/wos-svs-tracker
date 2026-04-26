@@ -105,8 +105,10 @@ import { useAuth } from "./useAuth.js";
 import { useCharacters, charLoadInventory, charSaveInventory, charLoadPlans, charSavePlan, charDeletePlan, savePlanSnapshot, loadPlanSnapshot } from "./useCharacters.js";
 import { GEAR_DB, EMPOWERMENT, GEAR_TYPE, HERO_GEAR_SET, SLOT_TO_GEAR, getGearStats, getUnlockedEmpowerments } from "./GearData.js";
 import { HeroesPage, HeroGearPage, HERO_ROSTER, HERO_SLOTS, GEAR_SLOTS,
-         defaultAllHeroStats, defaultHeroState, isSSRHero, heroWidget }
+         defaultAllHeroStats, defaultHeroState, defaultTeamsData, migrateOldHeroes,
+         isSSRHero, heroWidget }
   from "./Heroes.jsx";
+import { SvsCompleteModal } from "./SvsComplete.jsx";
 import { AdminPage, ReportIssueModal, ThreadView, submitIssue, sendMessage,
          fetchUserThreads, markMessagesReadByUser, closeThread }
   from "./AdminPanel.jsx";
@@ -593,24 +595,6 @@ const GLOBAL_STYLE = `
 `;
 
 // ThreadView — see ./AdminPanel.jsx
-
-// ─── UserArchivedMessages — collapsed archived thread list for user ────────────
-function UserArchivedMessages({ threads, renderT, C }) {
-  const [open, setOpen] = React.useState(false);
-  return (
-    <div style={{marginTop:16}}>
-      <button onClick={() => setOpen(o => !o)}
-        style={{width:"100%", padding:"8px 14px", background:"var(--c-surface)",
-          border:"1px solid var(--c-border)", borderRadius:8, cursor:"pointer",
-          display:"flex", alignItems:"center", justifyContent:"space-between",
-          color:"var(--c-textDim)", fontSize:11, fontFamily:"'Space Mono',monospace"}}>
-        <span>📁 Archived / Ended ({threads.length})</span>
-        <span>{open ? "▲ collapse" : "▼ expand"}</span>
-      </button>
-      {open && <div style={{marginTop:8}}>{threads.map(renderT)}</div>}
-    </div>
-  );
-}
 
 // ─── Profile Management Modal ─────────────────────────────────────────────────
 
@@ -1248,49 +1232,38 @@ function ProfileModal({ open, onClose, initialSection="account",
                     No messages yet. Use the footer button to contact the Tundra Commander!
                   </div>
                 )}
-                {(() => {
-                  const activeT   = threadList.filter(t => !t.thread_closed);
-                  const archivedT = threadList.filter(t => t.thread_closed);
-                  const renderT = thread => {
-                    const hasUnread = thread.messages.some(m => !m.read_by_user && m.sender === "admin");
-                    return (
-                      <ThreadView
-                        key={thread.thread_id}
-                        thread={thread}
-                        user={user}
-                        hasUnread={hasUnread}
-                        onReply={async (text) => {
-                          const ok = await sendMessage({
-                            thread_id:     thread.thread_id,
-                            user_id:       user.id,
-                            user_name:     user.user_metadata?.full_name || user.email,
-                            category:      thread.category,
-                            sender:        "user",
-                            message:       text,
-                            wants_response: true,
-                            read_by_admin: false,
-                            read_by_user:  true,
-                            thread_closed: false,
-                          });
-                          if (ok) fetchUserThreads(user.id).then(setUserMessages);
-                        }}
-                        onClose={async () => {
-                          await closeThread(thread.thread_id);
-                          fetchUserThreads(user.id).then(setUserMessages);
-                        }}
-                        C={C}
-                      />
-                    );
-                  };
+                {threadList.map(thread => {
+                  const lastMsg = thread.messages[thread.messages.length - 1];
+                  const hasUnread = thread.messages.some(m => !m.read_by_user && m.sender === "admin");
                   return (
-                    <>
-                      {activeT.map(renderT)}
-                      {archivedT.length > 0 && (
-                        <UserArchivedMessages threads={archivedT} renderT={renderT} C={C} />
-                      )}
-                    </>
+                    <ThreadView
+                      key={thread.thread_id}
+                      thread={thread}
+                      user={user}
+                      hasUnread={hasUnread}
+                      onReply={async (text) => {
+                        const ok = await sendMessage({
+                          thread_id:     thread.thread_id,
+                          user_id:       user.id,
+                          user_name:     user.user_metadata?.full_name || user.email,
+                          category:      thread.category,
+                          sender:        "user",
+                          message:       text,
+                          wants_response: true,
+                          read_by_admin: false,
+                          read_by_user:  true,
+                          thread_closed: false,
+                        });
+                        if (ok) fetchUserThreads(user.id).then(setUserMessages);
+                      }}
+                      onClose={async () => {
+                        await closeThread(thread.thread_id);
+                        fetchUserThreads(user.id).then(setUserMessages);
+                      }}
+                      C={C}
+                    />
                   );
-                })()}
+                })}
               </div>
             );
           })()}
@@ -2638,7 +2611,30 @@ export default function App() {
   // Shared hero state — gen filter and hero stats synced between HeroesPage and HeroGearPage
   const [genFilter,   setGenFilter]  = useLocalStorage("hg-gen-filter", "Gen 9");
   const [heroStats,   setHeroStats]  = useLocalStorage("hg-hero-stats", defaultAllHeroStats());
-  const [hgHeroes,    setHgHeroes]   = useLocalStorage("hg-heroes", HERO_SLOTS.map(s => defaultHeroState(s.type)));
+  const [hgTeams, setHgTeams] = useLocalStorage("hg-teams", (() => {
+    try {
+      const old = localStorage.getItem("hg-heroes");
+      if (old) {
+        const parsed = JSON.parse(old);
+        const migrated = migrateOldHeroes(parsed);
+        if (migrated) return migrated;
+      }
+    } catch {}
+    return defaultTeamsData();
+  })());
+  // Flat array of all heroes across all teams — for CharacterProfile power calc
+  const hgHeroes = Object.values(hgTeams?.teams || {}).flat();
+  // Shim: HeroesPage calls setHgHeroes(updater) on widget sync — route through setHgTeams
+  const setHgHeroes = (updater) => {
+    setHgTeams(prev => {
+      const allSlots = Object.values(prev.teams).flat();
+      const updatedFlat = typeof updater === "function" ? updater(allSlots) : updater;
+      const letters = Object.keys(prev.teams).sort();
+      const newTeams = {};
+      letters.forEach((letter, ti) => { newTeams[letter] = updatedFlat.slice(ti * 3, ti * 3 + 3); });
+      return { ...prev, teams: newTeams };
+    });
+  };
   const [heroStatsVersion, setHeroStatsVersion] = useState(0);
   // Research Center — cloud-synced so state persists across devices and tab switches
   const [rcLevels,    setRcLevels]    = useLocalStorage("rc-levels", {});
@@ -2651,6 +2647,7 @@ export default function App() {
   const [reportIssueOpen, setReportIssueOpen] = useState(false);
   const [guideOpen,       setGuideOpen]       = useState(false);
   const [contactOpen,     setContactOpen]     = useState(false);
+  const [svsModal,        setSvsModal]        = useState({ open:false, scope:"all" });
   const [userMessages,    setUserMessages]    = useState([]); // logged-in user's threads
   const [notifications,   setNotifications]   = useState([]);
   const [savedAt,       setSavedAt]      = useState(null);
@@ -2673,60 +2670,12 @@ export default function App() {
     setPendingAdminCount((issues.count||0)+(subs.count||0)+(msgs.count||0));
   }, []);
 
-  // ── Real-time subscriptions ──────────────────────────────────────────────────
-  // Admin: listen for new submissions, issues, and user messages → update badge instantly
+  // Periodically refresh admin badge count every 30s
   useEffect(() => {
     if (user?.id !== ADMIN_UID) return;
-    refreshAdminCount(); // initial load
-    const channel = supabase
-      .channel("admin-realtime")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "stat_submissions" },
-        () => refreshAdminCount())
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "stat_submissions" },
-        () => refreshAdminCount())
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "issue_reports" },
-        () => refreshAdminCount())
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "issue_reports" },
-        () => refreshAdminCount())
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "user_messages" },
-        (payload) => {
-          if (payload.new?.sender === "user") refreshAdminCount();
-        })
-      .subscribe();
-    return () => supabase.removeChannel(channel);
+    const interval = setInterval(refreshAdminCount, 30000);
+    return () => clearInterval(interval);
   }, [user, refreshAdminCount]);
-
-  // User: listen for new admin messages and issue notifications → update red dot instantly
-  useEffect(() => {
-    if (!user?.id || user.id === ADMIN_UID) return;
-    const channel = supabase
-      .channel(`user-realtime-${user.id}`)
-      .on("postgres_changes",
-        { event: "INSERT", schema: "public", table: "user_messages",
-          filter: `user_id=eq.${user.id}` },
-        (payload) => {
-          if (payload.new?.sender === "admin") {
-            // New admin reply — add to userMessages state immediately
-            setUserMessages(prev => [...prev, payload.new]);
-          }
-        })
-      .on("postgres_changes",
-        { event: "UPDATE", schema: "public", table: "user_messages",
-          filter: `user_id=eq.${user.id}` },
-        () => {
-          // Thread status changed (e.g. closed) — refresh
-          fetchUserThreads(user.id).then(setUserMessages);
-        })
-      .on("postgres_changes",
-        { event: "INSERT", schema: "public", table: "issue_notifications",
-          filter: `user_id=eq.${user.id}` },
-        (payload) => {
-          // New issue notification — add to notifications state immediately
-          if (payload.new) setNotifications(prev => [...prev, payload.new]);
-        })
-      .subscribe();
-    return () => supabase.removeChannel(channel);
-  }, [user]);
 
   const [sidebarOpen,    setSidebarOpen]   = useState(false);
   const [profileOpen,    setProfileOpen]   = useState(false);
@@ -2763,7 +2712,7 @@ export default function App() {
       "wa-levels","wa-speedbuff","wa-buffs","wa-dailyshards",
       "rc-levels","rc-collapse","cp-speedbuff","cp-vip-level","cp-purchased-queue",
       "experts-data","cg-slots","cc-slots","troops-inventory-v2",
-      "daybreak-buffs","daybreak-prosperity","hg-heroes","hg-hero-stats","pets-data",
+      "daybreak-buffs","daybreak-prosperity","hg-heroes","hg-hero-stats","hg-teams","pets-data",
       "cp-buildings","cp-buffs","cp-cycle","cp-dailyfc","cp-agnes",
       "wos-svs-inventory","wos-rfc-saved-plans",
     ];
@@ -3090,6 +3039,13 @@ export default function App() {
 
       {/* Contact Modal */}
       <ContactModal open={contactOpen} onClose={() => setContactOpen(false)} user={user} />
+      <SvsCompleteModal
+        open={svsModal.open}
+        scope={svsModal.scope}
+        onClose={() => setSvsModal(prev => ({ ...prev, open:false }))}
+        userId={user?.id}
+        charId={activeCharId}
+      />
 
       {/* Guide Modal */}
       <GuideModal open={guideOpen} onClose={() => setGuideOpen(false)} />
@@ -3448,7 +3404,8 @@ export default function App() {
                 onSetSnapshot={handleSetSnapshot}
                 onUpdatePlan={handleUpdatePlan}
                 cpSpeedBuff={cpSpeedBuff} setCpSpeedBuff={setCpSpeedBuff}
-                activeCharId={activeCharId} />}
+                activeCharId={activeCharId}
+                onCompleteSvs={() => setSvsModal({ open:true, scope:"construction" })} />}
             {page === "rfc-planner"  && <RFCPlanner inv={inv} setInv={setInv}
                 savedPlans={user ? savedPlans : {}}
                 onSavePlan={user ? handleSavePlan : ()=>{}}
@@ -3458,18 +3415,18 @@ export default function App() {
             {page === "heroes"      && <HeroesPage    genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} setHgHeroes={setHgHeroes} currentUser={user} activeCharacter={activeCharacter} hgHeroes={hgHeroes} heroStatsVersion={heroStatsVersion} />}
             {page === "admin"       && user?.id === ADMIN_UID && <AdminPage onStatsUpdated={() => setHeroStatsVersion(v => v + 1)} />}
 
-            {page === "hero-gear"    && <HeroGearPage    inv={inv} genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} hgHeroes={hgHeroes} setHgHeroes={setHgHeroes} />}
+            {page === "hero-gear"    && <HeroGearPage    inv={inv} genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} hgTeams={hgTeams} setHgTeams={setHgTeams}  onCompleteSvs={() => setSvsModal({ open:true, scope:"hero-gear" })}/>}
             {page === "troops"       && <TroopsPage />}
-            {page === "chief-gear"   && <ChiefGearPage   inv={inv} />}
-            {page === "chief-charms" && <ChiefCharmsPage inv={inv} />}
-            {page === "experts"      && <ExpertsPage      inv={inv} setInv={setInv} />}
-            {page === "pets"           && <PetsPage inv={inv} setInv={setInv} />}
+            {page === "chief-gear"   && <ChiefGearPage   inv={inv}  onCompleteSvs={() => setSvsModal({ open:true, scope:"chief-gear" })}/>}
+            {page === "chief-charms" && <ChiefCharmsPage inv={inv}  onCompleteSvs={() => setSvsModal({ open:true, scope:"chief-charms" })}/>}
+            {page === "experts"      && <ExpertsPage      inv={inv} setInv={setInv}  onCompleteSvs={() => setSvsModal({ open:true, scope:"experts" })}/>}
+            {page === "pets"           && <PetsPage inv={inv} setInv={setInv}  onCompleteSvs={() => setSvsModal({ open:true, scope:"pets" })}/>}
             {page === "daybreak-island" && <DaybreakIslandPage />}
-            {page === "war-academy"  && <WarAcademyPage   inv={inv} setInv={setInv} />}
-            {page === "research-center" && <ResearchCenterPage inv={inv} rcLevels={rcLevels} setRcLevels={setRcLevels} rcCollapse={rcCollapse} setRcCollapse={setRcCollapse} />}
+            {page === "war-academy"  && <WarAcademyPage   inv={inv} setInv={setInv}  onCompleteSvs={() => setSvsModal({ open:true, scope:"war-academy" })}/>}
+            {page === "research-center" && <ResearchCenterPage inv={inv} rcLevels={rcLevels} setRcLevels={setRcLevels} rcCollapse={rcCollapse} setRcCollapse={setRcCollapse}  onCompleteSvs={() => setSvsModal({ open:true, scope:"research-center" })}/>}
             {page === "svs-calendar" && <SvSCalendar />}
             {page === "battle-sim"   && <BattleSimPage inv={inv} />}
-            {page === "char-profile" && <CharacterProfilePage hgHeroes={hgHeroes} inv={inv}
+            {page === "char-profile" && <CharacterProfilePage hgHeroes={hgHeroes} inv={inv} onCompleteSvs={() => setSvsModal({ open:true, scope:"all" })}
                 rcLevels={rcLevels} profileVersion={profileVersion}
                 cpSpeedBuff={cpSpeedBuff} setCpSpeedBuff={setCpSpeedBuff} />}
             </>)}

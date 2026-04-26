@@ -258,7 +258,7 @@ function GearLevelPicker({ value, onChange, minStep, sel }) {
     </div>
   );
 }
-function ChiefGearPage({ inv }) {
+function ChiefGearPage({ inv, onCompleteSvs }) {
   const C = COLORS;
   const sel = { background:C.surface, border:`1px solid ${C.border}`, borderRadius:6,
     color:C.textPri, padding:"4px 6px", fontSize:11, outline:"none" };
@@ -304,6 +304,19 @@ function ChiefGearPage({ inv }) {
 
   return (
     <div style={{ padding:"0 0 40px" }}>
+
+      {/* Complete Upgrades button */}
+      {onCompleteSvs && (
+        <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>
+          <button onClick={onCompleteSvs} style={{
+            padding:"8px 16px", borderRadius:7, cursor:"pointer",
+            border:"1px solid var(--c-accentDim)",
+            background:"rgba(227,107,26,0.12)",
+            color:"var(--c-accent)", fontSize:12, fontWeight:700,
+            fontFamily:"Syne,sans-serif", display:"flex", alignItems:"center", gap:6,
+          }}>⚔️ Complete Upgrades</button>
+        </div>
+      )}
 
       {/* Bulk controls */}
       <div style={{ display:"flex", flexWrap:"wrap", gap:12, marginBottom:16,
@@ -697,7 +710,7 @@ function CharmLevelPicker({ value, onChange, minVal, sel }) {
   );
 }
 
-function ChiefCharmsPage({ inv }) {
+function ChiefCharmsPage({ inv, onCompleteSvs }) {
   const C = COLORS;
   const sel = { background:C.surface, border:`1px solid ${C.border}`, borderRadius:6,
     color:C.textPri, padding:"4px 6px", fontSize:11, outline:"none" };
@@ -748,6 +761,19 @@ function ChiefCharmsPage({ inv }) {
 
   return (
     <div style={{ padding:"0 0 40px" }}>
+
+      {/* Complete Upgrades button */}
+      {onCompleteSvs && (
+        <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>
+          <button onClick={onCompleteSvs} style={{
+            padding:"8px 16px", borderRadius:7, cursor:"pointer",
+            border:"1px solid var(--c-accentDim)",
+            background:"rgba(227,107,26,0.12)",
+            color:"var(--c-accent)", fontSize:12, fontWeight:700,
+            fontFamily:"Syne,sans-serif", display:"flex", alignItems:"center", gap:6,
+          }}>⚔️ Complete Upgrades</button>
+        </div>
+      )}
 
       {/* Bulk controls */}
       <div style={{ display:"flex", flexWrap:"wrap", gap:12, marginBottom:16,

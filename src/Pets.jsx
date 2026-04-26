@@ -637,7 +637,7 @@ const PetDrawer = React.memo(function PetDrawer({ pet, data, onChange, inv }) {
 });
 
 // ─── Main Pets Page ───────────────────────────────────────────────────────────
-export default function PetsPage({ inv, setInv }) {
+export default function PetsPage({ inv, setInv, onCompleteSvs }) {
   const C = COLORS;
   const [petData, setPetData] = useLocalStorage("pets-data", {});
   const [openCard, setOpenCard] = React.useState(null); // which pet card is expanded
@@ -715,6 +715,19 @@ export default function PetsPage({ inv, setInv }) {
 
   return (
     <div className="fade-in">
+
+      {/* Complete Upgrades button */}
+      {onCompleteSvs && (
+        <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>
+          <button onClick={onCompleteSvs} style={{
+            padding:"8px 16px", borderRadius:7, cursor:"pointer",
+            border:"1px solid var(--c-accentDim)",
+            background:"rgba(227,107,26,0.12)",
+            color:"var(--c-accent)", fontSize:12, fontWeight:700,
+            fontFamily:"Syne,sans-serif", display:"flex", alignItems:"center", gap:6,
+          }}>⚔️ Complete Upgrades</button>
+        </div>
+      )}
 
       {/* ── Pet Stat Totals ── */}
       {(() => {

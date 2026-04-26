@@ -82,7 +82,7 @@ function getBuildingLevel(buildingName) {
   } catch { return null; }
 }
 
-function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeedBuff: cpSpeedBuffProp, setCpSpeedBuff: setCpSpeedBuffProp }) {
+function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeedBuff: cpSpeedBuffProp, setCpSpeedBuff: setCpSpeedBuffProp, onCompleteSvs }) {
   const C = COLORS;
 
   // VIP level
@@ -151,7 +151,7 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
         const s = hd.slots?.[slotIdx];
         if (!s) return;
         const gearName = SLOT_TO_GEAR(troopType, slot);
-        if (!gearName || !s.status) return; // skip if status unset
+        if (!gearName || !s.status) return;
         const gs = getGearStats(gearName, s.status, s.gearCurrent ?? 0, s.masteryCurrent ?? 0);
         total += gs?.power ?? 0;
       });
@@ -571,6 +571,22 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
 
   return (
     <div className="fade-in" style={{ maxWidth:680, padding:"0 0 40px" }}>
+
+      {/* Complete Upgrades button */}
+      {onCompleteSvs && (
+        <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>
+          <button onClick={onCompleteSvs} style={{
+            padding:"9px 18px", borderRadius:7, cursor:"pointer",
+            border:"1px solid var(--c-accentDim)",
+            background:"rgba(227,107,26,0.12)",
+            color:"var(--c-accent)", fontSize:12, fontWeight:700,
+            fontFamily:"Syne,sans-serif",
+            display:"flex", alignItems:"center", gap:7,
+          }}>
+            ⚔️ Complete Upgrades
+          </button>
+        </div>
+      )}
 
       <TotalCard />
 

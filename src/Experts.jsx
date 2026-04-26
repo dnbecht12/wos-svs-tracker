@@ -1494,7 +1494,7 @@ function ConstructionPage({ inv }) {
   );
 }
 
-function ExpertsPage({ inv, setInv }) {
+function ExpertsPage({ inv, setInv, onCompleteSvs }) {
   const C = COLORS;
 
   // ── Expert Data Tables ──────────────────────────────────────────────────────
@@ -2291,6 +2291,19 @@ function ExpertsPage({ inv, setInv }) {
   return (
     <div className="fade-in">
 
+      {/* Complete Upgrades button */}
+      {onCompleteSvs && (
+        <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>
+          <button onClick={onCompleteSvs} style={{
+            padding:"8px 16px", borderRadius:7, cursor:"pointer",
+            border:"1px solid var(--c-accentDim)",
+            background:"rgba(227,107,26,0.12)",
+            color:"var(--c-accent)", fontSize:12, fontWeight:700,
+            fontFamily:"Syne,sans-serif",
+            display:"flex", alignItems:"center", gap:6,
+          }}>⚔️ Complete Upgrades</button>
+        </div>
+      )}
       {/* ── Resource Summary Bar ── */}
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:20 }}>
         {[

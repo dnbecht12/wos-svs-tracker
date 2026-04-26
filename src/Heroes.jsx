@@ -1811,8 +1811,10 @@ function migrateOldHeroes(oldHeroes) {
   return result;
 }
 
-function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, hgTeams, setHgTeams }) {
+function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, hgTeams: hgTeamsProp, setHgTeams, onCompleteSvs }) {
   const C = COLORS;
+  // Guard: ensure hgTeams always has the expected shape even for guests
+  const hgTeams = hgTeamsProp || defaultTeamsData();
 
   const [showRemoveModal, setShowRemoveModal] = useState(false);
   const [removeTarget,    setRemoveTarget]    = useState("");
@@ -1970,8 +1972,17 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
           <StatCard label="Mythic needed"  value={totals.mythic}  sub={`have ${(inv.mythicGear ?? 0).toLocaleString()}`} color={totals.mythic > (inv.mythicGear ?? 0) ? "red" : undefined} />
         </div>
 
-        {/* Team tabs + Add Team button */}
+        {/* Complete Upgrades + Team tabs + Add Team button */}
         <div style={{display:"flex", alignItems:"center", gap:8, flexWrap:"wrap", paddingTop:4}}>
+          {onCompleteSvs && (
+            <button onClick={onCompleteSvs} style={{
+              padding:"8px 16px", borderRadius:7, cursor:"pointer",
+              border:"1px solid var(--c-accentDim)",
+              background:"rgba(227,107,26,0.12)",
+              color:"var(--c-accent)", fontSize:12, fontWeight:700,
+              fontFamily:"Syne,sans-serif", display:"flex", alignItems:"center", gap:6,
+            }}>⚔️ Complete Upgrades</button>
+          )}
           {teamLetters.map(letter => (
             <button key={letter}
               onClick={() => setActiveTeam(letter)}
