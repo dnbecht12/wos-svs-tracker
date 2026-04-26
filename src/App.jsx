@@ -1433,18 +1433,10 @@ function ResInput({ label, icon, field, value, onChange, color, tabIndex }) {
         onFocus={handleFocus}
         onBlur={handleBlur}
         onKeyDown={e => {
-          if (e.key === "Enter" || e.key === "Tab") {
+          // Enter advances to next field (same as Tab — handled by global listener)
+          if (e.key === "Enter") {
             e.preventDefault();
-            // Collect all inputs with a tabIndex, sorted numerically
-            const all = Array.from(document.querySelectorAll("input, select"))
-              .filter(el => el.tabIndex > 0)
-              .sort((a, b) => a.tabIndex - b.tabIndex);
-            const cur = all.indexOf(e.target);
-            if (cur === -1) return;
-            const next = e.shiftKey
-              ? all[(cur - 1 + all.length) % all.length]
-              : all[(cur + 1) % all.length];
-            if (next) { next.focus(); if (next.tagName === "INPUT") next.select(); }
+            e.target.dispatchEvent(new KeyboardEvent("keydown", { key:"Tab", bubbles:true, cancelable:true }));
           }
         }}
         style={color ? { color } : {}}
@@ -2881,10 +2873,8 @@ export default function App() {
 
   useEffect(() => { setSavedAt(new Date().toLocaleTimeString()); }, []);
 
-  // ── Global Tab navigation within tables and inventory grids ─────────────────
-  // Intercepts Tab/Shift+Tab when the focused element is inside a <table> or
-  // a .res-grid/.tab-scope container, keeping focus within that scope.
-  // For inputs with explicit tabIndex (Inventory page), delegates to tabIndex order.
+  // ── Global Tab navigation for Inventory and Tables ──────────────────────────
+  // Uses { capture: true } so we intercept Tab BEFORE the browser moves focus.
   useEffect(() => {
     const FOCUSABLE = 'input:not([disabled]):not([type="hidden"]), select:not([disabled])';
     const SCOPE_SELECTOR = "table, .res-grid, .tab-scope";
@@ -2893,29 +2883,38 @@ export default function App() {
       const active = document.activeElement;
       if (!active) return;
 
-      // If the element has an explicit positive tabIndex, let the ResInput
-      // onKeyDown handler take care of it (already preventDefault'd there).
-      // We only handle elements without explicit tabIndex (table select/input rows).
-      if (active.tabIndex > 0) return;
+      // Case 1: Inventory-style inputs with explicit positive tabIndex
+      // Navigate in ascending tabIndex order across the whole page
+      if (active.tabIndex > 0) {
+        e.preventDefault();
+        const all = Array.from(document.querySelectorAll(FOCUSABLE))
+          .filter(el => el.tabIndex > 0)
+          .sort((a, b) => a.tabIndex - b.tabIndex);
+        const cur = all.indexOf(active);
+        if (cur === -1) return;
+        const next = e.shiftKey
+          ? all[(cur - 1 + all.length) % all.length]
+          : all[(cur + 1) % all.length];
+        if (next) { next.focus(); if (next.tagName === "INPUT") next.select(); }
+        return;
+      }
 
+      // Case 2: Table/grid inputs without explicit tabIndex — scope to container
       const scope = active.closest(SCOPE_SELECTOR);
       if (!scope) return;
       e.preventDefault();
-
       const fields = Array.from(scope.querySelectorAll(FOCUSABLE))
-        .filter(el => el.tabIndex >= 0); // skip tabIndex=-1 (explicitly excluded)
+        .filter(el => el.tabIndex >= 0);
       const idx = fields.indexOf(active);
       if (idx === -1) return;
       const next = e.shiftKey
         ? fields[(idx - 1 + fields.length) % fields.length]
         : fields[(idx + 1) % fields.length];
-      if (next) {
-        next.focus();
-        if (next.tagName === "INPUT") next.select();
-      }
+      if (next) { next.focus(); if (next.tagName === "INPUT") next.select(); }
     };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
+    // capture:true means we intercept BEFORE the browser's native Tab handling
+    document.addEventListener("keydown", handler, { capture: true });
+    return () => document.removeEventListener("keydown", handler, { capture: true });
   }, []);
 
   // ── Plan snapshot: set starting inventory ────────────────────────────────────
