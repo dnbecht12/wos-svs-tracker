@@ -2624,6 +2624,21 @@ export default function App() {
   })());
   // Derived: flat array of ALL heroes across all teams for CharacterProfile power calc
   const hgHeroes = Object.values(hgTeams?.teams || {}).flat();
+  // Shim: HeroesPage calls setHgHeroes(prev => newArray) on widget sync.
+  // We route that through setHgTeams by applying the updater to each team's slots.
+  const setHgHeroes = (updater) => {
+    setHgTeams(prev => {
+      const allSlots = Object.values(prev.teams).flat();
+      const updatedFlat = typeof updater === "function" ? updater(allSlots) : updater;
+      // Re-distribute the updated flat array back into teams (3 slots per team)
+      const teamLetters = Object.keys(prev.teams).sort();
+      const newTeams = {};
+      teamLetters.forEach((letter, ti) => {
+        newTeams[letter] = updatedFlat.slice(ti * 3, ti * 3 + 3);
+      });
+      return { ...prev, teams: newTeams };
+    });
+  };
   const [heroStatsVersion, setHeroStatsVersion] = useState(0);
   // Research Center — cloud-synced so state persists across devices and tab switches
   const [rcLevels,    setRcLevels]    = useLocalStorage("rc-levels", {});
