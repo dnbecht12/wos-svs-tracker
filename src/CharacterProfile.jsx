@@ -150,8 +150,8 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
         const s = hd.slots?.[slotIdx];
         if (!s) return;
         const gearName = SLOT_TO_GEAR(troopType, slot);
-        if (!gearName) return;
-        const gs = getGearStats(gearName, s.status || "Legendary", s.gearCurrent ?? 0, s.masteryCurrent ?? 0);
+        if (!gearName || !s.status) return; // skip if status is blank/unset
+        const gs = getGearStats(gearName, s.status, s.gearCurrent ?? 0, s.masteryCurrent ?? 0);
         total += gs?.power ?? 0;
       });
     });
