@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo, Component } f
 import { createPortal } from "react-dom";
 import { supabase } from "./supabase.js";
 import { useTier } from "./useTier.js";
+import { TierProvider } from "./TierContext.jsx";
 import {
   useLocalStorage, setGuestFlag, setSyncUserId, setSyncCharId, scheduleSync, _isGuest, NO_SYNC_KEYS,
 } from "./useLocalStorage.js";
@@ -2916,7 +2917,7 @@ export default function App() {
   const { theme, setTheme, resetToSystem } = useTheme();
   const { user, loading: authLoading, error: authError, signUp, signIn, signInWithDiscord, signOut,
           changePassword, requestDeleteAccount, confirmDeleteAccount, clearError } = useAuth();
-  const { isPro, tier, status: subStatus, periodEnd, cancelAtPeriodEnd, subscribe, manageSubscription } = useTier(user);
+  const { isPro, tier, status: subStatus, loading: tierLoading, periodEnd, cancelAtPeriodEnd, subscribe, manageSubscription } = useTier(user);
 
   const {
     characters, activeCharacter, activeCharId,
@@ -3424,7 +3425,16 @@ export default function App() {
   const userInitial = (user?.user_metadata?.full_name?.[0] ?? user?.email?.[0] ?? "?").toUpperCase();
 
   return (
-    <>
+    <TierProvider
+      user={user}
+      tier={tier}
+      isPro={isPro}
+      loading={tierLoading}
+      subscribe={subscribe}
+      manageSubscription={manageSubscription}
+      openUpgradeModal={() => setUpgradeOpen(true)}
+      openAuth={() => setSidebarOpen(true)}
+    >
       <style dangerouslySetInnerHTML={{ __html: GLOBAL_STYLE }} />
 
       {/* Profile Management Modal */}
@@ -3919,6 +3929,6 @@ export default function App() {
           </div>
         </main>
       </div>
-    </>
+    </TierProvider>
   );
 }
