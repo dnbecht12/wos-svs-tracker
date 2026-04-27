@@ -727,8 +727,7 @@ export default function PetsPage({ inv, setInv, onCompleteSvs }) {
               color:"var(--c-accent)", fontSize:12, fontWeight:700,
               fontFamily:"Syne,sans-serif", display:"flex", alignItems:"center", gap:6,
             }}>⚔️ Complete Upgrades</button>
-            <span title="Reviews all fields where Goal ≠ Current for this tab. Lets you adjust what you actually achieved, then pushes those values to Current and deducts materials from inventory."
-              style={{fontSize:14,color:"var(--c-textDim)",cursor:"default",userSelect:"none",lineHeight:1}}>ⓘ</span>
+            <span className="info-tip" data-tip="Reviews all fields where Goal ≠ Current for this tab. Lets you adjust what you actually achieved, then pushes those values to Current and deducts materials from inventory." style={{fontSize:14,color:"var(--c-textDim)",cursor:"default",userSelect:"none",lineHeight:1}}>ⓘ</span>
           </div>
         </div>
       )}

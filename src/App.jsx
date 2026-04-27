@@ -373,6 +373,31 @@ const GLOBAL_STYLE = `
 
   .app { display: flex; min-height: 100vh; }
 
+  /* Info icon tooltip */
+  .info-tip { position: relative; display: inline-flex; align-items: center; cursor: help; }
+  .info-tip::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    right: 0;
+    background: var(--c-surface);
+    color: var(--c-textSec);
+    border: 1px solid var(--c-border);
+    border-radius: 7px;
+    padding: 8px 12px;
+    font-size: 11px;
+    font-family: 'Syne', sans-serif;
+    line-height: 1.5;
+    white-space: normal;
+    width: 260px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.15s;
+    z-index: 9000;
+  }
+  .info-tip:hover::after { opacity: 1; }
+
   /* Sidebar */
   .sidebar { width: 220px; min-width: 220px; background: var(--c-surface); border-right: 1px solid var(--c-border); display: flex; flex-direction: column; padding: 0; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
   .sidebar-logo { padding: 0; border-bottom: 1px solid var(--c-border); overflow: hidden; position: relative; background: #0D1B2A; }
@@ -2967,17 +2992,22 @@ export default function App() {
       const active = document.activeElement;
       if (!active) return;
 
-      // Inventory inputs: use data-tabseq attribute for ordering
+      // Inventory inputs: navigate by data-tabseq value
       const seq = active.getAttribute("data-tabseq");
       if (seq !== null) {
         e.preventDefault();
+        const curSeq = Number(seq);
         const all = Array.from(document.querySelectorAll("[data-tabseq]"))
-          .sort((a, b) => Number(a.getAttribute("data-tabseq")) - Number(b.getAttribute("data-tabseq")));
-        const cur = all.indexOf(active);
-        if (cur === -1) return;
-        const next = e.shiftKey
-          ? all[(cur - 1 + all.length) % all.length]
-          : all[(cur + 1) % all.length];
+          .map(el => ({ el, n: Number(el.getAttribute("data-tabseq")) }))
+          .sort((a, b) => a.n - b.n);
+        const curIdx = all.findIndex(x => x.n === curSeq && x.el === active);
+        // fallback: find by value alone if element reference changed
+        const idx = curIdx !== -1 ? curIdx : all.findIndex(x => x.n === curSeq);
+        if (idx === -1) return;
+        const nextIdx = e.shiftKey
+          ? (idx - 1 + all.length) % all.length
+          : (idx + 1) % all.length;
+        const next = all[nextIdx]?.el;
         if (next) { next.focus(); setTimeout(() => { try { next.select(); } catch {} }, 0); }
         return;
       }
@@ -2994,7 +3024,6 @@ export default function App() {
         : fields[(idx + 1) % fields.length];
       if (next) { next.focus(); setTimeout(() => { try { next.select(); } catch {} }, 0); }
     };
-    // capture:true means we intercept BEFORE the browser's native Tab handling
     document.addEventListener("keydown", handler, { capture: true });
     return () => document.removeEventListener("keydown", handler, { capture: true });
   }, []);

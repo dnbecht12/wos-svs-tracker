@@ -1983,8 +1983,7 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                 color:"var(--c-accent)", fontSize:12, fontWeight:700,
                 fontFamily:"Syne,sans-serif", display:"flex", alignItems:"center", gap:6,
               }}>⚔️ Complete Upgrades</button>
-              <span title="Reviews all building goals for this tab. Lets you adjust what you actually achieved, then pushes those values to Current."
-                style={{fontSize:14,color:"var(--c-textDim)",cursor:"default",userSelect:"none",lineHeight:1}}>ⓘ</span>
+              <span className="info-tip" data-tip="Reviews all building goals for this tab. Lets you adjust what you actually achieved, then pushes those values to Current." style={{fontSize:14,color:"var(--c-textDim)",cursor:"default",userSelect:"none",lineHeight:1}}>ⓘ</span>
             </div>
           )}
           {teamLetters.map(letter => (

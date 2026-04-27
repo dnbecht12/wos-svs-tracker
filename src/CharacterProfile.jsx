@@ -586,8 +586,7 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
             }}>
               ⚔️ Complete Upgrades
             </button>
-            <span title="Reviews all goal levels across every tab. Lets you adjust what you actually achieved in SvS, then pushes those values to Current and deducts materials from inventory."
-              style={{fontSize:14,color:"var(--c-textDim)",cursor:"default",userSelect:"none",lineHeight:1}}>ⓘ</span>
+            <span className="info-tip" data-tip="Reviews all goal levels across every tab. Lets you adjust what you actually achieved in SvS, then pushes those values to Current and deducts materials from inventory." style={{fontSize:14,color:"var(--c-textDim)",cursor:"default",userSelect:"none",lineHeight:1}}>ⓘ</span>
           </div>
         </div>
       )}

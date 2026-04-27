@@ -2302,8 +2302,7 @@ function ExpertsPage({ inv, setInv, onCompleteSvs }) {
             fontFamily:"Syne,sans-serif",
             display:"flex", alignItems:"center", gap:6,
           }}>⚔️ Complete Upgrades</button>
-          <span title="Reviews all Expert goals (levels, relationship, skills). Lets you adjust what you actually achieved, then pushes those values to Current and deducts materials from inventory."
-            style={{fontSize:14,color:"var(--c-textDim)",cursor:"default",userSelect:"none",lineHeight:1}}>ⓘ</span>
+          <span className="info-tip" data-tip="Reviews all Expert goals (levels, relationship, skills). Lets you adjust what you actually achieved, then pushes those values to Current and deducts materials from inventory." style={{fontSize:14,color:"var(--c-textDim)",cursor:"default",userSelect:"none",lineHeight:1}}>ⓘ</span>
         </div>
       )}
       {/* ── Resource Summary Bar ── */}
