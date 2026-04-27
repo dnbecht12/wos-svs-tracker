@@ -1888,9 +1888,9 @@ function GuestHeroGearCalc() {
   const selS = { background:C.surface, border:`1px solid ${C.border}`, borderRadius:6,
     padding:"4px 8px", color:C.textPri, fontSize:11, outline:"none",
     fontFamily:"'Space Mono',monospace", cursor:"pointer" };
-  const numS = { width:46, background:"transparent", border:`1px solid ${C.border}`, borderRadius:6,
-    padding:"4px 6px", color:C.accent, fontSize:11, fontWeight:700, outline:"none",
-    fontFamily:"'Space Mono',monospace", textAlign:"center", MozAppearance:"textfield" };
+  const numS = { width:64, background:C.surface, border:`1px solid ${C.border}`, borderRadius:6,
+    padding:"5px 8px", color:C.accent, fontSize:12, fontWeight:700, outline:"none",
+    fontFamily:"'Space Mono',monospace", textAlign:"center", boxSizing:"border-box" };
   const th = (label, right) => (
     <th key={label} style={{padding:"8px 10px", fontSize:9, fontWeight:700, letterSpacing:"0.8px",
       textTransform:"uppercase", color:C.textSec, fontFamily:"'Space Mono',monospace",
@@ -1931,19 +1931,19 @@ function GuestHeroGearCalc() {
                       </select>
                     </td>
                     <td style={{padding:"8px 10px"}}>
-                      <input type="number" min={0} max={maxLv} value={s.curLevel} disabled={!s.status}
+                      <input type="text" inputMode="numeric" value={s.curLevel} disabled={!s.status}
                         onChange={e => update(i,"curLevel",e.target.value)} style={{...numS, opacity:s.status?1:0.4}}/>
                     </td>
                     <td style={{padding:"8px 10px"}}>
-                      <input type="number" min={0} max={20} value={s.curMastery} disabled={!s.status}
+                      <input type="text" inputMode="numeric" value={s.curMastery} disabled={!s.status}
                         onChange={e => update(i,"curMastery",e.target.value)} style={{...numS, opacity:s.status?1:0.4}}/>
                     </td>
                     <td style={{padding:"8px 10px"}}>
-                      <input type="number" min={s.curLevel} max={maxLv} value={s.goalLevel} disabled={!s.status}
+                      <input type="text" inputMode="numeric" value={s.goalLevel} disabled={!s.status}
                         onChange={e => update(i,"goalLevel",e.target.value)} style={{...numS, color:C.blue, opacity:s.status?1:0.4}}/>
                     </td>
                     <td style={{padding:"8px 10px"}}>
-                      <input type="number" min={s.curMastery} max={20} value={s.goalMastery} disabled={!s.status}
+                      <input type="text" inputMode="numeric" value={s.goalMastery} disabled={!s.status}
                         onChange={e => update(i,"goalMastery",e.target.value)} style={{...numS, color:C.blue, opacity:s.status?1:0.4}}/>
                     </td>
                     <td style={{padding:"10px 10px", fontFamily:"'Space Mono',monospace", color:cost.mithril>0?C.accent:C.textDim, fontWeight:700, textAlign:"right"}}>

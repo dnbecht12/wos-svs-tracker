@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useLocalStorage } from "./useLocalStorage.js";
+import { useTierContext, GuestBanner } from "./TierContext.jsx";
 import { supabase } from "./supabase.js";
 import { CHIEF_GEAR_LEVELS, CHIEF_CHARM_LEVELS } from "./ChiefEquipment.jsx";
 import { WA_RESEARCH, waPower } from "./WarAcademy.jsx";
@@ -84,6 +85,7 @@ function getBuildingLevel(buildingName) {
 
 function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeedBuff: cpSpeedBuffProp, setCpSpeedBuff: setCpSpeedBuffProp, onCompleteSvs }) {
   const C = COLORS;
+  const { isGuest } = useTierContext();
 
   // VIP level
   const [vipLevel, setVipLevel] = useLocalStorage("cp-vip-level", 0);
@@ -571,6 +573,10 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
 
   return (
     <div className="fade-in" style={{ maxWidth:680, padding:"0 0 40px" }}>
+
+      {isGuest && (
+        <GuestBanner message="Track and progress saving requires a free account. Sign up to save your levels and sync across devices." />
+      )}
 
       {/* Complete Upgrades button */}
       {onCompleteSvs && (

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useLocalStorage } from "./useLocalStorage.js";
+import { useTierContext, GuestBanner } from "./TierContext.jsx";
 
 // ─── COLORS ───────────────────────────────────────────────────────────────────
 const COLORS = {
@@ -260,6 +261,7 @@ function GearLevelPicker({ value, onChange, minStep, sel }) {
 }
 function ChiefGearPage({ inv, onCompleteSvs }) {
   const C = COLORS;
+  const { isGuest } = useTierContext();
   const sel = { background:C.surface, border:`1px solid ${C.border}`, borderRadius:6,
     color:C.textPri, padding:"4px 6px", fontSize:11, outline:"none" };
   const [slots, setSlots] = useLocalStorage("cg-slots", defaultChiefGearSlots());
@@ -304,6 +306,10 @@ function ChiefGearPage({ inv, onCompleteSvs }) {
 
   return (
     <div style={{ padding:"0 0 40px" }}>
+
+      {isGuest && (
+        <GuestBanner message="Track and progress saving requires a free account. Sign up to save your levels and sync across devices." />
+      )}
 
       {/* Complete Upgrades button */}
       {onCompleteSvs && (
@@ -653,6 +659,7 @@ function CharmLevelPicker({ value, onChange, minVal, sel }) {
 
 function ChiefCharmsPage({ inv, onCompleteSvs }) {
   const C = COLORS;
+  const { isGuest } = useTierContext();
   const sel = { background:C.surface, border:`1px solid ${C.border}`, borderRadius:6,
     color:C.textPri, padding:"4px 6px", fontSize:11, outline:"none" };
   const [slots, setSlots] = useLocalStorage("cc-slots", defaultCharmSlots());
@@ -702,6 +709,10 @@ function ChiefCharmsPage({ inv, onCompleteSvs }) {
 
   return (
     <div style={{ padding:"0 0 40px" }}>
+
+      {isGuest && (
+        <GuestBanner message="Track and progress saving requires a free account. Sign up to save your levels and sync across devices." />
+      )}
 
       {/* Complete Upgrades button */}
       {onCompleteSvs && (

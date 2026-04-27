@@ -788,6 +788,8 @@ function GuestConstructionCalc() {
             {label:"Time",     value:calcFmtMins(result.mins),      color:"var(--c-textPri)"},
             {label:"Meat",     value:calcFmtM(result.meat),         color:"var(--c-textSec)"},
             {label:"Wood",     value:calcFmtM(result.wood),         color:"var(--c-textSec)"},
+            {label:"Coal",     value:calcFmtM(result.coal),         color:"var(--c-textSec)"},
+            {label:"Iron",     value:calcFmtM(result.iron),         color:"var(--c-textSec)"},
           ].map(row => (
             <div key={row.label} style={{background:"var(--c-surface)", border:"1px solid var(--c-border)",
               borderRadius:8, padding:"10px 14px"}}>
