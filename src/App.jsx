@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo, Component } f
 import { createPortal } from "react-dom";
 import { supabase } from "./supabase.js";
 import {
-  useLocalStorage, setGuestFlag, setSyncUserId, setSyncCharId, scheduleSync, _isGuest,
+  useLocalStorage, setGuestFlag, setSyncUserId, setSyncCharId, scheduleSync, _isGuest, NO_SYNC_KEYS,
 } from "./useLocalStorage.js";
 import WarAcademyPage, { WA_RESEARCH, waPower } from "./WarAcademy.jsx";
 import DaybreakIslandPage from "./DaybreakIsland.jsx";
