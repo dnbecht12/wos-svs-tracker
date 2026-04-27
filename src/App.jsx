@@ -1355,14 +1355,26 @@ function SavePlanPopup({ open, defaultName, onSave, onCancel }) {
 
 // ─── Auth Panel Component ─────────────────────────────────────────────────────
 
-function AuthPanel({ user, loading, error, signUp, signIn, signInWithDiscord, clearError }) {
+function AuthPanel({ user, loading, error, signUp, signIn, signInWithDiscord, clearError, signupTrigger }) {
   const [mode,     setMode]     = useState("login");
   const [email,    setEmail]    = useState("");
   const [password, setPassword] = useState("");
   const [name,     setName]     = useState("");
   const [busy,     setBusy]     = useState(false);
+  const emailRef = React.useRef(null);
 
   const switchMode = (m) => { setMode(m); clearError(); setEmail(""); setPassword(""); setName(""); };
+
+  // When openAuth() is called from a GuestBanner/UpgradePrompt, switch to signup and focus email
+  React.useEffect(() => {
+    if (!signupTrigger) return;
+    setMode("signup");
+    clearError();
+    setTimeout(() => {
+      emailRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      emailRef.current?.focus();
+    }, 120);
+  }, [signupTrigger]);
 
   const handleSubmit = async () => {
     if (!email || !password) return;
@@ -1421,7 +1433,7 @@ function AuthPanel({ user, loading, error, signUp, signIn, signInWithDiscord, cl
           <input className="auth-inp" placeholder="Display name (optional)"
             value={name} onChange={e => setName(e.target.value)} onKeyDown={handleKey} />
         )}
-        <input className="auth-inp" type="email" placeholder="Email"
+        <input ref={emailRef} className="auth-inp" type="email" placeholder="Email"
           value={email} onChange={e => setEmail(e.target.value)} onKeyDown={handleKey} autoComplete="email" />
         <input className="auth-inp" type="password" placeholder="Password"
           value={password} onChange={e => setPassword(e.target.value)} onKeyDown={handleKey}
@@ -3425,6 +3437,8 @@ export default function App() {
   const userInitial = (user?.user_metadata?.full_name?.[0] ?? user?.email?.[0] ?? "?").toUpperCase();
   // Gate Complete Upgrades modal — guests never see it (button hidden by passing undefined)
   const completeSvs = (scope) => user ? () => setSvsModal({ open:true, scope }) : undefined;
+  // Signup trigger — increments to tell AuthPanel to switch to signup mode and focus email
+  const [signupTrigger, setSignupTrigger] = useState(0);
 
   return (
     <TierProvider
@@ -3435,7 +3449,7 @@ export default function App() {
       subscribe={subscribe}
       manageSubscription={manageSubscription}
       openUpgradeModal={() => setUpgradeOpen(true)}
-      openAuth={() => setSidebarOpen(true)}
+      openAuth={() => { setSidebarOpen(true); setSignupTrigger(n => n + 1); }}
     >
       <style dangerouslySetInnerHTML={{ __html: GLOBAL_STYLE }} />
 
@@ -3640,6 +3654,7 @@ export default function App() {
             signIn={signIn}
             signInWithDiscord={signInWithDiscord}
             clearError={clearError}
+            signupTrigger={signupTrigger}
           />
 
           {/* Profile button — signed-in users */}

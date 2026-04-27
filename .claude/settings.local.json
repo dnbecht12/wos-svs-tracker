@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C \"C:\\\\Apps \\(dev\\)\\\\wos-svs-tracker\\\\wos-svs-tracker\" status)",
+      "Bash(git -C \"C:\\\\Apps \\(dev\\)\\\\wos-svs-tracker\\\\wos-svs-tracker\" diff src/RFCPlanner.jsx)",
+      "Bash(git -C \"C:\\\\Apps \\(dev\\)\\\\wos-svs-tracker\\\\wos-svs-tracker\" add src/RFCPlanner.jsx)",
+      "Bash(git -C 'C:\\\\Apps \\(dev\\)\\\\wos-svs-tracker\\\\wos-svs-tracker' commit -m ' *)",
+      "Bash(git -C \"C:\\\\Apps \\(dev\\)\\\\wos-svs-tracker\\\\wos-svs-tracker\" push origin main)",
+      "Bash(git -C \"C:\\\\Apps \\(dev\\)\\\\wos-svs-tracker\\\\wos-svs-tracker\" add api/stripe-webhook.js)",
+      "Bash(grep -n \"^\\\\s*\\\\];\\\\s*$\" \"C:\\\\Apps \\(dev\\)\\\\wos-svs-tracker\\\\wos-svs-tracker\\\\src\\\\Experts.jsx\")",
+      "Bash(awk -F: '$1>1628 {print; exit}')",
+      "Bash(grep -n \"return \\(\\\\s*$\\\\|return \\(<div\\\\|return \\(<>\" \"C:\\\\Apps \\(dev\\)\\\\wos-svs-tracker\\\\wos-svs-tracker\\\\src\\\\WarAcademy.jsx\")",
+      "Bash(grep -n \"return \\(\\\\s*$\" \"C:\\\\Apps \\(dev\\)\\\\wos-svs-tracker\\\\wos-svs-tracker\\\\src\\\\ResearchCenter.jsx\")"
+    ]
+  }
+}
