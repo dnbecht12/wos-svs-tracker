@@ -299,7 +299,8 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
   }, [currentCycle]);
 
   // Is the selected cycle in the past? If so, view-only.
-  const isPastCycle = selectedCycle < currentCycle;
+  const isPastCycle  = selectedCycle < currentCycle;
+  const isFutureCycle = selectedCycle > currentCycle;
 
   const startDate = useMemo(()=>{
     const d = getCycleStartDate(selectedCycle);
@@ -336,9 +337,34 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
     });
   },[selectedCycle]);
 
+  // ── Seed RFC for the selected cycle ───────────────────────────────────────
+  // Future cycles chain through every intermediate cycle's saved actuals so
+  // that Day 1 of cycle N starts where Day 28 of cycle N-1 left off.
+  const seedRFC = useMemo(() => {
+    if (!isFutureCycle) return inv.refinedFC;
+    let rolling = inv.refinedFC;
+    for (let c = currentCycle; c < selectedCycle; c++) {
+      const cActuals = loadLS(`rfc-actuals2-${c}`, EMPTY_ACTUALS);
+      let weekCum = 0;
+      for (let i = 0; i < 28; i++) {
+        const isMon = WEEKDAYS[i % 7] === "Monday";
+        const act   = cActuals[i] || {};
+        if (isMon) weekCum = 0;
+        const refines = act.refines !== "" ? Number(act.refines) : (isMon ? monRefines : 1);
+        const { rfcEarned, endCumulative } = calcRefines(weekCum, refines);
+        const hasActual = act.actualRfc !== "" && act.actualRfc != null;
+        rolling += (hasActual ? Number(act.actualRfc) : rfcEarned)
+                 + (act.eventRfc !== "" && act.eventRfc != null ? Number(act.eventRfc) : 0)
+                 - (act.rfcUsed  !== "" && act.rfcUsed  != null ? Number(act.rfcUsed)  : 0);
+        weekCum = endCumulative;
+      }
+    }
+    return rolling;
+  }, [isFutureCycle, selectedCycle, currentCycle, inv.refinedFC, monRefines]);
+
   // ── Row calculation ────────────────────────────────────────────────────────
   const rows = useMemo(()=>{
-    let rollingRFC = inv.refinedFC;
+    let rollingRFC = seedRFC;
     let weekCumRef = 0;
     const out=[];
     for(let i=0;i<28;i++){
@@ -380,7 +406,7 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
       });
     }
     return out;
-  },[inv.refinedFC,monRefines,weekdayMode,actuals,startDate]);
+  },[seedRFC,inv.refinedFC,monRefines,weekdayMode,actuals,startDate]);
 
   const totals=useMemo(()=>({
     refines: rows.reduce((s,r)=>s+r.refines,0),
@@ -771,10 +797,12 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
             </div>
             <div style={{background:"var(--c-card)",border:"1px solid var(--c-border)",borderRadius:12,padding:"18px 20px",maxWidth:480}}>
 
-              {/* Current RFC */}
+              {/* Starting RFC */}
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:"1px solid var(--c-border)",fontSize:13}}>
-                <span style={{color:"var(--c-textPri)"}}>Current RFC</span>
-                <span style={{fontFamily:"Space Mono,monospace",fontWeight:700,color:"var(--c-accent)"}}>{fmtN(inv.refinedFC)}</span>
+                <span style={{color:"var(--c-textPri)"}}>
+                  {isFutureCycle ? `Projected Starting RFC (end of Cycle ${selectedCycle - 1})` : "Current RFC"}
+                </span>
+                <span style={{fontFamily:"Space Mono,monospace",fontWeight:700,color:"var(--c-accent)"}}>{fmtN(seedRFC)}</span>
               </div>
 
               {/* Est. RFC from Refining */}
