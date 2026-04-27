@@ -400,7 +400,7 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
   }, [profileVersion]);
 
   // Grand total
-  const totalPower = techPower + chiefGearPower + chiefCharmsPower + heroPower + heroGearPower + troopsPower + buildingPower + expertPower;
+  const totalPower = techPower + chiefGearPower + chiefCharmsPower + heroPower + heroGearPower + petPower + troopsPower + buildingPower + expertPower;
 
   // ── Styles ─────────────────────────────────────────────────────────────────
   const sectionHead = (label, sub) => (
