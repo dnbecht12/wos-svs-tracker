@@ -271,23 +271,26 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
   const currentCycle = useMemo(()=>getCurrentCycleNum(),[]);
   const cycleOpts    = useMemo(()=>buildCycles(Math.max(1,currentCycle-1),16),[currentCycle]);
 
-  const [selectedCycle, setSelectedCycle] = useState(()=>loadLS("rfc-cycle",currentCycle));
-  const [monRefines,    setMonRefines]    = useState(()=>loadLS("rfc-monref",1));
-  const [weekdayMode,   setWeekdayMode]   = useState(()=>loadLS("rfc-wdmode","default"));
-  const [actuals,       setActuals]       = useState(()=>loadLS(`rfc-actuals2-${loadLS("rfc-cycle", 1)}`,EMPTY_ACTUALS));
-  const [estEventRfc,   setEstEventRfc]   = useState(()=>loadLS("rfc-est-event",0));
-  const [toast,         setToast]         = useState("");
+  const [selectedCycle,    setSelectedCycle]    = useState(()=>loadLS("rfc-cycle",currentCycle));
+  const [monRefines,       setMonRefines]       = useState(()=>loadLS("rfc-monref",1));
+  const [weekdayMode,      setWeekdayMode]      = useState(()=>loadLS("rfc-wdmode","default"));
+  const [actuals,          setActuals]          = useState(()=>loadLS(`rfc-actuals2-${loadLS("rfc-cycle", 1)}`,EMPTY_ACTUALS));
+  const [estEventRfc,      setEstEventRfc]      = useState(()=>loadLS("rfc-est-event",0));
+  const [startRFCOverride, setStartRFCOverride] = useState(()=>loadLS(`rfc-start-rfc-${loadLS("rfc-cycle",currentCycle)}`,null));
+  const [toast,            setToast]            = useState("");
 
   // Re-read all RFC keys from localStorage on login or character switch
   const [charSwitchCount, setCharSwitchCount] = useState(0);
   useEffect(() => {
     const handler = () => {
+      const cyc = loadLS("rfc-cycle", currentCycle);
       setCharSwitchCount(n => n + 1);
-      setSelectedCycle(loadLS("rfc-cycle", currentCycle));
+      setSelectedCycle(cyc);
       setMonRefines(loadLS("rfc-monref", 1));
       setWeekdayMode(loadLS("rfc-wdmode", "default"));
-      setActuals(loadLS(`rfc-actuals2-${loadLS("rfc-cycle", 1)}`, EMPTY_ACTUALS));
+      setActuals(loadLS(`rfc-actuals2-${cyc}`, EMPTY_ACTUALS));
       setEstEventRfc(loadLS("rfc-est-event", 0));
+      setStartRFCOverride(loadLS(`rfc-start-rfc-${cyc}`, null));
     };
     window.addEventListener("wos-char-ready", handler);
     window.addEventListener("wos-user-ready", handler);
@@ -362,9 +365,12 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
     return rolling;
   }, [isFutureCycle, selectedCycle, currentCycle, inv.refinedFC, monRefines]);
 
+  // Per-cycle starting RFC: override takes priority over seedRFC / inv.refinedFC
+  const effectiveSeedRFC = startRFCOverride !== null ? startRFCOverride : seedRFC;
+
   // ── Row calculation ────────────────────────────────────────────────────────
   const rows = useMemo(()=>{
-    let rollingRFC = seedRFC;
+    let rollingRFC = effectiveSeedRFC;
     let weekCumRef = 0;
     const out=[];
     for(let i=0;i<28;i++){
@@ -406,7 +412,7 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
       });
     }
     return out;
-  },[seedRFC,inv.refinedFC,monRefines,weekdayMode,actuals,startDate]);
+  },[effectiveSeedRFC,inv.refinedFC,monRefines,weekdayMode,actuals,startDate]);
 
   const totals=useMemo(()=>({
     refines: rows.reduce((s,r)=>s+r.refines,0),
@@ -504,9 +510,8 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
                     const v=Number(e.target.value);
                     setSelectedCycle(v);
                     saveLS("rfc-cycle",v);
-                    // Load actuals for the new cycle (fresh if none saved)
-                    const cycleActuals = loadLS(`rfc-actuals2-${v}`, EMPTY_ACTUALS);
-                    setActuals(cycleActuals);
+                    setActuals(loadLS(`rfc-actuals2-${v}`, EMPTY_ACTUALS));
+                    setStartRFCOverride(loadLS(`rfc-start-rfc-${v}`, null));
                   }}>
                   {cycleOpts.map(c=>(
                     <option key={c.cycleNum} value={c.cycleNum}>
@@ -661,6 +666,49 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
                         </thead>
                       )}
                       <tbody>
+                        {/* Starting RFC row — Week 1 only */}
+                        {weekNum===1&&(
+                          <tr style={{background:"var(--c-surface)"}}>
+                            <td colSpan={11} style={{padding:"8px 12px",borderBottom:`1px solid var(--c-border)`}}>
+                              <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
+                                <span style={{fontSize:9,fontWeight:700,letterSpacing:"1px",textTransform:"uppercase",color:"var(--c-textSec)",fontFamily:"Space Mono,monospace",whiteSpace:"nowrap"}}>
+                                  Starting RFC Balance
+                                </span>
+                                <input
+                                  type="number" min={0}
+                                  value={startRFCOverride!==null ? startRFCOverride : effectiveSeedRFC}
+                                  onChange={e=>{
+                                    const v=Math.max(0,Number(e.target.value)||0);
+                                    setStartRFCOverride(v);
+                                    saveLS(`rfc-start-rfc-${selectedCycle}`,v);
+                                  }}
+                                  style={{width:110,background:"var(--c-card)",border:`1px solid ${startRFCOverride!==null?"var(--c-green)":"var(--c-accentDim)"}`,
+                                    borderRadius:5,color:startRFCOverride!==null?"var(--c-green)":"var(--c-accent)",
+                                    padding:"3px 8px",fontSize:13,fontWeight:700,
+                                    fontFamily:"Space Mono,monospace",outline:"none"}}
+                                />
+                                {startRFCOverride!==null ? (
+                                  <>
+                                    <span style={{fontSize:10,color:"var(--c-green)",fontFamily:"Space Mono,monospace"}}>override active</span>
+                                    <button
+                                      onClick={()=>{
+                                        setStartRFCOverride(null);
+                                        try{(_isGuest?sessionStorage:localStorage).removeItem(`rfc-start-rfc-${selectedCycle}`);}catch{}
+                                      }}
+                                      style={{fontSize:10,color:"var(--c-textSec)",background:"transparent",border:`1px solid var(--c-border)`,
+                                        borderRadius:4,padding:"2px 8px",cursor:"pointer",fontFamily:"Space Mono,monospace"}}>
+                                      ↩ Revert to inventory
+                                    </button>
+                                  </>
+                                ) : (
+                                  <span style={{fontSize:10,color:"var(--c-textDim)",fontFamily:"Space Mono,monospace"}}>
+                                    from inventory — edit to pin a starting balance for this cycle
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
                         {wkRows.map((r,ri)=>{
                           const globalIdx=(wi*7)+ri;
                           const isToday   = globalIdx === todayDayIdx;
@@ -800,9 +848,9 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
               {/* Starting RFC */}
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:"1px solid var(--c-border)",fontSize:13}}>
                 <span style={{color:"var(--c-textPri)"}}>
-                  {isFutureCycle ? `Projected Starting RFC (end of Cycle ${selectedCycle - 1})` : "Current RFC"}
+                  {startRFCOverride !== null ? "Starting RFC (override)" : isFutureCycle ? `Projected Starting RFC (end of Cycle ${selectedCycle - 1})` : "Current RFC"}
                 </span>
-                <span style={{fontFamily:"Space Mono,monospace",fontWeight:700,color:"var(--c-accent)"}}>{fmtN(seedRFC)}</span>
+                <span style={{fontFamily:"Space Mono,monospace",fontWeight:700,color:startRFCOverride !== null ? "var(--c-green)" : "var(--c-accent)"}}>{fmtN(effectiveSeedRFC)}</span>
               </div>
 
               {/* Est. RFC from Refining */}
