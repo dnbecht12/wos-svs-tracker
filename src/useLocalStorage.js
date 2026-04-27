@@ -24,7 +24,7 @@ export function setSyncCharId(charId) {
 
 // Keys that should NOT sync to cloud (UI preferences only)
 export const NO_SYNC_KEYS = new Set([
-  "wos-page", "wos-theme", "heroes-sort",
+  "wos-page", "wos-theme", "heroes-sort", "hg-gen-filter",
 ]);
 
 // Pending write queue — batches rapid updates into a single Supabase write
@@ -52,6 +52,12 @@ export function scheduleSync(key, value) {
 export function useLocalStorage(key, initial) {
   const [val, setVal] = useState(() => {
     try {
+      // NO_SYNC_KEYS are local UI prefs (page, theme, sort) — always read from
+      // localStorage immediately regardless of guest state so page/theme persist on refresh.
+      if (NO_SYNC_KEYS.has(key)) {
+        const s = localStorage.getItem(key);
+        return s ? JSON.parse(s) : initial;
+      }
       // _isGuest starts true — skip localStorage until auth resolves.
       // readFromLocal fires after wos-user-ready if the user is logged in.
       if (_isGuest) return initial;
