@@ -337,7 +337,8 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
   },[selectedCycle]);
 
   // ── Row calculation ────────────────────────────────────────────────────────
-  const rows = useMemo(()=>{\n    let rollingRFC = inv.refinedFC;
+  const rows = useMemo(()=>{
+    let rollingRFC = inv.refinedFC;
     let weekCumRef = 0;
     const out=[];
     for(let i=0;i<28;i++){
