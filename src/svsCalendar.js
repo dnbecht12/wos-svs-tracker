@@ -118,11 +118,11 @@ export function getCurrentCycleNum() {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const wIdx = weeksSinceAnchor(today);
-  // SvS is at weekIndex 0, 4, 8... etc. (since FIRST_SVS_MONDAY IS the SvS week)
-  // Cycle N's SvS is at weekIndex (N-1)*4
-  // So current cycle = floor(wIdx / 4) + 1, but adjusted so current week is in right cycle
-  // If wIdx < 0, we're before the first SvS
-  const cn = Math.floor(wIdx / 4) + 1;
+  // FIRST_SVS_MONDAY is the SvS week of cycle 1 (weekIndex 0).
+  // Each cycle is 4 weeks: prep1, KOI, prep3, SvS.
+  // Cycle 1: wIdx -3 to 0. Cycle 2: wIdx 1 to 4. Etc.
+  // Formula: floor((wIdx + 3) / 4) + 1
+  const cn = Math.floor((wIdx + 3) / 4) + 1;
   return Math.max(1, cn);
 }
 
