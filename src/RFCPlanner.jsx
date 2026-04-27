@@ -234,7 +234,7 @@ function WkdaySelect({ value, onChange }) {
 }
 
 const EMPTY_ACTUALS = Array.from({length:28},()=>({
-  refines:"", actualRfc:"", eventRfc:"", rfcUsed:"", acceptedDelta:false, deltaAcceptValue:null,
+  refines:"", actualRfc:"", eventRfc:"", rfcUsed:"",
 }));
 
 // Read total RFC needed from Construction Planner localStorage
@@ -336,23 +336,8 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
     });
   },[]);
 
-  // Accept delta: lock rolling RFC to current inventory RFC for that day
-  const acceptDelta = useCallback((idx)=>{
-    if (isPastCycle) return;
-    const invRfc = inv.refinedFC;
-    setActuals(prev=>{
-      const next=prev.map((d,i)=>i===idx
-        ?{...d,acceptedDelta:true,deltaAcceptValue:invRfc}
-        :d
-      );
-      saveLS("rfc-actuals2",next);
-      return next;
-    });
-  },[inv.refinedFC, isPastCycle]);
-
   // ── Row calculation ────────────────────────────────────────────────────────
-  const rows = useMemo(()=>{
-    let rollingRFC = inv.refinedFC;
+  const rows = useMemo(()=>{\n    let rollingRFC = inv.refinedFC;
     let weekCumRef = 0;
     const out=[];
     for(let i=0;i<28;i++){
@@ -376,15 +361,12 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
       const eventRfc   = act.eventRfc!==""&&act.eventRfc!=null ? Number(act.eventRfc) : 0;
       const rfcUsed    = act.rfcUsed!==""&&act.rfcUsed!=null ? Number(act.rfcUsed) : 0;
 
-      if(act.acceptedDelta && act.deltaAcceptValue!=null){
-        rollingRFC = Number(act.deltaAcceptValue);
-      } else {
-        rollingRFC += effectiveRfc + eventRfc - rfcUsed;
-      }
+      rollingRFC += effectiveRfc + eventRfc - rfcUsed;
 
       weekCumRef = endCumulative;
 
-      const difference = inv.refinedFC - rollingRFC;
+      // difference: how much MORE the projected RFC is vs current inventory (live)
+      const difference = rollingRFC - inv.refinedFC;
       const variance   = hasActual ? Number(act.actualRfc) - rfcEarned : null;
       const displayTier = isMon ? tierAfter : tierAtStart;
 
@@ -746,21 +728,9 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
                               <td>
                                 <div className="cp r" style={{gap:5,justifyContent:"flex-end"}}>
                                   {isToday && (
-                                    <>
-                                      <span style={{color:diffColor,fontWeight:700,fontFamily:"Space Mono,monospace",fontSize:11}}>
-                                        {r.difference===0?"✓":`${r.difference>0?"+":""}${fmtN(r.difference)}`}
-                                      </span>
-                                      {r.difference!==0&&!r.act.acceptedDelta&&(
-                                        <button className="accept-btn"
-                                          onClick={()=>acceptDelta(globalIdx)}
-                                          title="Accept: align Rolling RFC with your current inventory">
-                                          Accept
-                                        </button>
-                                      )}
-                                      {r.act.acceptedDelta&&(
-                                        <span style={{fontSize:9,color:C.textDim,fontFamily:"Space Mono,monospace"}}>accepted</span>
-                                      )}
-                                    </>
+                                    <span style={{color:diffColor,fontWeight:700,fontFamily:"Space Mono,monospace",fontSize:11}}>
+                                      {r.difference===0?"✓":`${r.difference>0?"+":""}${fmtN(r.difference)}`}
+                                    </span>
                                   )}
                                 </div>
                               </td>
