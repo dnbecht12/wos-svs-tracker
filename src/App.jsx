@@ -1431,9 +1431,18 @@ function ResInput({ label, icon, field, value, onChange, color, tabIndex }) {
     prevValue.current = localVal;
     onChange(field, localVal);
   };
+
   const handleChange = e => {
-    const n = parseInt(e.target.value, 10);
+    // Strip commas and non-numeric chars, parse as integer
+    const raw = e.target.value.replace(/,/g, "").replace(/[^\d]/g, "");
+    const n = parseInt(raw, 10);
     setLocalVal(isNaN(n) ? 0 : Math.max(0, n));
+  };
+
+  const handleFocus = e => {
+    setFocused(true);
+    // Select all on focus so user can immediately type
+    setTimeout(() => e.target.select(), 0);
   };
 
   return (
@@ -1442,13 +1451,13 @@ function ResInput({ label, icon, field, value, onChange, color, tabIndex }) {
       <div className="res-label">{label}</div>
       <input
         className="res-input"
-        type={focused ? "number" : "text"}
-        min={0}
+        type="text"
+        inputMode="numeric"
         tabIndex={-1}
         data-tabseq={tabIndex}
         value={focused ? localVal : (localVal === 0 ? "0" : Number(localVal).toLocaleString())}
         onChange={handleChange}
-        onFocus={() => setFocused(true)}
+        onFocus={handleFocus}
         onBlur={handleBlur}
         style={color ? { color } : {}}
       />
