@@ -274,7 +274,7 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
   const [selectedCycle, setSelectedCycle] = useState(()=>loadLS("rfc-cycle",currentCycle));
   const [monRefines,    setMonRefines]    = useState(()=>loadLS("rfc-monref",1));
   const [weekdayMode,   setWeekdayMode]   = useState(()=>loadLS("rfc-wdmode","default"));
-  const [actuals,       setActuals]       = useState(()=>loadLS("rfc-actuals2",EMPTY_ACTUALS));
+  const [actuals,       setActuals]       = useState(()=>loadLS(`rfc-actuals2-${loadLS("rfc-cycle", 1)}`,EMPTY_ACTUALS));
   const [estEventRfc,   setEstEventRfc]   = useState(()=>loadLS("rfc-est-event",0));
   const [toast,         setToast]         = useState("");
 
@@ -286,7 +286,7 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
       setSelectedCycle(loadLS("rfc-cycle", currentCycle));
       setMonRefines(loadLS("rfc-monref", 1));
       setWeekdayMode(loadLS("rfc-wdmode", "default"));
-      setActuals(loadLS("rfc-actuals2", EMPTY_ACTUALS));
+      setActuals(loadLS(`rfc-actuals2-${loadLS("rfc-cycle", 1)}`, EMPTY_ACTUALS));
       setEstEventRfc(loadLS("rfc-est-event", 0));
     };
     window.addEventListener("wos-char-ready", handler);
@@ -319,10 +319,10 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
     if (isPastCycle) return; // past cycles are read-only
     setActuals(prev=>{
       const next=prev.map((d,i)=>i===idx?{...d,[field]:val===""?"":isNaN(Number(val))?val:Number(val)}:d);
-      saveLS("rfc-actuals2",next);
+      saveLS(`rfc-actuals2-${selectedCycle}`,next);
       return next;
     });
-  },[isPastCycle]);
+  },[isPastCycle, selectedCycle]);
 
   const persistInv = field=>val=>setInv(p=>({...p,[field]:val}));
 
@@ -331,10 +331,10 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
     saveLS("rfc-monref",val);
     setActuals(prev=>{
       const next=prev.map((d,i)=>WEEKDAYS[i%7]==="Monday"?{...d,refines:val}:d);
-      saveLS("rfc-actuals2",next);
+      saveLS(`rfc-actuals2-${selectedCycle}`,next);
       return next;
     });
-  },[]);
+  },[selectedCycle]);
 
   // ── Row calculation ────────────────────────────────────────────────────────
   const rows = useMemo(()=>{\n    let rollingRFC = inv.refinedFC;
@@ -473,7 +473,14 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
               <div className="date-ctrl">
                 <span className="date-lbl">SvS Cycle</span>
                 <select className="date-inp" value={selectedCycle}
-                  onChange={e=>{const v=Number(e.target.value);setSelectedCycle(v);saveLS("rfc-cycle",v);}}>
+                  onChange={e=>{
+                    const v=Number(e.target.value);
+                    setSelectedCycle(v);
+                    saveLS("rfc-cycle",v);
+                    // Load actuals for the new cycle (fresh if none saved)
+                    const cycleActuals = loadLS(`rfc-actuals2-${v}`, EMPTY_ACTUALS);
+                    setActuals(cycleActuals);
+                  }}>
                   {cycleOpts.map(c=>(
                     <option key={c.cycleNum} value={c.cycleNum}>
                       {cycleLabelFull(c.cycleNum,cycleOpts)}{c.cycleNum===currentCycle?" ★":""}

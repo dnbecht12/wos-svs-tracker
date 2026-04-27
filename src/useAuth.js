@@ -76,12 +76,16 @@ export function useAuth() {
       "experts-data","cg-slots","cc-slots","troops-inventory-v2",
       "daybreak-buffs","daybreak-prosperity","hg-heroes","hg-hero-stats","hg-teams","pets-data",
       "cp-buildings","cp-buffs","cp-cycle","cp-dailyfc","cp-agnes","cp-nonfc-active",
-      "wos-svs-inventory","wos-rfc-saved-plans","rfc-cycle","rfc-monref","rfc-wdmode","rfc-actuals2","rfc-est-event","heroes-roster-added","pets-gen-filter",
-      "rfc-cycle","rfc-monref","rfc-wdmode","rfc-actuals2",
+      "wos-svs-inventory","wos-rfc-saved-plans","rfc-cycle","rfc-monref","rfc-wdmode","rfc-est-event","heroes-roster-added","pets-gen-filter",
+      "rfc-cycle","rfc-monref","rfc-wdmode",
     ];
     USER_DATA_KEYS.forEach(k => {
       try { localStorage.removeItem(k); localStorage.removeItem(`${k}__ts`); } catch {}
     });
+    // Clear all cycle-specific actuals (rfc-actuals2-1, rfc-actuals2-2, etc.)
+    try {
+      Object.keys(localStorage).filter(k => k.startsWith("rfc-actuals2-")).forEach(k => localStorage.removeItem(k));
+    } catch {}
     await supabase.auth.signOut();
   }, []);
 
