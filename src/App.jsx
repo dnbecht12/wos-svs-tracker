@@ -2914,6 +2914,7 @@ export default function App() {
   const { theme, setTheme, resetToSystem } = useTheme();
   const { user, loading: authLoading, error: authError, signUp, signIn, signInWithDiscord, signOut,
           changePassword, requestDeleteAccount, confirmDeleteAccount, clearError } = useAuth();
+  const { isPro, tier, status: subStatus, periodEnd, cancelAtPeriodEnd, subscribe, manageSubscription } = useTier(user);
 
   const {
     characters, activeCharacter, activeCharId,
