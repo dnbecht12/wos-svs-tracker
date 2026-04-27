@@ -3054,7 +3054,7 @@ export default function App() {
       "experts-data","cg-slots","cc-slots","troops-inventory-v2",
       "daybreak-buffs","daybreak-prosperity","hg-heroes","hg-hero-stats","hg-teams","pets-data",
       "cp-buildings","cp-buffs","cp-cycle","cp-dailyfc","cp-agnes",
-      "wos-svs-inventory","wos-rfc-saved-plans",
+      "wos-svs-inventory","wos-rfc-saved-plans","rfc-cycle","rfc-monref","rfc-wdmode","rfc-actuals2","rfc-est-event",
     ];
     SYNC_KEYS.forEach(k => {
       try { localStorage.removeItem(k); localStorage.removeItem(`${k}__ts`); } catch {}

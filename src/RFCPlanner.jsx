@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect } from "react";
-import { _isGuest } from "./useLocalStorage.js";
+import { _isGuest, useLocalStorage, scheduleSync } from "./useLocalStorage.js";
 import { buildCycles, getCurrentCycleNum, getCycleStartDate, toIso, fmtIso, fmtDate as fmtDateUtil, cycleLabelFull } from "./svsCalendar.js";
 import { supabase } from "./supabase.js";
 
@@ -69,15 +69,17 @@ const MON_FAVORITES = [1, 5, 10, 20, 40, 60, 80, 100];
 const fmtN = n => typeof n==="number" ? Math.round(n).toLocaleString() : "—";
 function loadLS(k,fb){
   try{
-    // Guests should never read stale localStorage from a previous logged-in session
     if(typeof _isGuest!=="undefined"&&_isGuest) return fb;
-    const s=localStorage.getItem(k);return s?JSON.parse(s):fb;
+    const store = _isGuest ? sessionStorage : localStorage;
+    const s=store.getItem(k);return s?JSON.parse(s):fb;
   }catch{return fb;}
 }
 function saveLS(k,v){
   try{
-    if(typeof _isGuest!=="undefined"&&_isGuest) return; // guests never write to localStorage
-    localStorage.setItem(k,JSON.stringify(v));
+    const store = _isGuest ? sessionStorage : localStorage;
+    store.setItem(k,JSON.stringify(v));
+    // Also sync to Supabase via scheduleSync (debounced 800ms)
+    if(!_isGuest) scheduleSync(k,v);
   }catch{}
 }
 function fmtDate(isoStr){return fmtIso(isoStr);}
@@ -276,13 +278,25 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
   const [estEventRfc,   setEstEventRfc]   = useState(()=>loadLS("rfc-est-event",0));
   const [toast,         setToast]         = useState("");
 
-  // Bust localStorage-reading useMemos when character switches
+  // Re-read all RFC keys from localStorage on login or character switch
   const [charSwitchCount, setCharSwitchCount] = useState(0);
   useEffect(() => {
-    const handler = () => setCharSwitchCount(n => n + 1);
+    const handler = () => {
+      setCharSwitchCount(n => n + 1);
+      setSelectedCycle(loadLS("rfc-cycle", currentCycle));
+      setMonRefines(loadLS("rfc-monref", 1));
+      setWeekdayMode(loadLS("rfc-wdmode", "default"));
+      setActuals(loadLS("rfc-actuals2", EMPTY_ACTUALS));
+      setEstEventRfc(loadLS("rfc-est-event", 0));
+    };
     window.addEventListener("wos-char-ready", handler);
-    return () => window.removeEventListener("wos-char-ready", handler);
-  }, []);
+    window.addEventListener("wos-user-ready", handler);
+    return () => {
+      window.removeEventListener("wos-char-ready", handler);
+      window.removeEventListener("wos-user-ready", handler);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentCycle]);
 
   // Is the selected cycle in the past? If so, view-only.
   const isPastCycle = selectedCycle < currentCycle;
