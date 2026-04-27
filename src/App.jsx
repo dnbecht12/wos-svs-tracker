@@ -17,6 +17,8 @@ import ExpertsPage, {
 import ResearchCenterPage, { getRCTechPower, getRCDeployRally } from "./ResearchCenter.jsx";
 
 const ADMIN_UID = "c5c3392e-2399-4cc9-b2ab-f22a61e7b91c";
+const STRIPE_PRICE_MONTHLY = "price_1TQpwuQzuzgBlSTmLdoXI0YB";
+const STRIPE_PRICE_ANNUAL  = "price_1TQpwuQzuzgBlSTmfjRc4cT5";
 
 // ── Stat submission helpers ───────────────────────────────────────────────────
 // Admin helpers — see ./AdminPanel.jsx
