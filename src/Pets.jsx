@@ -645,11 +645,7 @@ export default function PetsPage({ inv, setInv, onCompleteSvs }) {
   const [openCard, setOpenCard] = React.useState(null); // which pet card is expanded
   const [genFilter, setGenFilter] = useLocalStorage("pets-gen-filter", 7);
 
-  // Guests see 3 SSR pets only (first 3 by quality order)
-  const QUALITY_RANK = { SSR:0, SR:1, R:2, N:3, C:4 };
-  const visiblePets = isGuest
-    ? [...PETS].sort((a,b) => QUALITY_RANK[a.quality] - QUALITY_RANK[b.quality]).slice(0, 3)
-    : PETS;
+  const visiblePets = PETS;
 
   const getPet = name => petData[name] || defaultPetState();
   const setPet = (name, updates) => {
@@ -798,7 +794,7 @@ export default function PetsPage({ inv, setInv, onCompleteSvs }) {
       })()}
 
       {/* ── Generation Filter ── */}
-      <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:14 }}>
+      {!isGuest && <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:14 }}>
         <span style={{ fontSize:11, fontWeight:700, color:C.textDim,
           fontFamily:"'Space Mono',monospace", textTransform:"uppercase",
           letterSpacing:"1px" }}>Generation Filter</span>
@@ -821,10 +817,10 @@ export default function PetsPage({ inv, setInv, onCompleteSvs }) {
           fontFamily:"'Space Mono',monospace" }}>
           (showing up to Gen {genFilter})
         </span>
-      </div>
+      </div>}
 
       {/* ── Resource Summary Bar ── */}
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)",
+      {!isGuest && <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)",
         gap:10, marginBottom:20 }}>
         {[
           { label:"Taming Manuals",       invKey:"tamingManuals",       value:manuals,   color:C.blue,   needed:totalManuals },
@@ -864,7 +860,7 @@ export default function PetsPage({ inv, setInv, onCompleteSvs }) {
             )}
           </div>
         ))}
-      </div>
+      </div>}
 
       {/* ── Total SVS Points from goals ── */}
       {totalSvs > 0 && (

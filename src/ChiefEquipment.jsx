@@ -355,8 +355,6 @@ function ChiefGearPage({ inv, onCompleteSvs }) {
               <th style={{ ...thS, textAlign:"right" }}>Polish</th>
               <th style={{ ...thS, textAlign:"right" }}>Alloy</th>
               <th style={{ ...thS, textAlign:"right" }}>Amber</th>
-              <th style={{ ...thS, textAlign:"right" }}>Cur. Power</th>
-              <th style={{ ...thS, textAlign:"right" }}>Goal Power</th>
               <th style={{ ...thS, textAlign:"right" }}>Deployment Buff</th>
             </tr>
           </thead>
@@ -401,69 +399,9 @@ function ChiefGearPage({ inv, onCompleteSvs }) {
                     <td style={tdMono}>{changed ? cost.polish.toLocaleString() : "—"}</td>
                     <td style={tdMono}>{changed ? cost.alloy.toLocaleString() : "—"}</td>
                     <td style={tdMono}>{changed ? cost.amber.toLocaleString() : "—"}</td>
-                    <td style={tdMono}>{curRow[6] != null ? curRow[6].toLocaleString() : "TBD"}</td>
-                    <td style={tdMono}>{goalRow[6] != null ? goalRow[6].toLocaleString() : "TBD"}</td>
                     <td style={tdMono}>{showDeploy ? (goalRow[9] > 0 ? `+${goalRow[9].toLocaleString()}` : "—") : "—"}</td>
                   </tr>
 
-                  {/* Stat sub-row */}
-                  {changed && (() => {
-                    const LABELS = ["Power","Troop Atk","Troop Def","Deploy Buff"];
-                    const getVals = row => [
-                      row[6],
-                      row[7],
-                      row[8],
-                      showDeploy ? row[9] : null,
-                    ];
-                    const curVals  = getVals(curRow);
-                    const goalVals = getVals(goalRow);
-                    const chgVals  = curVals.map((v,i) => (v!=null && goalVals[i]!=null) ? goalVals[i]-v : null);
-                    const fmtV = (v, i) => {
-                      if (v == null) return "TBD";
-                      if (i === 0) return v.toLocaleString();
-                      if (i === 3) return v === 0 ? "—" : `+${v.toLocaleString()}`;
-                      return `${(v * 100).toFixed(2)}%`;
-                    };
-                    const chgColor = v => v==null ? C.textDim : v>0 ? C.green : v<0 ? C.red : C.textDim;
-                    const tdSt = { padding:"4px 8px", fontSize:10,
-                      fontFamily:"'Space Mono',monospace",
-                      borderRight:`1px solid ${C.border}`, textAlign:"center" };
-                    const rows = [
-                      { label:"Current", color:C.textSec, bg:"transparent",          vals:curVals  },
-                      { label:"Goal",    color:C.blue,    bg:"rgba(56,139,253,0.06)", vals:goalVals },
-                      { label:"Change",  color:C.green,   bg:"rgba(63,185,80,0.06)",  vals:chgVals, isChange:true },
-                    ];
-                    return (
-                      <tr style={{ background:"rgba(56,139,253,0.04)" }}>
-                        <td colSpan={11} style={{ padding:"6px 10px", borderBottom:`1px solid ${C.border}` }}>
-                          <div style={{ borderRadius:6, overflow:"hidden", border:`1px solid ${C.border}` }}>
-                            <table style={{ borderCollapse:"collapse", width:"100%", fontSize:10 }}>
-                              <thead>
-                                <tr>
-                                  <td style={{ ...tdSt, width:60, color:C.textDim, fontWeight:700, fontSize:9 }}/>
-                                  {LABELS.map((l,i) => (showDeploy || i<3) && (
-                                    <td key={l} style={{ ...tdSt, color:C.textDim, fontWeight:700, fontSize:9, whiteSpace:"nowrap" }}>{l}</td>
-                                  ))}
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {rows.map(row => (
-                                  <tr key={row.label} style={{ background:row.bg }}>
-                                    <td style={{ ...tdSt, color:row.color, fontWeight:700, fontSize:9 }}>{row.label}</td>
-                                    {row.vals.map((v,i) => (showDeploy || i<3) && (
-                                      <td key={i} style={{ ...tdSt, color: row.isChange ? chgColor(v) : (v==null?C.textDim:C.textPri) }}>
-                                        {row.isChange && v!=null && v>0 && i!==3 ? "+" : ""}{fmtV(v,i)}
-                                      </td>
-                                    ))}
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })()}
                 </React.Fragment>
               );
             })}
@@ -815,8 +753,6 @@ function ChiefCharmsPage({ inv, onCompleteSvs }) {
               <th style={{ ...thS, textAlign:"right" }}>Guides</th>
               <th style={{ ...thS, textAlign:"right" }}>Designs</th>
               <th style={{ ...thS, textAlign:"right" }}>Secrets</th>
-              <th style={{ ...thS, textAlign:"right" }}>Cur. Power</th>
-              <th style={{ ...thS, textAlign:"right" }}>Goal Power</th>
               <th style={{ ...thS, textAlign:"right" }}>Lethality</th>
               <th style={{ ...thS, textAlign:"right" }}>Health</th>
             </tr>
@@ -833,16 +769,8 @@ function ChiefCharmsPage({ inv, onCompleteSvs }) {
               const showGear  = idx === 0 || slots[idx-1].gear  !== s.gear;
               const charmNum  = (idx % 3) + 1;
 
-              const curPow   = s.current > 0 ? CHIEF_CHARM_LEVELS[s.current-1].power  : 0;
-              const goalPow  = s.goal    > 0 ? CHIEF_CHARM_LEVELS[s.goal-1].power     : 0;
-              const curLeth  = s.current > 0 ? CHIEF_CHARM_LEVELS[s.current-1].leth   : 0;
-              const goalLeth = s.goal    > 0 ? CHIEF_CHARM_LEVELS[s.goal-1].leth      : 0;
-              const curHp    = s.current > 0 ? CHIEF_CHARM_LEVELS[s.current-1].health : 0;
-              const goalHp   = s.goal    > 0 ? CHIEF_CHARM_LEVELS[s.goal-1].health    : 0;
-
-              const tdSt = { padding:"4px 8px", fontSize:10,
-                fontFamily:"'Space Mono',monospace",
-                borderRight:`1px solid ${C.border}`, textAlign:"center" };
+              const goalLeth = s.goal > 0 ? CHIEF_CHARM_LEVELS[s.goal-1].leth   : 0;
+              const goalHp   = s.goal > 0 ? CHIEF_CHARM_LEVELS[s.goal-1].health : 0;
 
               return (
                 <React.Fragment key={idx}>
@@ -872,56 +800,10 @@ function ChiefCharmsPage({ inv, onCompleteSvs }) {
                     <td style={tdMono}>{changed ? cost.guides.toLocaleString()  : "—"}</td>
                     <td style={tdMono}>{changed ? cost.designs.toLocaleString() : "—"}</td>
                     <td style={tdMono}>{changed ? cost.secrets.toLocaleString() : "—"}</td>
-                    <td style={tdMono}>{curPow   > 0 ? curPow.toLocaleString()       : "—"}</td>
-                    <td style={tdMono}>{goalPow  > 0 ? goalPow.toLocaleString()      : "—"}</td>
                     <td style={tdMono}>{goalLeth > 0 ? `${(goalLeth * 100).toFixed(2)}%` : "—"}</td>
                     <td style={tdMono}>{goalHp   > 0 ? `${(goalHp   * 100).toFixed(2)}%` : "—"}</td>
                   </tr>
 
-                  {/* Stat sub-row */}
-                  {changed && (() => {
-                    const LABELS = ["Power","Lethality","Health"];
-                    const curVals  = [curPow,  curLeth,  curHp];
-                    const goalVals = [goalPow, goalLeth, goalHp];
-                    const chgVals  = curVals.map((v,i) => goalVals[i] - v);
-                    const fmtV = (v, i) => i===0 ? v.toLocaleString() : `${(v * 100).toFixed(2)}%`;
-                    const chgColor = v => v>0 ? C.green : v<0 ? C.red : C.textDim;
-                    const rows = [
-                      { label:"Current", color:C.textSec, bg:"transparent",          vals:curVals  },
-                      { label:"Goal",    color:C.blue,    bg:"rgba(56,139,253,0.06)", vals:goalVals },
-                      { label:"Change",  color:C.green,   bg:"rgba(63,185,80,0.06)",  vals:chgVals, isChange:true },
-                    ];
-                    return (
-                      <tr style={{ background:"rgba(56,139,253,0.04)" }}>
-                        <td colSpan={12} style={{ padding:"6px 10px", borderBottom:`1px solid ${C.border}` }}>
-                          <div style={{ borderRadius:6, overflow:"hidden", border:`1px solid ${C.border}` }}>
-                            <table style={{ borderCollapse:"collapse", width:"100%", fontSize:10 }}>
-                              <thead>
-                                <tr>
-                                  <td style={{ ...tdSt, width:60, color:C.textDim, fontWeight:700, fontSize:9 }}/>
-                                  {LABELS.map(l => (
-                                    <td key={l} style={{ ...tdSt, color:C.textDim, fontWeight:700, fontSize:9, whiteSpace:"nowrap" }}>{l}</td>
-                                  ))}
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {rows.map(row => (
-                                  <tr key={row.label} style={{ background:row.bg }}>
-                                    <td style={{ ...tdSt, color:row.color, fontWeight:700, fontSize:9 }}>{row.label}</td>
-                                    {row.vals.map((v,i) => (
-                                      <td key={i} style={{ ...tdSt, color: row.isChange ? chgColor(v) : C.textPri }}>
-                                        {row.isChange && v>0 ? "+" : ""}{fmtV(v,i)}
-                                      </td>
-                                    ))}
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })()}
                 </React.Fragment>
               );
             })}

@@ -1720,8 +1720,7 @@ function ExpertsPage({ inv, setInv, onCompleteSvs }) {
     },
   ];
 
-  // Guests see the first 3 experts only
-  const visibleExperts = isGuest ? EXPERTS.slice(0, 3) : EXPERTS;
+  const visibleExperts = EXPERTS;
 
   // ── State ────────────────────────────────────────────────────────────────────
   const [expertData, setExpertData] = useLocalStorage("experts-data", {});
@@ -2349,7 +2348,7 @@ function ExpertsPage({ inv, setInv, onCompleteSvs }) {
 
       {/* ── Guest limit banner ── */}
       {isGuest && (
-        <GuestBanner message={`${EXPERTS.slice(0,3).map(e=>e.name).join(", ")} available as guest (3 of 9) — sign up for free to access all 9 experts`} />
+        <GuestBanner message="Expert tracking and progress saving requires a free account. Sign up to save your levels and sync across devices." />
       )}
 
       {/* ── Expert Cards ── */}
@@ -2461,7 +2460,7 @@ function ExpertsPage({ inv, setInv, onCompleteSvs }) {
       </div>
 
       {/* ── Troop Stats Summary ── */}
-      <ExpertStatsSummary expertData={expertData} />
+      {!isGuest && <ExpertStatsSummary expertData={expertData} />}
 
     </div>
   );
