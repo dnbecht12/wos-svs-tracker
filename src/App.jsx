@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo, Component } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "./supabase.js";
+import { useTier } from "./useTier.js";
 import {
   useLocalStorage, setGuestFlag, setSyncUserId, setSyncCharId, scheduleSync, _isGuest, NO_SYNC_KEYS,
 } from "./useLocalStorage.js";
@@ -2007,6 +2008,143 @@ const PAGE_TITLES = {
   admin:        { title: "Admin", sub: "Review and approve hero stat submissions" },
 };
 
+// ─── Upgrade Modal ────────────────────────────────────────────────────────────
+function UpgradeModal({ open, onClose, onSubscribe, monthlyId, annualId, user }) {
+  const C = COLORS;
+  const [selectedPlan, setSelectedPlan] = React.useState("annual");
+  const [promoCode,    setPromoCode]    = React.useState("");
+  const [loading,      setLoading]      = React.useState(false);
+  const mono = { fontFamily:"'Space Mono',monospace" };
+
+  if (!open) return null;
+
+  const plans = [
+    { id: "monthly", priceId: monthlyId, label: "Monthly",  price: "$4.99", period: "/month",
+      note: "Billed monthly · Cancel anytime" },
+    { id: "annual",  priceId: annualId,  label: "Annual",   price: "$39.99", period: "/year",
+      note: "~$3.33/month · Save 33%", badge: "BEST VALUE" },
+  ];
+
+  const features = [
+    "☁️  Cloud sync across all devices",
+    "👤  Unlimited characters",
+    "🏗️  Construction Planner",
+    "⚔️  Complete Upgrades tool",
+    "🦸  Hero Gear — up to 6 teams",
+    "🔄  Priority feature updates",
+  ];
+
+  const handleSubscribe = async () => {
+    if (!user) { alert("Please sign in to subscribe."); return; }
+    const plan = plans.find(p => p.id === selectedPlan);
+    setLoading(true);
+    await onSubscribe(plan.priceId, promoCode || undefined);
+    setLoading(false);
+  };
+
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.8)",
+      display:"flex", alignItems:"center", justifyContent:"center",
+      zIndex:9999, padding:16 }} onClick={onClose}>
+      <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:14,
+        width:"100%", maxWidth:520, display:"flex", flexDirection:"column",
+        boxShadow:"0 24px 80px rgba(0,0,0,0.6)" }} onClick={e => e.stopPropagation()}>
+
+        {/* Header */}
+        <div style={{ padding:"22px 24px 16px", borderBottom:`1px solid ${C.border}`,
+          background:`linear-gradient(135deg, rgba(227,115,26,0.1), transparent)`,
+          borderRadius:"14px 14px 0 0" }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+            <div>
+              <div style={{ fontSize:22, fontWeight:900, color:C.textPri,
+                fontFamily:"Syne,sans-serif", marginBottom:4 }}>
+                ⚡ Tundra Command Pro
+              </div>
+              <div style={{ fontSize:12, color:C.textDim }}>
+                Unlock the full planning toolkit
+              </div>
+            </div>
+            <button onClick={onClose} style={{ background:"none", border:"none",
+              color:C.textDim, fontSize:20, cursor:"pointer", padding:4, lineHeight:1 }}>✕</button>
+          </div>
+        </div>
+
+        {/* Features */}
+        <div style={{ padding:"16px 24px 0" }}>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"6px 16px",
+            marginBottom:16 }}>
+            {features.map(f => (
+              <div key={f} style={{ fontSize:12, color:C.textSec, display:"flex",
+                alignItems:"center", gap:6 }}>{f}</div>
+            ))}
+          </div>
+
+          {/* Plan selector */}
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:16 }}>
+            {plans.map(plan => (
+              <div key={plan.id} onClick={() => setSelectedPlan(plan.id)}
+                style={{ padding:"12px 14px", borderRadius:10, cursor:"pointer",
+                  border:`2px solid ${selectedPlan === plan.id ? C.accent : C.border}`,
+                  background: selectedPlan === plan.id ? `rgba(227,115,26,0.1)` : C.surface,
+                  transition:"all 0.15s", position:"relative" }}>
+                {plan.badge && (
+                  <div style={{ position:"absolute", top:-8, right:8,
+                    background:C.accent, color:C.bg, fontSize:8, fontWeight:800,
+                    padding:"2px 6px", borderRadius:4, ...mono }}>
+                    {plan.badge}
+                  </div>
+                )}
+                <div style={{ fontSize:13, fontWeight:800, color:C.textPri,
+                  fontFamily:"Syne,sans-serif", marginBottom:2 }}>{plan.label}</div>
+                <div style={{ display:"flex", alignItems:"baseline", gap:2 }}>
+                  <span style={{ fontSize:20, fontWeight:900, color:C.accent,
+                    fontFamily:"Syne,sans-serif" }}>{plan.price}</span>
+                  <span style={{ fontSize:11, color:C.textDim, ...mono }}>{plan.period}</span>
+                </div>
+                <div style={{ fontSize:10, color:C.textDim, ...mono, marginTop:2 }}>
+                  {plan.note}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Promo code */}
+          <div style={{ marginBottom:16 }}>
+            <input
+              type="text"
+              placeholder="Promo / Access code (optional)"
+              value={promoCode}
+              onChange={e => setPromoCode(e.target.value.toUpperCase())}
+              style={{ width:"100%", padding:"9px 12px", borderRadius:7,
+                border:`1px solid ${C.border}`, background:C.surface,
+                color:C.textPri, fontSize:12, ...mono, outline:"none",
+                boxSizing:"border-box" }}
+            />
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding:"0 24px 20px" }}>
+          <button onClick={handleSubscribe} disabled={loading}
+            style={{ width:"100%", padding:"12px", borderRadius:9, cursor:loading?"wait":"pointer",
+              border:"none",
+              background: loading ? C.border : "linear-gradient(135deg,#E3731A,#f5a623)",
+              color:"#fff", fontSize:14, fontWeight:900,
+              fontFamily:"Syne,sans-serif",
+              opacity: loading ? 0.7 : 1, transition:"all 0.15s",
+              boxShadow: loading ? "none" : "0 4px 16px rgba(227,115,26,0.4)" }}>
+            {loading ? "Redirecting to checkout..." : "Subscribe with Stripe →"}
+          </button>
+          <div style={{ textAlign:"center", marginTop:10, fontSize:10, color:C.textDim, ...mono }}>
+            Secure payment via Stripe · Cancel anytime · No hidden fees
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 // ─── Terms and Conditions Modal ──────────────────────────────────────────────
 function TermsModal({ open, onClose }) {
   if (!open) return null;
@@ -2825,6 +2963,7 @@ export default function App() {
   const [guideOpen,       setGuideOpen]       = useState(false);
   const [contactOpen,     setContactOpen]     = useState(false);
   const [termsOpen,       setTermsOpen]       = useState(false);
+  const [upgradeOpen,     setUpgradeOpen]     = useState(false);
   const [svsModal,        setSvsModal]        = useState({ open:false, scope:"all" });
   const [userMessages,    setUserMessages]    = useState([]); // logged-in user's threads
   const [notifications,   setNotifications]   = useState([]);
@@ -3121,6 +3260,19 @@ export default function App() {
 
   useEffect(() => { setSavedAt(new Date().toLocaleTimeString()); }, []);
 
+  // Handle Stripe redirect back to app
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("checkout") === "success") {
+      window.history.replaceState({}, "", "/");
+      setUpgradeOpen(false);
+      // Brief toast — subscription row will update via Realtime
+      alert("🎉 Welcome to Tundra Command Pro! Your features are now unlocked.");
+    } else if (params.get("checkout") === "cancelled") {
+      window.history.replaceState({}, "", "/");
+    }
+  }, []);
+
   // ── Global Tab navigation for Inventory and Tables ──────────────────────────
   useEffect(() => {
     const FOCUSABLE = 'input:not([disabled]):not([type="hidden"]), select:not([disabled])';
@@ -3306,6 +3458,14 @@ export default function App() {
       {/* Contact Modal */}
       <ContactModal open={contactOpen} onClose={() => setContactOpen(false)} user={user} />
       <TermsModal open={termsOpen} onClose={() => setTermsOpen(false)} />
+      <UpgradeModal
+        open={upgradeOpen}
+        onClose={() => setUpgradeOpen(false)}
+        onSubscribe={subscribe}
+        monthlyId={STRIPE_PRICE_MONTHLY}
+        annualId={STRIPE_PRICE_ANNUAL}
+        user={user}
+      />
       <SvsCompleteModal
         open={svsModal.open}
         scope={svsModal.scope}
@@ -3523,26 +3683,35 @@ export default function App() {
           {/* ── Sidebar Footer ─────────────────────────────── */}
           <div className="sidebar-footer">
 
-            {/* Buy Me a Coffee */}
-            <div style={{marginBottom:12,display:"flex",justifyContent:"center"}}>
-              <a href="https://www.buymeacoffee.com/davidwos" target="_blank" rel="noreferrer"
-                style={{display:"inline-flex",alignItems:"center",gap:8,padding:"7px 14px",
-                  borderRadius:8,background:"#FFDD00",color:"#000",fontWeight:700,
-                  fontSize:12,textDecoration:"none",fontFamily:"Inter,Syne,sans-serif",
-                  border:"1px solid #000",whiteSpace:"nowrap",transition:"opacity 0.15s"}}
-                onMouseEnter={e=>e.currentTarget.style.opacity="0.85"}
-                onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
-                <span style={{fontSize:16}}>☕</span> Buy me a coffee
-              </a>
-            </div>
-
-            {/* Support prompt */}
-            <div style={{textAlign:"center",marginBottom:10,fontSize:10,lineHeight:1.5,color:COLORS.textSec}}>
-              If you'd like to support this project,<br/>
-              my Player ID is{" "}
-              <span style={{fontFamily:"Space Mono,monospace",color:COLORS.textPri,fontWeight:700,
-                letterSpacing:"0.5px"}}>423094419</span>.
-            </div>
+            {/* Upgrade to Pro button — shown to free logged-in users */}
+            {user && !isPro && (
+              <div style={{marginBottom:12,display:"flex",justifyContent:"center"}}>
+                <button onClick={() => setUpgradeOpen(true)}
+                  style={{display:"inline-flex",alignItems:"center",gap:8,padding:"8px 16px",
+                    borderRadius:8,background:"linear-gradient(135deg,#E3731A,#f5a623)",
+                    color:"#fff",fontWeight:800,fontSize:12,cursor:"pointer",
+                    fontFamily:"Syne,sans-serif",border:"none",whiteSpace:"nowrap",
+                    boxShadow:"0 2px 12px rgba(227,115,26,0.4)"}}>
+                  ⚡ Upgrade to Pro
+                </button>
+              </div>
+            )}
+            {user && isPro && (
+              <div style={{marginBottom:12,display:"flex",justifyContent:"center"}}>
+                <div style={{display:"inline-flex",alignItems:"center",gap:6,padding:"5px 12px",
+                  borderRadius:8,background:"rgba(227,115,26,0.15)",
+                  border:"1px solid rgba(227,115,26,0.4)"}}>
+                  <span style={{fontSize:11,fontWeight:800,color:COLORS.accent,
+                    fontFamily:"Space Mono,monospace"}}>⚡ PRO</span>
+                  <button onClick={manageSubscription}
+                    style={{background:"none",border:"none",cursor:"pointer",
+                      color:COLORS.textDim,fontSize:10,fontFamily:"Space Mono,monospace",
+                      textDecoration:"underline",padding:0}}>
+                    manage
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Divider */}
             <div style={{borderTop:`1px solid ${COLORS.border}`,margin:"10px 0"}}/>
@@ -3707,23 +3876,43 @@ export default function App() {
             background: COLORS.surface, flexShrink: 0,
           }}>
             <div style={{fontSize:11,color:COLORS.textDim,
-              fontFamily:"'Space Mono',monospace", display:"flex", alignItems:"center", gap:12}}>
+              fontFamily:"'Space Mono',monospace", display:"flex", alignItems:"center",
+              gap:12, flexWrap:"wrap"}}>
               <span>Tundra Command · WoS SvS Planning Tracker · v1.0</span>
               <button onClick={() => setTermsOpen(true)} style={{
                 background:"none", border:"none", padding:0, cursor:"pointer",
                 color:COLORS.textDim, fontSize:11, fontFamily:"'Space Mono',monospace",
                 textDecoration:"underline", textUnderlineOffset:3,
               }}>Terms &amp; Conditions</button>
+              {user && !isPro && (
+                <button onClick={() => setUpgradeOpen(true)} style={{
+                  background:"none", border:"none", padding:0, cursor:"pointer",
+                  color:COLORS.accent, fontSize:11, fontFamily:"'Space Mono',monospace",
+                  textDecoration:"underline", textUnderlineOffset:3, fontWeight:700,
+                }}>⚡ Upgrade to Pro</button>
+              )}
             </div>
-            <button onClick={() => setContactOpen(true)}
-              style={{padding:"7px 16px",borderRadius:7,fontSize:11,fontWeight:700,
-                cursor:"pointer",fontFamily:"'Space Mono',monospace",
-                background:"transparent",color:COLORS.accent,
-                border:`1px solid ${COLORS.accentDim}`,transition:"all 0.15s"}}
-              onMouseEnter={e=>{e.currentTarget.style.background=COLORS.accentBg;}}
-              onMouseLeave={e=>{e.currentTarget.style.background="transparent";}}>
-              ✉️ Contact the Tundra Commander
-            </button>
+            <div style={{display:"flex", alignItems:"center", gap:10}}>
+              {/* Buy Me a Coffee */}
+              <a href="https://www.buymeacoffee.com/davidwos" target="_blank" rel="noreferrer"
+                style={{display:"inline-flex",alignItems:"center",gap:6,padding:"6px 12px",
+                  borderRadius:7,background:"#FFDD00",color:"#000",fontWeight:700,
+                  fontSize:11,textDecoration:"none",fontFamily:"Inter,Syne,sans-serif",
+                  border:"1px solid #e6c800",whiteSpace:"nowrap",transition:"opacity 0.15s"}}
+                onMouseEnter={e=>e.currentTarget.style.opacity="0.85"}
+                onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
+                ☕ Buy me a coffee
+              </a>
+              <button onClick={() => setContactOpen(true)}
+                style={{padding:"7px 16px",borderRadius:7,fontSize:11,fontWeight:700,
+                  cursor:"pointer",fontFamily:"'Space Mono',monospace",
+                  background:"transparent",color:COLORS.accent,
+                  border:`1px solid ${COLORS.accentDim}`,transition:"all 0.15s"}}
+                onMouseEnter={e=>{e.currentTarget.style.background=COLORS.accentBg;}}
+                onMouseLeave={e=>{e.currentTarget.style.background="transparent";}}>
+                ✉️ Contact the Tundra Commander
+              </button>
+            </div>
           </div>
         </main>
       </div>
