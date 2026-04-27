@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo, Component } f
 import { createPortal } from "react-dom";
 import { supabase } from "./supabase.js";
 import { useTier } from "./useTier.js";
-import { TierProvider } from "./TierContext.jsx";
+import { TierProvider, FreeGate } from "./TierContext.jsx";
 import {
   useLocalStorage, setGuestFlag, setSyncUserId, setSyncCharId, scheduleSync, _isGuest, NO_SYNC_KEYS,
 } from "./useLocalStorage.js";
@@ -1974,20 +1974,20 @@ const PAGES = [
   { id:"chief-charms",     label:"Chief Charms",     icon:"[K]", section:"Chief"                     },
   { id:"experts",          label:"Experts",           icon:"[E]", section:"Chief"                     },
   { id:"pets",              label:"Pets",              icon:"[P]", section:"Chief"                     },
-  { id:"daybreak-island",  label:"Daybreak Island",  icon:"[D]", section:"Chief"                     },
-  { id:"inventory",        label:"Inventory",         icon:"[I]", section:"Chief"                     },
+  { id:"daybreak-island",  label:"Daybreak Island",  icon:"[D]", section:"Chief",   guestHidden:true },
+  { id:"inventory",        label:"Inventory",         icon:"[I]", section:"Chief",   guestHidden:true },
   // COMBAT
   { id:"heroes",           label:"Heroes",            icon:"[H]", section:"Combat"                    },
   { id:"hero-gear",        label:"Hero Gear",         icon:"[G]", section:"Combat"                    },
-  { id:"troops",           label:"Troops",            icon:"[T]", section:"Combat"                    },
+  { id:"troops",           label:"Troops",            icon:"[T]", section:"Combat",  guestHidden:true },
   // CONSTRUCTION & TECHNOLOGY
   { id:"construction",     label:"Construction",     icon:"[B]", section:"Construction & Technology" },
   { id:"research-center",  label:"Research",         icon:"⚗",  section:"Construction & Technology" },
   { id:"war-academy",      label:"War Academy",      icon:"[W]", section:"Construction & Technology" },
   // PLANNING
-  { id:"rfc-planner",      label:"RFC Planner",      icon:"[R]", section:"Planning"                  },
+  { id:"rfc-planner",      label:"RFC Planner",      icon:"[R]", section:"Planning", guestHidden:true },
   { id:"svs-calendar",     label:"SvS Calendar",     icon:"[C]", section:"Planning"                  },
-  { id:"battle-sim",       label:"Battle Simulator",  icon:"[B]", section:"Planning"                  },
+  { id:"battle-sim",       label:"Battle Simulator",  icon:"[B]", section:"Planning", guestHidden:true },
 ];
 
 const PAGE_TITLES = {
@@ -3423,6 +3423,8 @@ export default function App() {
   const { title, sub } = pageTitle;
   const planKeys  = Object.keys(savedPlans).sort();
   const userInitial = (user?.user_metadata?.full_name?.[0] ?? user?.email?.[0] ?? "?").toUpperCase();
+  // Gate Complete Upgrades modal — guests never see it (button hidden by passing undefined)
+  const completeSvs = (scope) => user ? () => setSvsModal({ open:true, scope }) : undefined;
 
   return (
     <TierProvider
@@ -3567,10 +3569,13 @@ export default function App() {
           )}
 
           <nav className="sidebar-nav">
-            {sections.map(sec => (
+            {sections.map(sec => {
+              const visibleInSec = PAGES.filter(p => p.section === sec && !(!user && p.guestHidden));
+              if (!visibleInSec.length) return null;
+              return (
               <div key={sec}>
                 <div className="nav-section">{sec}</div>
-                {PAGES.filter(p => p.section === sec).map(p => (
+                {visibleInSec.map(p => (
                   <div
                     key={p.id}
                     className={clsx("nav-item", page === p.id && !loadedPlanKey && "active")}
@@ -3581,7 +3586,8 @@ export default function App() {
                   </div>
                 ))}
               </div>
-            ))}
+              );
+            })}
 
             {/* Saved Plans — only for logged-in users */}
             {user && planKeys.length > 0 && (
@@ -3847,34 +3853,34 @@ export default function App() {
                 }}>Loading character data…</div>
               </div>
             ) : (<>
-            {page === "inventory"    && <InventoryPage    inv={inv} setInv={setInv} />}
+            {page === "inventory"    && <FreeGate><InventoryPage inv={inv} setInv={setInv} /></FreeGate>}
             {page === "construction" && <ConstructionPlanner inv={inv} setInv={setInv}
                 planSnapshot={planSnapshot}
                 onSetSnapshot={handleSetSnapshot}
                 onUpdatePlan={handleUpdatePlan}
                 cpSpeedBuff={cpSpeedBuff} setCpSpeedBuff={setCpSpeedBuff}
-                activeCharId={activeCharId}  onCompleteSvs={() => setSvsModal({ open:true, scope:"construction" })}/>}
-            {page === "rfc-planner"  && <RFCPlanner inv={inv} setInv={setInv}
+                activeCharId={activeCharId} onCompleteSvs={completeSvs("construction")}/>}
+            {page === "rfc-planner"  && <FreeGate><RFCPlanner inv={inv} setInv={setInv}
                 savedPlans={user ? savedPlans : {}}
                 onSavePlan={user ? handleSavePlan : ()=>{}}
                 onLoadPlan={handleLoadPlan}
                 openSavePopup={user ? openSavePopup : null}
-                currentUser={user} />}
+                currentUser={user} /></FreeGate>}
             {page === "heroes"      && <HeroesPage    genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} setHgHeroes={setHgHeroes} currentUser={user} activeCharacter={activeCharacter} hgHeroes={hgHeroes} heroStatsVersion={heroStatsVersion} />}
             {page === "admin"       && user?.id === ADMIN_UID && <AdminPage onStatsUpdated={() => setHeroStatsVersion(v => v + 1)} />}
 
-            {page === "hero-gear"    && <HeroGearPage    inv={inv} genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} hgTeams={hgTeams} setHgTeams={setHgTeams} onCompleteSvs={() => setSvsModal({ open:true, scope:"hero-gear" })} />}
-            {page === "troops"       && <TroopsPage />}
-            {page === "chief-gear"   && <ChiefGearPage   inv={inv}  onCompleteSvs={() => setSvsModal({ open:true, scope:"chief-gear" })}/>}
-            {page === "chief-charms" && <ChiefCharmsPage inv={inv}  onCompleteSvs={() => setSvsModal({ open:true, scope:"chief-charms" })}/>}
-            {page === "experts"      && <ExpertsPage      inv={inv} setInv={setInv}  onCompleteSvs={() => setSvsModal({ open:true, scope:"experts" })}/>}
-            {page === "pets"           && <PetsPage inv={inv} setInv={setInv}  onCompleteSvs={() => setSvsModal({ open:true, scope:"pets" })}/>}
-            {page === "daybreak-island" && <DaybreakIslandPage />}
-            {page === "war-academy"  && <WarAcademyPage   inv={inv} setInv={setInv}  onCompleteSvs={() => setSvsModal({ open:true, scope:"war-academy" })}/>}
-            {page === "research-center" && <ResearchCenterPage inv={inv} rcLevels={rcLevels} setRcLevels={setRcLevels} rcCollapse={rcCollapse} setRcCollapse={setRcCollapse}  onCompleteSvs={() => setSvsModal({ open:true, scope:"research-center" })}/>}
+            {page === "hero-gear"    && <HeroGearPage    inv={inv} genFilter={genFilter} setGenFilter={setGenFilter} heroStats={heroStats} setHeroStats={setHeroStats} hgTeams={hgTeams} setHgTeams={setHgTeams} onCompleteSvs={completeSvs("hero-gear")} />}
+            {page === "troops"       && <FreeGate><TroopsPage /></FreeGate>}
+            {page === "chief-gear"   && <ChiefGearPage   inv={inv}  onCompleteSvs={completeSvs("chief-gear")}/>}
+            {page === "chief-charms" && <ChiefCharmsPage inv={inv}  onCompleteSvs={completeSvs("chief-charms")}/>}
+            {page === "experts"      && <ExpertsPage      inv={inv} setInv={setInv}  onCompleteSvs={completeSvs("experts")}/>}
+            {page === "pets"           && <PetsPage inv={inv} setInv={setInv}  onCompleteSvs={completeSvs("pets")}/>}
+            {page === "daybreak-island" && <FreeGate><DaybreakIslandPage /></FreeGate>}
+            {page === "war-academy"  && <WarAcademyPage   inv={inv} setInv={setInv}  onCompleteSvs={completeSvs("war-academy")}/>}
+            {page === "research-center" && <ResearchCenterPage inv={inv} rcLevels={rcLevels} setRcLevels={setRcLevels} rcCollapse={rcCollapse} setRcCollapse={setRcCollapse}  onCompleteSvs={completeSvs("research-center")}/>}
             {page === "svs-calendar" && <SvSCalendar />}
-            {page === "battle-sim"   && <BattleSimPage inv={inv} />}
-            {page === "char-profile" && <CharacterProfilePage hgHeroes={hgHeroes} inv={inv} onCompleteSvs={() => setSvsModal({ open:true, scope:"all" })}
+            {page === "battle-sim"   && <FreeGate><BattleSimPage inv={inv} /></FreeGate>}
+            {page === "char-profile" && <CharacterProfilePage hgHeroes={hgHeroes} inv={inv} onCompleteSvs={completeSvs("all")}
                 rcLevels={rcLevels} profileVersion={profileVersion}
                 cpSpeedBuff={cpSpeedBuff} setCpSpeedBuff={setCpSpeedBuff} />}
             </>)}

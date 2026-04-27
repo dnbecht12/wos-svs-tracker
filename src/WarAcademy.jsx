@@ -1,5 +1,6 @@
 import React from "react";
 import { useLocalStorage } from "./useLocalStorage.js";
+import { useTierContext, GuestBanner } from "./TierContext.jsx";
 
 // ─── COLORS ──────────────────────────────────────────────────────────────────
 const COLORS = {
@@ -275,6 +276,7 @@ function waPower(res, lv) {
 // ─── War Academy Page ─────────────────────────────────────────────────────────
 function WarAcademyPage({ inv, setInv, onCompleteSvs }) {
   const C = COLORS;
+  const { isGuest } = useTierContext();
 
   // ── State ──────────────────────────────────────────────────────────────────
   // Per-troop current/goal levels: { Infantry: { flameSquad: {cur,goal}, ... }, Lancer: ..., Marksman: ... }
@@ -753,6 +755,10 @@ function WarAcademyPage({ inv, setInv, onCompleteSvs }) {
 
   return (
     <div className="fade-in" style={{ padding:"0 0 40px" }}>
+
+      {isGuest && (
+        <GuestBanner message="Progress resets between sessions as a guest. Sign up to save your War Academy levels and track upgrade costs." />
+      )}
 
       {/* Complete Upgrades button */}
       {onCompleteSvs && (

@@ -105,6 +105,37 @@ function UpgradePrompt({ variant, message }) {
   );
 }
 
+// ─── Guest Banner ─────────────────────────────────────────────────────────────
+// Consistent guest info strip used across restricted modules.
+
+export function GuestBanner({ message }) {
+  const { openAuth } = useTierContext();
+  return (
+    <div style={{
+      background:"var(--c-blueBg)", border:"1px solid var(--c-blueDim)",
+      borderRadius:8, padding:"10px 16px", marginBottom:16,
+      display:"flex", alignItems:"center", justifyContent:"space-between",
+      gap:12, flexWrap:"wrap",
+    }}>
+      <span style={{fontSize:12, color:"var(--c-blue)", fontFamily:"Syne, sans-serif", lineHeight:1.5}}>
+        🔒 {message}
+      </span>
+      <button
+        onClick={openAuth}
+        style={{
+          padding:"5px 14px", borderRadius:6, border:"none",
+          background:"var(--c-blue)", color:"#0a0c10",
+          fontSize:11, fontWeight:700, cursor:"pointer",
+          fontFamily:"Syne, sans-serif", whiteSpace:"nowrap",
+          flexShrink:0,
+        }}
+      >
+        Sign Up Free
+      </button>
+    </div>
+  );
+}
+
 // ─── Gate Components ──────────────────────────────────────────────────────────
 
 // Renders children only for Pro users. All others see an upgrade prompt.

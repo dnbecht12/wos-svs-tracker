@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { _isGuest } from "./useLocalStorage.js";
+import { useTierContext, GuestBanner } from "./TierContext.jsx";
 import { buildCycles, getCurrentCycleNum, getCycleStartDate, fmtDate as fmtDateCal, cycleLabelFull, addDaysToDate, toIso, FIRST_SVS_MONDAY } from "./svsCalendar.js";
 import { supabase } from "./supabase.js";
 
@@ -710,7 +711,101 @@ async function syncCPFromCloud(userId, charId, setters) {
   } catch {}
 }
 
+// ─── Guest Calculator ────────────────────────────────────────────────────────
+// Building + from/to FC level → RFC cost, FC cost, time.
+// No tracking, no save, no Agnes/buff/cycle planning.
+
+const CALC_BUILDINGS  = ["Furnace","Embassy","Infantry","Marksman","Lancer","Command","Infirmary","War Academy"];
+const CALC_FC_LEVELS  = ["FC1","FC2","FC3","FC4","FC5","FC6","FC7","FC8","FC9","FC10"];
+
+function calcFmtMins(m) {
+  const d = Math.floor(m / 1440);
+  const h = Math.floor((m % 1440) / 60);
+  const mn = m % 60;
+  return [d && `${d}d`, h && `${h}h`, mn && `${mn}m`].filter(Boolean).join(" ") || "0m";
+}
+function calcFmtM(n) {
+  if (n >= 1e9) return (n/1e9).toFixed(1)+"B";
+  if (n >= 1e6) return (n/1e6).toFixed(1)+"M";
+  return n.toLocaleString();
+}
+
+function GuestConstructionCalc() {
+  const { openAuth } = useTierContext();
+  const [building,   setBuilding]   = useState("Furnace");
+  const [fromLevel,  setFromLevel]  = useState("FC1");
+  const [toLevel,    setToLevel]    = useState("FC10");
+
+  const toOpts      = CALC_FC_LEVELS.slice(CALC_FC_LEVELS.indexOf(fromLevel) + 1);
+  const effectiveTo = toOpts.includes(toLevel) ? toLevel : toOpts[toOpts.length - 1] || "FC10";
+  const result      = useMemo(
+    () => computeUpgradeFull(building, fromLevel, 0, effectiveTo, 0),
+    [building, fromLevel, effectiveTo]
+  );
+
+  const inpS = { width:"100%", background:"var(--c-surface)", border:"1px solid var(--c-border)",
+    borderRadius:7, padding:"7px 10px", fontSize:12, color:"var(--c-textPri)", outline:"none",
+    fontFamily:"Syne,sans-serif", cursor:"pointer" };
+  const lbl  = { fontSize:10, fontWeight:700, color:"var(--c-textSec)", textTransform:"uppercase",
+    letterSpacing:"1px", fontFamily:"'Space Mono',monospace", marginBottom:5 };
+
+  return (
+    <div className="fade-in">
+      <GuestBanner message="Sign up to track building progress, plan SvS cycles, and sync across devices." />
+      <div style={{background:"var(--c-card)", border:"1px solid var(--c-border)", borderRadius:12,
+        padding:"20px 24px", maxWidth:580}}>
+        <div style={{fontSize:13, fontWeight:800, marginBottom:16, color:"var(--c-textPri)",
+          fontFamily:"Syne,sans-serif"}}>Building Upgrade Cost Calculator</div>
+        <div style={{display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12, marginBottom:20}}>
+          <div>
+            <div style={lbl}>Building</div>
+            <select value={building} onChange={e => setBuilding(e.target.value)} style={inpS}>
+              {CALC_BUILDINGS.map(b => <option key={b} value={b}>{b}</option>)}
+            </select>
+          </div>
+          <div>
+            <div style={lbl}>From Level</div>
+            <select value={fromLevel} onChange={e => {
+              setFromLevel(e.target.value);
+              const opts = CALC_FC_LEVELS.slice(CALC_FC_LEVELS.indexOf(e.target.value)+1);
+              if (!opts.includes(toLevel)) setToLevel(opts[opts.length-1]||"FC10");
+            }} style={inpS}>
+              {CALC_FC_LEVELS.slice(0,-1).map(l => <option key={l} value={l}>{l}</option>)}
+            </select>
+          </div>
+          <div>
+            <div style={lbl}>To Level</div>
+            <select value={effectiveTo} onChange={e => setToLevel(e.target.value)}
+              style={{...inpS, color:"var(--c-accent)", fontWeight:700}}>
+              {toOpts.map(l => <option key={l} value={l}>{l}</option>)}
+            </select>
+          </div>
+        </div>
+        <div style={{display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(120px,1fr))", gap:10}}>
+          {[
+            {label:"FC Cost",  value:result.fc.toLocaleString(),    color:"var(--c-accent)"},
+            {label:"RFC Cost", value:result.rfc.toLocaleString(),   color:"var(--c-blue)"},
+            {label:"Time",     value:calcFmtMins(result.mins),      color:"var(--c-textPri)"},
+            {label:"Meat",     value:calcFmtM(result.meat),         color:"var(--c-textSec)"},
+            {label:"Wood",     value:calcFmtM(result.wood),         color:"var(--c-textSec)"},
+          ].map(row => (
+            <div key={row.label} style={{background:"var(--c-surface)", border:"1px solid var(--c-border)",
+              borderRadius:8, padding:"10px 14px"}}>
+              <div style={{...lbl, marginBottom:4}}>{row.label}</div>
+              <div style={{fontSize:16, fontWeight:800, color:row.color,
+                fontFamily:"'Space Mono',monospace"}}>{row.value || "—"}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSnapshot, onUpdatePlan, cpSpeedBuff: cpSpeedBuffProp, setCpSpeedBuff: setCpSpeedBuffProp, activeCharId, onCompleteSvs }) {
+  const { isGuest } = useTierContext();
+  if (isGuest) return <GuestConstructionCalc />;
+
   // Cycle selector linked to SvS Calendar
   const currentCycle = useMemo(() => getCurrentCycleNum(), []);
   const cycleOpts    = useMemo(() => buildCycles(Math.max(1, currentCycle - 1), 16), [currentCycle]);

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useLocalStorage } from "./useLocalStorage.js";
+import { useTierContext, GuestBanner } from "./TierContext.jsx";
 
 // ─── COLORS (CSS variable references — theme applied by App.jsx on :root) ─────
 const COLORS = {
@@ -1496,6 +1497,7 @@ function ConstructionPage({ inv }) {
 
 function ExpertsPage({ inv, setInv, onCompleteSvs }) {
   const C = COLORS;
+  const { isGuest } = useTierContext();
 
   // ── Expert Data Tables ──────────────────────────────────────────────────────
 
@@ -1717,6 +1719,9 @@ function ExpertsPage({ inv, setInv, onCompleteSvs }) {
       ],
     },
   ];
+
+  // Guests see the first 3 experts only
+  const visibleExperts = isGuest ? EXPERTS.slice(0, 3) : EXPERTS;
 
   // ── State ────────────────────────────────────────────────────────────────────
   const [expertData, setExpertData] = useLocalStorage("experts-data", {});
@@ -2342,9 +2347,14 @@ function ExpertsPage({ inv, setInv, onCompleteSvs }) {
         ))}
       </div>
 
+      {/* ── Guest limit banner ── */}
+      {isGuest && (
+        <GuestBanner message={`${EXPERTS.slice(0,3).map(e=>e.name).join(", ")} available as guest (3 of 9) — sign up for free to access all 9 experts`} />
+      )}
+
       {/* ── Expert Cards ── */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(280px, 1fr))", gap:12 }}>
-        {EXPERTS.map(expert => {
+        {visibleExperts.map(expert => {
           const d = getExpert(expert.name);
           const curLv  = Number(d.level ?? 0);
           const curB   = Number(d.affinity ?? 0);

@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { useTierContext, GuestBanner } from "./TierContext.jsx";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -1385,6 +1386,7 @@ const COLORS = {
 
 export default function ResearchCenterPage({ inv, rcLevels, setRcLevels, rcCollapse, setRcCollapse, onCompleteSvs }) {
   const C = COLORS;
+  const { isGuest } = useTierContext();
   const [tree, setTree] = useState("Growth");
 
   // Use props (cloud-synced from App.jsx) — fall back to empty obj if not yet loaded
@@ -1501,6 +1503,10 @@ export default function ResearchCenterPage({ inv, rcLevels, setRcLevels, rcColla
 
   return (
     <div className="fade-in">
+      {isGuest && (
+        <GuestBanner message="Progress resets between sessions as a guest. Sign up to save your Research Center levels and track upgrade costs." />
+      )}
+
       {/* Complete Upgrades button */}
       {onCompleteSvs && (
         <div style={{ display:"flex", justifyContent:"flex-end", marginBottom:12 }}>

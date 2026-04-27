@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { useLocalStorage } from "./useLocalStorage.js";
 import { supabase } from "./supabase.js";
 import { GEAR_DB, EMPOWERMENT, GEAR_TYPE, HERO_GEAR_SET, SLOT_TO_GEAR, getGearStats, getUnlockedEmpowerments } from "./GearData.js";
+import { useTierContext, GuestBanner } from "./TierContext.jsx";
 
 // ─── COLORS ───────────────────────────────────────────────────────────────────
 const COLORS = {
@@ -475,7 +476,7 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
             style={{padding:"5px 12px",borderRadius:6,fontSize:11,fontWeight:700,
               cursor:"pointer",fontFamily:"Syne,sans-serif",border:`1px solid ${C.amber}`,
               background:"transparent",color:C.amber,
-              display: subBlocked ? "none" : "inline-block"}}>
+              display: (subBlocked || !currentUser) ? "none" : "inline-block"}}>
             📤 Submit My Stats
           </button>
           <button onClick={() => setDbRefreshKey(k => k + 1)}
@@ -1811,8 +1812,157 @@ function migrateOldHeroes(oldHeroes) {
   return result;
 }
 
+// ─── Guest Hero Gear Calculator ───────────────────────────────────────────────
+// Simplified: pick slot + status + from/to level → shows material cost.
+// No hero context, no stat table, no save.
+
+const GEAR_SLOT_NAMES = ["Weapon","Helmet","Armor","Boots","Accessory"];
+const LEGENDARY_MILESTONES = [
+  {level:1,mithril:0,mythic:2},{level:20,mithril:10,mythic:3},
+  {level:40,mithril:20,mythic:5},{level:60,mithril:30,mythic:5},
+  {level:80,mithril:40,mythic:10},{level:100,mithril:50,mythic:10},
+];
+const MASTERY_TABLE = [
+  {level:1,stones:10,mythic:0},{level:2,stones:20,mythic:0},{level:3,stones:30,mythic:0},
+  {level:4,stones:40,mythic:0},{level:5,stones:50,mythic:0},{level:6,stones:60,mythic:0},
+  {level:7,stones:70,mythic:0},{level:8,stones:80,mythic:0},{level:9,stones:90,mythic:0},
+  {level:10,stones:100,mythic:0},{level:11,stones:110,mythic:1},{level:12,stones:120,mythic:2},
+  {level:13,stones:130,mythic:3},{level:14,stones:140,mythic:4},{level:15,stones:150,mythic:5},
+  {level:16,stones:160,mythic:6},{level:17,stones:170,mythic:7},{level:18,stones:180,mythic:8},
+  {level:19,stones:190,mythic:9},{level:20,stones:200,mythic:10},
+];
+
+function calcLegendaryCost(from, to) {
+  let mithril=0, mythic=0;
+  LEGENDARY_MILESTONES.forEach(m => {
+    if (m.level > from && m.level <= to) { mithril += m.mithril; mythic += m.mythic; }
+  });
+  return {mithril, mythic};
+}
+function calcMasteryCost(from, to) {
+  let stones=0, mythic=0;
+  MASTERY_TABLE.forEach(m => {
+    if (m.level > from && m.level <= to) { stones += m.stones; mythic += m.mythic; }
+  });
+  return {stones, mythic};
+}
+
+function GuestHeroGearCalc() {
+  const { openAuth } = useTierContext();
+  const C = COLORS;
+  const defaultSlots = () => GEAR_SLOT_NAMES.map(name => ({ name, status:"Legendary", cur:0, goal:0 }));
+  const [slots, setSlots] = useState(defaultSlots);
+
+  const update = (i, field, raw) => {
+    const val = Math.max(0, Math.min(field === "status" ? raw : Number(raw), field === "status" ? raw : (raw === "cur" || field === "cur" ? 100 : 100)));
+    setSlots(prev => prev.map((s, si) => {
+      if (si !== i) return s;
+      const next = { ...s, [field]: field === "status" ? raw : Number(raw) };
+      const maxLv = next.status === "Legendary" ? 100 : 20;
+      if (field === "cur" && next.cur > next.goal) next.goal = next.cur;
+      if (field === "goal" && next.goal < next.cur) next.goal = next.cur;
+      if (field === "status") { next.cur = 0; next.goal = 0; }
+      next.cur  = Math.min(next.cur,  maxLv);
+      next.goal = Math.min(next.goal, maxLv);
+      return next;
+    }));
+  };
+
+  const totals = useMemo(() => {
+    let mithril=0, mythic=0, stones=0;
+    slots.forEach(s => {
+      if (s.status === "Legendary") { const c=calcLegendaryCost(s.cur,s.goal); mithril+=c.mithril; mythic+=c.mythic; }
+      else                          { const c=calcMasteryCost(s.cur,s.goal);   stones+=c.stones;   mythic+=c.mythic; }
+    });
+    return {mithril, mythic, stones};
+  }, [slots]);
+
+  const selS = { background:C.surface, border:`1px solid ${C.border}`, borderRadius:6,
+    padding:"4px 8px", color:C.textPri, fontSize:11, outline:"none",
+    fontFamily:"'Space Mono',monospace", cursor:"pointer" };
+  const numS = { width:52, background:"transparent", border:`1px solid ${C.border}`, borderRadius:6,
+    padding:"4px 8px", color:C.accent, fontSize:12, fontWeight:700, outline:"none",
+    fontFamily:"'Space Mono',monospace", textAlign:"center",
+    MozAppearance:"textfield" };
+
+  return (
+    <div className="fade-in">
+      <GuestBanner message="Hero Gear tracking, teams, and stat improvement tables require a free account." />
+      <div style={{background:C.card, border:`1px solid ${C.border}`, borderRadius:12, overflow:"hidden", maxWidth:640}}>
+        <div style={{padding:"12px 16px", background:C.surface, borderBottom:`1px solid ${C.border}`,
+          display:"flex", justifyContent:"space-between", alignItems:"center"}}>
+          <span style={{fontSize:13, fontWeight:800, color:C.textPri, fontFamily:"Syne,sans-serif"}}>Gear Upgrade Cost Calculator</span>
+          <span style={{fontSize:10, color:C.textDim, fontFamily:"'Space Mono',monospace"}}>1 set · no save</span>
+        </div>
+        <div style={{overflowX:"auto"}}>
+          <table style={{width:"100%", borderCollapse:"collapse", fontSize:12}}>
+            <thead>
+              <tr style={{background:C.surface}}>
+                {["Slot","Type","Current","Goal","Mithril","Stones","Mythic Shards"].map(h => (
+                  <th key={h} style={{padding:"8px 12px", fontSize:9, fontWeight:700, letterSpacing:"0.8px",
+                    textTransform:"uppercase", color:C.textSec, fontFamily:"'Space Mono',monospace",
+                    textAlign:"left", borderBottom:`1px solid ${C.border}`, whiteSpace:"nowrap"}}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {slots.map((s, i) => {
+                const maxLv = s.status === "Legendary" ? 100 : 20;
+                const cost  = s.status === "Legendary" ? calcLegendaryCost(s.cur, s.goal) : calcMasteryCost(s.cur, s.goal);
+                return (
+                  <tr key={s.name} style={{borderBottom:`1px solid ${C.border}`}}>
+                    <td style={{padding:"10px 12px", fontWeight:700, color:C.textPri, fontFamily:"'Space Mono',monospace", fontSize:11}}>{s.name}</td>
+                    <td style={{padding:"10px 12px"}}>
+                      <select value={s.status} onChange={e => update(i,"status",e.target.value)} style={selS}>
+                        <option value="Legendary">Legendary</option>
+                        <option value="Mythic">Mythic (Mastery)</option>
+                      </select>
+                    </td>
+                    <td style={{padding:"10px 12px"}}>
+                      <input type="number" min={0} max={maxLv} value={s.cur}
+                        onChange={e => update(i,"cur",e.target.value)} style={numS}/>
+                    </td>
+                    <td style={{padding:"10px 12px"}}>
+                      <input type="number" min={s.cur} max={maxLv} value={s.goal}
+                        onChange={e => update(i,"goal",e.target.value)} style={{...numS, color:C.blue}}/>
+                    </td>
+                    <td style={{padding:"10px 12px", fontFamily:"'Space Mono',monospace", color:cost.mithril>0?C.accent:C.textDim, fontWeight:700}}>
+                      {cost.mithril > 0 ? cost.mithril.toLocaleString() : "—"}
+                    </td>
+                    <td style={{padding:"10px 12px", fontFamily:"'Space Mono',monospace", color:cost.stones>0?C.blue:C.textDim, fontWeight:700}}>
+                      {cost.stones > 0 ? cost.stones.toLocaleString() : "—"}
+                    </td>
+                    <td style={{padding:"10px 12px", fontFamily:"'Space Mono',monospace", color:cost.mythic>0?C.amber:C.textDim, fontWeight:700}}>
+                      {cost.mythic > 0 ? cost.mythic.toLocaleString() : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
+              <tr style={{background:C.surface, borderTop:`2px solid ${C.borderHi}`}}>
+                <td colSpan={4} style={{padding:"10px 12px", fontWeight:800, color:C.textPri, fontFamily:"'Space Mono',monospace", fontSize:11}}>TOTAL</td>
+                <td style={{padding:"10px 12px", fontFamily:"'Space Mono',monospace", color:totals.mithril>0?C.accent:C.textDim, fontWeight:800}}>
+                  {totals.mithril > 0 ? totals.mithril.toLocaleString() : "—"}
+                </td>
+                <td style={{padding:"10px 12px", fontFamily:"'Space Mono',monospace", color:totals.stones>0?C.blue:C.textDim, fontWeight:800}}>
+                  {totals.stones > 0 ? totals.stones.toLocaleString() : "—"}
+                </td>
+                <td style={{padding:"10px 12px", fontFamily:"'Space Mono',monospace", color:totals.mythic>0?C.amber:C.textDim, fontWeight:800}}>
+                  {totals.mythic > 0 ? totals.mythic.toLocaleString() : "—"}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, hgTeams: hgTeamsProp, setHgTeams, onCompleteSvs }) {
   const C = COLORS;
+  const { isGuest } = useTierContext();
+  if (isGuest) return <GuestHeroGearCalc />;
+
   // Guard: ensure hgTeams always has the expected shape even for guests
   const hgTeams = hgTeamsProp || defaultTeamsData();
 

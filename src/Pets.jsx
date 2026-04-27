@@ -1,5 +1,6 @@
 import React from "react";
 import { useLocalStorage } from "./useLocalStorage.js";
+import { useTierContext, GuestBanner } from "./TierContext.jsx";
 
 // ─── COLORS ───────────────────────────────────────────────────────────────────
 // Inject pet dropdown option colors once
@@ -639,9 +640,16 @@ const PetDrawer = React.memo(function PetDrawer({ pet, data, onChange, inv }) {
 // ─── Main Pets Page ───────────────────────────────────────────────────────────
 export default function PetsPage({ inv, setInv, onCompleteSvs }) {
   const C = COLORS;
+  const { isGuest } = useTierContext();
   const [petData, setPetData] = useLocalStorage("pets-data", {});
   const [openCard, setOpenCard] = React.useState(null); // which pet card is expanded
   const [genFilter, setGenFilter] = useLocalStorage("pets-gen-filter", 7);
+
+  // Guests see 3 SSR pets only (first 3 by quality order)
+  const QUALITY_RANK = { SSR:0, SR:1, R:2, N:3, C:4 };
+  const visiblePets = isGuest
+    ? [...PETS].sort((a,b) => QUALITY_RANK[a.quality] - QUALITY_RANK[b.quality]).slice(0, 3)
+    : PETS;
 
   const getPet = name => petData[name] || defaultPetState();
   const setPet = (name, updates) => {
@@ -703,7 +711,7 @@ export default function PetsPage({ inv, setInv, onCompleteSvs }) {
   const groups = groupOrder.map(q => ({
     quality: q,
     label: qualityLabel(q),
-    pets: PETS.filter(p => p.quality === q && p.gen <= genFilter),
+    pets: visiblePets.filter(p => p.quality === q && p.gen <= genFilter),
   })).filter(g => g.pets.length > 0);
 
   const inputS = {
@@ -730,6 +738,11 @@ export default function PetsPage({ inv, setInv, onCompleteSvs }) {
             <span className="info-tip" data-tip="Reviews all fields where Goal ≠ Current for this tab. Lets you adjust what you actually achieved, then pushes those values to Current and deducts materials from inventory." style={{fontSize:14,color:"var(--c-textDim)",cursor:"default",userSelect:"none",lineHeight:1}}>ⓘ</span>
           </div>
         </div>
+      )}
+
+      {/* ── Guest limit banner ── */}
+      {isGuest && (
+        <GuestBanner message="3 of 14 pets available as guest — sign up for free to access all 14 pets and full tracking" />
       )}
 
       {/* ── Pet Stat Totals ── */}
