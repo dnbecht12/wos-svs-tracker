@@ -333,6 +333,56 @@ function computeRFCAccumulation(startRFC, currentRefineCount, daysUntilSVS, dail
   return rfcAccum;
 }
 
+// ─── RFC Planner exact refine table & calculator ─────────────────────────────
+// Mirrors RFCPlanner.jsx so the Day-By-Day table matches the RFC Planner exactly.
+const CP_WEEKDAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
+
+const CP_REFINE_TABLE = [
+  {n:1,fc:20,rfc:1},{n:2,fc:20,rfc:1},{n:3,fc:20,rfc:1},{n:4,fc:20,rfc:1},{n:5,fc:20,rfc:1},
+  {n:6,fc:20,rfc:1},{n:7,fc:20,rfc:1},{n:8,fc:20,rfc:1},{n:9,fc:20,rfc:1},{n:10,fc:20,rfc:1},
+  {n:11,fc:20,rfc:1},{n:12,fc:20,rfc:1},{n:13,fc:20,rfc:1},{n:14,fc:20,rfc:2},{n:15,fc:20,rfc:2},
+  {n:16,fc:20,rfc:2},{n:17,fc:20,rfc:2},{n:18,fc:20,rfc:2},{n:19,fc:20,rfc:3},{n:20,fc:20,rfc:3},
+  {n:21,fc:50,rfc:2},{n:22,fc:50,rfc:2},{n:23,fc:50,rfc:2},{n:24,fc:50,rfc:2},{n:25,fc:50,rfc:2},
+  {n:26,fc:50,rfc:2},{n:27,fc:50,rfc:2},{n:28,fc:50,rfc:2},{n:29,fc:50,rfc:2},{n:30,fc:50,rfc:2},
+  {n:31,fc:50,rfc:2},{n:32,fc:50,rfc:2},{n:33,fc:50,rfc:2},{n:34,fc:50,rfc:2},{n:35,fc:50,rfc:2},
+  {n:36,fc:50,rfc:2},{n:37,fc:50,rfc:2},{n:38,fc:50,rfc:3},{n:39,fc:50,rfc:3},{n:40,fc:50,rfc:3},
+  {n:41,fc:100,rfc:3},{n:42,fc:100,rfc:3},{n:43,fc:100,rfc:3},{n:44,fc:100,rfc:3},{n:45,fc:100,rfc:3},
+  {n:46,fc:100,rfc:3},{n:47,fc:100,rfc:3},{n:48,fc:100,rfc:3},{n:49,fc:100,rfc:3},{n:50,fc:100,rfc:3},
+  {n:51,fc:100,rfc:3},{n:52,fc:100,rfc:3},{n:53,fc:100,rfc:3},{n:54,fc:100,rfc:3},{n:55,fc:100,rfc:3},
+  {n:56,fc:100,rfc:3},{n:57,fc:100,rfc:3},{n:58,fc:100,rfc:4},{n:59,fc:100,rfc:4},{n:60,fc:100,rfc:5},
+  {n:61,fc:130,rfc:3},{n:62,fc:130,rfc:3},{n:63,fc:130,rfc:3},{n:64,fc:130,rfc:3},{n:65,fc:130,rfc:3},
+  {n:66,fc:130,rfc:3},{n:67,fc:130,rfc:3},{n:68,fc:130,rfc:3},{n:69,fc:130,rfc:3},{n:70,fc:130,rfc:3},
+  {n:71,fc:130,rfc:3},{n:72,fc:130,rfc:3},{n:73,fc:130,rfc:3},{n:74,fc:130,rfc:3},{n:75,fc:130,rfc:3},
+  {n:76,fc:130,rfc:4},{n:77,fc:130,rfc:4},{n:78,fc:130,rfc:4},{n:79,fc:130,rfc:5},{n:80,fc:130,rfc:6},
+  {n:81,fc:160,rfc:3},{n:82,fc:160,rfc:3},{n:83,fc:160,rfc:3},{n:84,fc:160,rfc:3},{n:85,fc:160,rfc:3},
+  {n:86,fc:160,rfc:3},{n:87,fc:160,rfc:3},{n:88,fc:160,rfc:3},{n:89,fc:160,rfc:3},{n:90,fc:160,rfc:3},
+  {n:91,fc:160,rfc:3},{n:92,fc:160,rfc:3},{n:93,fc:160,rfc:3},{n:94,fc:160,rfc:3},{n:95,fc:160,rfc:4},
+  {n:96,fc:160,rfc:4},{n:97,fc:160,rfc:5},{n:98,fc:160,rfc:5},{n:99,fc:160,rfc:6},{n:100,fc:160,rfc:7},
+];
+
+// Returns { fcBurn, rfcEarned, endCumulative } — first refine of the day gets 50% FC discount.
+function calcCPRefines(weekCumSoFar, count) {
+  if (count <= 0) return { fcBurn:0, rfcEarned:0, endCumulative:weekCumSoFar };
+  let fcBurn = 0, rfcEarned = 0;
+  for (let i = 0; i < count; i++) {
+    const idx = Math.min(Math.max(weekCumSoFar + i, 0), CP_REFINE_TABLE.length - 1);
+    const row = CP_REFINE_TABLE[idx];
+    if (!row) continue;
+    fcBurn    += i === 0 ? Math.ceil(row.fc * 0.5) : row.fc;
+    rfcEarned += row.rfc;
+  }
+  return { fcBurn, rfcEarned, endCumulative: weekCumSoFar + count };
+}
+
+// Load RFC Planner actuals for a cycle — same keys as RFCPlanner.jsx
+const EMPTY_RFC_DAY = { refines:"", actualRfc:"", eventRfc:"", rfcUsed:"" };
+function loadRFCActuals(cycleNum) {
+  try {
+    const raw = localStorage.getItem(`rfc-actuals2-${cycleNum}`);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
 // SVS point value for construction FC burns
 // From your spreadsheet: Mon = 4.76M from FC burns
 const SvS_FC_POINTS_PER_FC = 1784160 / 390; // ~4574 pts per FC burned on SVS Monday T1
@@ -958,50 +1008,52 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
     return t;
   }, [speedBuff, buffs]);
 
-  // Accumulation of RFC over remaining days based on daily FC income and refine tiers
-  const rfcAccumulated = useMemo(() => {
-    let total = 0, rc = 1;
-    for (let d = 0; d < daysToSVS; d++) {
-      const tier = getRFCTier(rc);
-      const refinesPerDay = Math.floor(dailyFCIncome / tier.fcPer);
-      total += refinesPerDay * tier.rfcPer;
-      rc = Math.min(rc + refinesPerDay, 100);
-    }
-    return Math.round(total);
-  }, [daysToSVS, dailyFCIncome]);
+  // RFC accumulation sourced from RFC Planner's saved actuals (days 1-21 of the cycle).
+  // Falls back to the RFC Planner's estimate (monRefines × 50%-first-refine table) when
+  // no actuals have been entered yet — identical to the RFC Planner rolling total.
+  const { rfcAccumulated, accumRows } = useMemo(() => {
+    const actuals    = loadRFCActuals(selectedCycle);
+    const monRefines = (() => { try { const v = localStorage.getItem("rfc-monref"); return v ? JSON.parse(v) : 1; } catch { return 1; } })();
 
-  // FC accumulated over remaining days from daily income
-  const fcAccumulated = useMemo(() => Math.round(dailyFCIncome * daysToSVS), [dailyFCIncome, daysToSVS]);
-
-  // Build per-day accumulation rows (full 21-day cycle for display)
-  const accumRows = useMemo(() => {
-    const rows = [];
-    let runningFC  = fc;
-    let runningRFC = rfc;
-    let rc = 1;
     const cycleStart = getCycleStartDate(selectedCycle);
-    for (let d = 0; d < 21; d++) {
-      const dayDate = addDaysToDate(cycleStart, d);
-      const dayFC   = dailyFCIncome;
-      const tier    = getRFCTier(rc);
-      const refines = Math.floor(dailyFCIncome / tier.fcPer);
-      const dayRFC  = refines * tier.rfcPer;
-      rc = Math.min(rc + refines, 100);
-      runningFC  += dayFC;
-      runningRFC += dayRFC;
+    let rollingRFC = rfc;
+    let weekCum    = 0;
+    let totalRfc   = 0;
+    const rows = [];
+
+    for (let i = 0; i < 21; i++) {
+      const isMon   = CP_WEEKDAYS[i % 7] === "Monday";
+      const act     = actuals[i] || EMPTY_RFC_DAY;
+      if (isMon) weekCum = 0;
+
+      const refines      = act.refines !== "" ? Number(act.refines) : (isMon ? monRefines : 1);
+      const { fcBurn, rfcEarned, endCumulative } = calcCPRefines(weekCum, refines);
+      const hasActual    = act.actualRfc !== "" && act.actualRfc != null;
+      const effectiveRfc = hasActual ? Number(act.actualRfc) : rfcEarned;
+      const eventRfc     = act.eventRfc !== "" && act.eventRfc != null ? Number(act.eventRfc) : 0;
+      const rfcUsed      = act.rfcUsed  !== "" && act.rfcUsed  != null ? Number(act.rfcUsed)  : 0;
+      const dayNetRfc    = effectiveRfc + eventRfc - rfcUsed;
+
+      rollingRFC += dayNetRfc;
+      totalRfc   += dayNetRfc;
+      weekCum     = endCumulative;
+
       rows.push({
-        day: d + 1,
-        date: fmtDateCal(dayDate),
-        dailyFC: dayFC,
-        dailyRFC: dayRFC,
-        runningFC,
-        runningRFC,
-        isPast: d < todayDayIndex,
-        isToday: d === todayDayIndex,
+        day: i + 1,
+        date: fmtDateCal(addDaysToDate(cycleStart, i)),
+        dailyFC: dailyFCIncome,
+        fcBurn,
+        dailyRFC: dayNetRfc,
+        runningRFC: rollingRFC,
+        isPast:  i < todayDayIndex,
+        isToday: i === todayDayIndex,
       });
     }
-    return rows;
-  }, [fc, rfc, dailyFCIncome, selectedCycle, todayDayIndex]);
+    return { rfcAccumulated: Math.round(totalRfc), accumRows: rows };
+  }, [rfc, selectedCycle, todayDayIndex, dailyFCIncome]);
+
+  // FC accumulated over remaining days from daily income (unchanged — daily income is separate from refining)
+  const fcAccumulated = useMemo(() => Math.round(dailyFCIncome * daysToSVS), [dailyFCIncome, daysToSVS]);
 
   // Per-building computed costs — all from BLDG_DB (accurate spreadsheet data)
   const buildingCalcs = useMemo(() => {
@@ -1473,7 +1525,7 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
                   <span className="accum-val accent">{fmtFull(rfc)}</span>
                 </div>
                 <div className="accum-row">
-                  <span className="accum-label">RFC from refining + intel</span>
+                  <span className="accum-label">RFC from RFC Planner (days 1–21)</span>
                   <span className="accum-val pos">+{fmtFull(rfcAccumulated)}</span>
                 </div>
                 <div className="accum-row" style={{borderTop:`2px solid ${C.borderHi}`}}>
@@ -1495,17 +1547,14 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
 
             {/* Daily accumulation table */}
             <div>
-              <div className="sec-head">Day-by-day accumulation</div>
+              <div className="sec-head">Day-by-day accumulation — from RFC Planner</div>
               <div style={{overflowY:"auto",maxHeight:420,border:`1px solid ${C.border}`,borderRadius:8}}>
                 <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
                   <thead>
                     <tr style={{background:C.surface,position:"sticky",top:0,zIndex:1}}>
-                      <th style={{padding:"6px 8px",textAlign:"left",fontSize:9,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:C.textDim,borderBottom:`1px solid ${C.border}`,fontFamily:"Space Mono,monospace"}}>Day</th>
-                      <th style={{padding:"6px 8px",textAlign:"left",fontSize:9,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:C.textDim,borderBottom:`1px solid ${C.border}`,fontFamily:"Space Mono,monospace"}}>Date</th>
-                      <th style={{padding:"6px 8px",textAlign:"right",fontSize:9,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:C.textDim,borderBottom:`1px solid ${C.border}`,fontFamily:"Space Mono,monospace"}}>+FC</th>
-                      <th style={{padding:"6px 8px",textAlign:"right",fontSize:9,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:C.textDim,borderBottom:`1px solid ${C.border}`,fontFamily:"Space Mono,monospace"}}>Total FC</th>
-                      <th style={{padding:"6px 8px",textAlign:"right",fontSize:9,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:C.textDim,borderBottom:`1px solid ${C.border}`,fontFamily:"Space Mono,monospace"}}>+RFC</th>
-                      <th style={{padding:"6px 8px",textAlign:"right",fontSize:9,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:C.textDim,borderBottom:`1px solid ${C.border}`,fontFamily:"Space Mono,monospace"}}>Total RFC</th>
+                      {["Day","Date","+FC Income","FC Burned","+RFC","Total RFC"].map((h, hi) => (
+                        <th key={h} style={{padding:"6px 8px",textAlign:hi<2?"left":"right",fontSize:9,fontWeight:700,letterSpacing:1,textTransform:"uppercase",color:C.textDim,borderBottom:`1px solid ${C.border}`,fontFamily:"Space Mono,monospace",whiteSpace:"nowrap"}}>{h}</th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
@@ -1521,9 +1570,9 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
                         </td>
                         <td style={{padding:"5px 8px",fontFamily:"Space Mono,monospace",color:C.textDim,fontSize:10}}>{row.date}</td>
                         <td style={{padding:"5px 8px",textAlign:"right",color:C.green,fontFamily:"Space Mono,monospace"}}>+{fmt(row.dailyFC)}</td>
-                        <td style={{padding:"5px 8px",textAlign:"right",color:C.accent,fontFamily:"Space Mono,monospace",fontWeight:600}}>{fmt(row.runningFC)}</td>
-                        <td style={{padding:"5px 8px",textAlign:"right",color:C.amber,fontFamily:"Space Mono,monospace"}}>+{row.dailyRFC}</td>
-                        <td style={{padding:"5px 8px",textAlign:"right",color:C.amber,fontFamily:"Space Mono,monospace",fontWeight:600}}>{fmt(row.runningRFC)}</td>
+                        <td style={{padding:"5px 8px",textAlign:"right",color:C.red,fontFamily:"Space Mono,monospace"}}>{row.fcBurn > 0 ? `-${fmtFull(row.fcBurn)}` : "—"}</td>
+                        <td style={{padding:"5px 8px",textAlign:"right",color:C.amber,fontFamily:"Space Mono,monospace"}}>+{fmtFull(row.dailyRFC)}</td>
+                        <td style={{padding:"5px 8px",textAlign:"right",color:C.amber,fontFamily:"Space Mono,monospace",fontWeight:600}}>{fmtFull(row.runningRFC)}</td>
                       </tr>
                     ))}
                   </tbody>
