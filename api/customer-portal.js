@@ -23,7 +23,10 @@ export default async function handler(req, res) {
       .single();
 
     if (!data?.stripe_customer_id) {
-      return res.status(404).json({ error: "No subscription found" });
+      return res.status(404).json({
+        error: "No Stripe subscription found for this account.",
+        code: "no_stripe_subscription",
+      });
     }
 
     const session = await stripe.billingPortal.sessions.create({

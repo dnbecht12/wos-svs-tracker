@@ -87,8 +87,15 @@ export function useTier(user) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId: user.id }),
     });
-    const { url, error } = await res.json();
-    if (error) { alert("Error: " + error); return; }
+    const { url, error, code } = await res.json();
+    if (error) {
+      if (code === "no_stripe_subscription") {
+        alert("Your Pro access is complimentary — there is no billing to manage.");
+      } else {
+        alert("Error opening billing portal: " + error);
+      }
+      return;
+    }
     window.location.href = url;
   }
 
