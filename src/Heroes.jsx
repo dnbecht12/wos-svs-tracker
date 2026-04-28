@@ -1888,9 +1888,6 @@ function GuestHeroGearCalc() {
   const selS = { background:C.surface, border:`1px solid ${C.border}`, borderRadius:6,
     padding:"4px 8px", color:C.textPri, fontSize:11, outline:"none",
     fontFamily:"'Space Mono',monospace", cursor:"pointer" };
-  const numS = { width:64, background:C.surface, border:`1px solid ${C.border}`, borderRadius:6,
-    padding:"5px 8px", color:C.accent, fontSize:12, fontWeight:700, outline:"none",
-    fontFamily:"'Space Mono',monospace", textAlign:"center", boxSizing:"border-box" };
   const th = (label, right) => (
     <th key={label} style={{padding:"8px 10px", fontSize:9, fontWeight:700, letterSpacing:"0.8px",
       textTransform:"uppercase", color:C.textSec, fontFamily:"'Space Mono',monospace",
@@ -1918,8 +1915,12 @@ function GuestHeroGearCalc() {
             </thead>
             <tbody>
               {slots.map((s, i) => {
-                const cost = calcSlotCost(s);
-                const maxLv = 100;
+                const cost   = calcSlotCost(s);
+                const maxLv  = 100; // both Mythic and Legendary go to 100
+                const maxMas = 20;
+                const disabledS = { ...selS, opacity:0.4, cursor:"not-allowed" };
+                const goalS     = { ...selS, color:C.blue };
+                const goalDisS  = { ...selS, color:C.blue, opacity:0.4, cursor:"not-allowed" };
                 return (
                   <tr key={s.name} style={{borderBottom:`1px solid ${C.border}`}}>
                     <td style={{padding:"10px 10px", fontWeight:700, color:C.textPri, fontFamily:"'Space Mono',monospace", fontSize:11}}>{s.name}</td>
@@ -1930,21 +1931,43 @@ function GuestHeroGearCalc() {
                         <option value="Legendary">Legendary</option>
                       </select>
                     </td>
+                    {/* Current Level */}
                     <td style={{padding:"8px 10px"}}>
-                      <input type="text" inputMode="numeric" value={s.curLevel} disabled={!s.status}
-                        onChange={e => update(i,"curLevel",e.target.value)} style={{...numS, opacity:s.status?1:0.4}}/>
+                      <select value={s.curLevel} disabled={!s.status}
+                        onChange={e => update(i,"curLevel",e.target.value)}
+                        style={s.status ? selS : disabledS}>
+                        {Array.from({length: maxLv+1}, (_,n) => <option key={n} value={n}>{n}</option>)}
+                      </select>
                     </td>
+                    {/* Current Mastery */}
                     <td style={{padding:"8px 10px"}}>
-                      <input type="text" inputMode="numeric" value={s.curMastery} disabled={!s.status}
-                        onChange={e => update(i,"curMastery",e.target.value)} style={{...numS, opacity:s.status?1:0.4}}/>
+                      <select value={s.curMastery} disabled={!s.status}
+                        onChange={e => update(i,"curMastery",e.target.value)}
+                        style={s.status ? selS : disabledS}>
+                        {Array.from({length: maxMas+1}, (_,n) => <option key={n} value={n}>{n}</option>)}
+                      </select>
                     </td>
+                    {/* Goal Level — only shows values >= curLevel */}
                     <td style={{padding:"8px 10px"}}>
-                      <input type="text" inputMode="numeric" value={s.goalLevel} disabled={!s.status}
-                        onChange={e => update(i,"goalLevel",e.target.value)} style={{...numS, color:C.blue, opacity:s.status?1:0.4}}/>
+                      <select value={s.goalLevel} disabled={!s.status}
+                        onChange={e => update(i,"goalLevel",e.target.value)}
+                        style={s.status ? goalS : goalDisS}>
+                        {Array.from({length: maxLv - s.curLevel + 1}, (_,n) => {
+                          const v = s.curLevel + n;
+                          return <option key={v} value={v}>{v}</option>;
+                        })}
+                      </select>
                     </td>
+                    {/* Goal Mastery — only shows values >= curMastery */}
                     <td style={{padding:"8px 10px"}}>
-                      <input type="text" inputMode="numeric" value={s.goalMastery} disabled={!s.status}
-                        onChange={e => update(i,"goalMastery",e.target.value)} style={{...numS, color:C.blue, opacity:s.status?1:0.4}}/>
+                      <select value={s.goalMastery} disabled={!s.status}
+                        onChange={e => update(i,"goalMastery",e.target.value)}
+                        style={s.status ? goalS : goalDisS}>
+                        {Array.from({length: maxMas - s.curMastery + 1}, (_,n) => {
+                          const v = s.curMastery + n;
+                          return <option key={v} value={v}>{v}</option>;
+                        })}
+                      </select>
                     </td>
                     <td style={{padding:"10px 10px", fontFamily:"'Space Mono',monospace", color:cost.mithril>0?C.accent:C.textDim, fontWeight:700, textAlign:"right"}}>
                       {cost.mithril > 0 ? cost.mithril.toLocaleString() : "—"}
