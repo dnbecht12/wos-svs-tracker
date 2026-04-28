@@ -24,7 +24,7 @@ export function setSyncCharId(charId) {
 
 // Keys that should NOT sync to cloud (UI preferences only)
 export const NO_SYNC_KEYS = new Set([
-  "wos-page", "wos-theme", "heroes-sort", "hg-gen-filter",
+  "wos-theme", "heroes-sort", "hg-gen-filter",
 ]);
 
 // Pending write queue — batches rapid updates into a single Supabase write

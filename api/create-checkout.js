@@ -52,8 +52,8 @@ export default async function handler(req, res) {
       mode: "subscription",
       payment_method_types: ["card"],
       line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${process.env.SITE_URL || "https://tundracommand.com"}?checkout=success`,
-      cancel_url: `${process.env.SITE_URL || "https://tundracommand.com"}?checkout=cancelled`,
+      success_url: `${process.env.SITE_URL || "https://tundracommand.com"}/app/chief?checkout=success`,
+      cancel_url: `${process.env.SITE_URL || "https://tundracommand.com"}/pricing`,
       metadata: { supabase_user_id: userId },
       subscription_data: { metadata: { supabase_user_id: userId } },
       allow_promotion_codes: true, // lets users enter promo codes at checkout

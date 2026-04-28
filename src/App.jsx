@@ -1,6 +1,10 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo, Component } from "react";
 import { createPortal } from "react-dom";
+import { useNavigate, useLocation, Navigate, Link } from "react-router-dom";
 import { supabase } from "./supabase.js";
+import LandingPage from "./LandingPage.jsx";
+import TermsPage   from "./TermsPage.jsx";
+import PricingPage from "./PricingPage.jsx";
 import { useTier } from "./useTier.js";
 import { TierProvider, FreeGate, ProGate, useTierContext, UpgradeBanner } from "./TierContext.jsx";
 import {
@@ -648,7 +652,7 @@ function UserArchivedMessages({ threads, renderT, C }) {
 
 // ─── Profile Management Modal ─────────────────────────────────────────────────
 
-function ProfileModal({ open, onClose, initialSection="account",
+function ProfileModal({ open, onClose, asPage=false, initialSection="account",
   user, characters, activeCharId,
   addCharacter, removeCharacter, renameCharacter, makeDefault, switchCharacter,
   changePassword, requestDeleteAccount, confirmDeleteAccount,
@@ -795,9 +799,11 @@ function ProfileModal({ open, onClose, initialSection="account",
     { id:"messages",     label:"Messages",  badge: unreadMsgCount },
   ];
 
-  return (
-    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal">
+  if (!asPage && !open) return null;
+
+  const modalContent = (
+    <div className="modal" style={asPage ? {maxWidth:600,width:"100%",maxHeight:"none",
+      overflowY:"visible",boxShadow:"none",border:`1px solid var(--c-border)`} : {}}>
         <div className="modal-header">
           <div className="modal-title">Profile Management</div>
           <button className="modal-close" onClick={onClose}>✕</button>
@@ -1330,6 +1336,16 @@ function ProfileModal({ open, onClose, initialSection="account",
 
         </div>
       </div>
+  );
+
+  if (asPage) return (
+    <div style={{padding:"0 0 40px"}}>
+      {modalContent}
+    </div>
+  );
+  return (
+    <div className="modal-overlay" onClick={e => e.target === e.currentTarget && onClose()}>
+      {modalContent}
     </div>
   );
 }
@@ -1988,31 +2004,75 @@ export class ErrorBoundary extends Component {
   }
 }
 
+// ─── URL routing ──────────────────────────────────────────────────────────────
+// Maps page IDs to their URL paths and back.
+const PAGE_PATHS = {
+  "char-profile":    "/app/chief",
+  "chief-gear":      "/app/chief-gear",
+  "chief-charms":    "/app/chief-charms",
+  "experts":         "/app/experts",
+  "pets":            "/app/pets",
+  "daybreak-island": "/app/daybreak",
+  "inventory":       "/app/inventory",
+  "heroes":          "/app/heroes",
+  "hero-gear":       "/app/hero-gear",
+  "troops":          "/app/troops",
+  "construction":    "/app/construction",
+  "research-center": "/app/research",
+  "war-academy":     "/app/war-academy",
+  "rfc-planner":     "/app/rfc-planner",
+  "svs-calendar":    "/app/svs-calendar",
+  "battle-sim":      "/app/battle-sim",
+  "account":         "/app/account",
+  "admin":           "/admin",
+};
+
+const SLUG_TO_PAGE = {
+  "chief":          "char-profile",
+  "chief-gear":     "chief-gear",
+  "chief-charms":   "chief-charms",
+  "experts":        "experts",
+  "pets":           "pets",
+  "daybreak":       "daybreak-island",
+  "inventory":      "inventory",
+  "heroes":         "heroes",
+  "hero-gear":      "hero-gear",
+  "troops":         "troops",
+  "construction":   "construction",
+  "research":       "research-center",
+  "war-academy":    "war-academy",
+  "rfc-planner":    "rfc-planner",
+  "svs-calendar":   "svs-calendar",
+  "battle-sim":     "battle-sim",
+  "account":        "account",
+};
+
 // ─── Layout / Nav ─────────────────────────────────────────────────────────────
 const PAGES = [
   // CHIEF
-  { id:"char-profile",     label:"Chief Profile",   icon:"[P]", section:"Chief"                     },
-  { id:"chief-gear",       label:"Chief Gear",       icon:"[C]", section:"Chief"                     },
-  { id:"chief-charms",     label:"Chief Charms",     icon:"[K]", section:"Chief"                     },
-  { id:"experts",          label:"Experts",           icon:"[E]", section:"Chief"                     },
-  { id:"pets",              label:"Pets",              icon:"[P]", section:"Chief"                     },
-  { id:"daybreak-island",  label:"Daybreak Island",  icon:"[D]", section:"Chief",   guestHidden:true, proOnly:true },
-  { id:"inventory",        label:"Inventory",         icon:"[I]", section:"Chief",   guestHidden:true, proOnly:true },
+  { id:"char-profile",     label:"Chief Profile",   icon:"[P]", section:"Chief",                     path:"/app/chief"         },
+  { id:"chief-gear",       label:"Chief Gear",       icon:"[C]", section:"Chief",                     path:"/app/chief-gear"    },
+  { id:"chief-charms",     label:"Chief Charms",     icon:"[K]", section:"Chief",                     path:"/app/chief-charms"  },
+  { id:"experts",          label:"Experts",           icon:"[E]", section:"Chief",                     path:"/app/experts"       },
+  { id:"pets",              label:"Pets",              icon:"[P]", section:"Chief",                     path:"/app/pets"          },
+  { id:"daybreak-island",  label:"Daybreak Island",  icon:"[D]", section:"Chief",   guestHidden:true, proOnly:true, path:"/app/daybreak"  },
+  { id:"inventory",        label:"Inventory",         icon:"[I]", section:"Chief",   guestHidden:true, proOnly:true, path:"/app/inventory" },
   // COMBAT
-  { id:"heroes",           label:"Heroes",            icon:"[H]", section:"Combat"                    },
-  { id:"hero-gear",        label:"Hero Gear",         icon:"[G]", section:"Combat"                    },
-  { id:"troops",           label:"Troops",            icon:"[T]", section:"Combat",  guestHidden:true },
+  { id:"heroes",           label:"Heroes",            icon:"[H]", section:"Combat",                    path:"/app/heroes"        },
+  { id:"hero-gear",        label:"Hero Gear",         icon:"[G]", section:"Combat",                    path:"/app/hero-gear"     },
+  { id:"troops",           label:"Troops",            icon:"[T]", section:"Combat",  guestHidden:true, path:"/app/troops"        },
   // CONSTRUCTION & TECHNOLOGY
-  { id:"construction",     label:"Construction",     icon:"[B]", section:"Construction & Technology" },
-  { id:"research-center",  label:"Research",         icon:"⚗",  section:"Construction & Technology" },
-  { id:"war-academy",      label:"War Academy",      icon:"[W]", section:"Construction & Technology" },
+  { id:"construction",     label:"Construction",     icon:"[B]", section:"Construction & Technology", path:"/app/construction"  },
+  { id:"research-center",  label:"Research",         icon:"⚗",  section:"Construction & Technology", path:"/app/research"      },
+  { id:"war-academy",      label:"War Academy",      icon:"[W]", section:"Construction & Technology", path:"/app/war-academy"   },
   // PLANNING
-  { id:"rfc-planner",      label:"RFC Planner",      icon:"[R]", section:"Planning", guestHidden:true },
-  { id:"svs-calendar",     label:"SvS Calendar",     icon:"[C]", section:"Planning"                  },
-  { id:"battle-sim",       label:"Battle Simulator",  icon:"[B]", section:"Planning", guestHidden:true, proOnly:true },
+  { id:"rfc-planner",      label:"RFC Planner",      icon:"[R]", section:"Planning", guestHidden:true, path:"/app/rfc-planner"   },
+  { id:"svs-calendar",     label:"SvS Calendar",     icon:"[C]", section:"Planning",                  path:"/app/svs-calendar"  },
+  { id:"battle-sim",       label:"Battle Simulator",  icon:"[B]", section:"Planning", guestHidden:true, proOnly:true, path:"/app/battle-sim" },
 ];
 
 const PAGE_TITLES = {
+  account:      { title: "Account", sub: "Manage your profile, characters, and subscription" },
   inventory:    { title: "Inventory", sub: "Your current stockpile across all resource types" },
   construction: { title: "Construction", sub: "Interactive upgrade planner — set current & goal levels, track accumulation, project SVS points" },
   "rfc-planner":{ title: "RFC Planner",  sub: "28-day day-by-day refining schedule — plan vs actual, running balances, FC income tracking" },
@@ -2936,6 +2996,8 @@ function GuideModal({ open, onClose }) {
 }
 
 export default function App() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const { theme, setTheme, resetToSystem } = useTheme();
   const { user, loading: authLoading, error: authError, signUp, signIn, signInWithDiscord, signOut,
           changePassword, requestDeleteAccount, confirmDeleteAccount, clearError } = useAuth();
@@ -2947,7 +3009,11 @@ export default function App() {
     switchCharacter, addCharacter, removeCharacter, renameCharacter, makeDefault,
   } = useCharacters(user);
 
-  const [page,          setPage]         = useLocalStorage("wos-page", "char-profile");
+  // Page is derived from URL — no longer stored in localStorage
+  const _urlSlug = location.pathname.startsWith('/app/') ? location.pathname.slice(5)
+                 : location.pathname === '/admin' ? 'admin' : '';
+  const page = SLUG_TO_PAGE[_urlSlug] ?? (_urlSlug === 'admin' ? 'admin' : 'char-profile');
+  const goToPage = (pageId) => navigate(PAGE_PATHS[pageId] || '/app/chief');
   const [inv,           setInvRaw]       = useLocalStorage("wos-svs-inventory", INITIAL_INVENTORY);
   const [savedPlans,    setSavedPlans]   = useLocalStorage("wos-rfc-saved-plans", {});
   const [planSnapshot,  setPlanSnapshot] = useState(null); // per-character, loaded from Supabase
@@ -3290,13 +3356,14 @@ export default function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("checkout") === "success") {
-      window.history.replaceState({}, "", "/");
+      navigate('/app/chief', { replace: true });
       setUpgradeOpen(false);
       // Brief toast — subscription row will update via Realtime
       alert("🎉 Welcome to Tundra Command Pro! Your features are now unlocked.");
     } else if (params.get("checkout") === "cancelled") {
-      window.history.replaceState({}, "", "/");
+      navigate('/pricing', { replace: true });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── Global Tab navigation for Inventory and Tables ──────────────────────────
@@ -3408,8 +3475,7 @@ export default function App() {
       if (plan.refinedFC     !== undefined) setInv(p => ({ ...p, refinedFC:    plan.refinedFC    }));
     } catch {}
     setLoadedPlanKey(key);
-    setPage("rfc-planner");
-    setTimeout(() => setPage("rfc-planner"), 10);
+    navigate('/app/rfc-planner');
   }, [savedPlans, setInv]);
 
   const handleDeletePlan = useCallback((key) => {
@@ -3450,6 +3516,38 @@ export default function App() {
   // Signup trigger — increments to tell AuthPanel to switch to signup mode and focus email
   const [signupTrigger, setSignupTrigger] = useState(0);
 
+  // ── Public routes: render without the full app shell ─────────────────────
+  if (location.pathname === '/terms') return <TermsPage />;
+
+  if (location.pathname === '/pricing') return (
+    <PricingPage subscribe={subscribe} user={user} isPro={isPro}
+      periodEnd={periodEnd} cancelAtPeriodEnd={cancelAtPeriodEnd}
+      manageSubscription={manageSubscription} />
+  );
+
+  if (location.pathname === '/') {
+    if (!authLoading && user) return <Navigate to="/app/chief" replace />;
+    return (
+      <LandingPage signUp={signUp} signIn={signIn} signInWithDiscord={signInWithDiscord}
+        authError={authError} clearError={clearError} authLoading={authLoading} />
+    );
+  }
+
+  // ── Auth guard for /app/* and /admin ──────────────────────────────────────
+  if (authLoading) return (
+    <div style={{ display:"flex", alignItems:"center", justifyContent:"center",
+      height:"100vh", background:"var(--c-bg)", flexDirection:"column", gap:16 }}>
+      <style dangerouslySetInnerHTML={{ __html: GLOBAL_STYLE }} />
+      <div style={{ width:32, height:32, borderRadius:"50%",
+        border:"3px solid var(--c-border)", borderTopColor:"var(--c-accent)",
+        animation:"spin 0.7s linear infinite" }}/>
+    </div>
+  );
+  if (!user) return <Navigate to="/" replace />;
+  if (location.pathname === '/admin' && user.id !== ADMIN_UID) return <Navigate to="/app/chief" replace />;
+  if (location.pathname === '/app' || location.pathname === '/app/') return <Navigate to="/app/chief" replace />;
+  if (!location.pathname.startsWith('/app/') && location.pathname !== '/admin') return <Navigate to="/app/chief" replace />;
+
   return (
     <TierProvider
       user={user}
@@ -3463,8 +3561,8 @@ export default function App() {
     >
       <style dangerouslySetInnerHTML={{ __html: GLOBAL_STYLE }} />
 
-      {/* Profile Management Modal */}
-      {user && (
+      {/* Profile Management Modal — only shown as floating modal when NOT on the /app/account page */}
+      {user && page !== "account" && (
         <ProfileModal
           open={profileOpen}
           onClose={() => setProfileOpen(false)}
@@ -3575,8 +3673,7 @@ export default function App() {
                 onChange={async e => {
                   const val = e.target.value;
                   if (val === "__manage__") {
-                    setProfileSection("characters");
-                    setProfileOpen(true);
+                    navigate("/app/account");
                   } else {
                     await handleSwitchCharacter(val);
                   }
@@ -3605,8 +3702,8 @@ export default function App() {
                 {visibleInSec.map(p => (
                   <div
                     key={p.id}
-                    className={clsx("nav-item", page === p.id && !loadedPlanKey && "active")}
-                    onClick={() => { setLoadedPlanKey(null); setPage(p.id); setSidebarOpen(false); }}
+                    className={clsx("nav-item", location.pathname === p.path && !loadedPlanKey && "active")}
+                    onClick={() => { setLoadedPlanKey(null); navigate(p.path); setSidebarOpen(false); }}
                     style={p.id==="battle-sim"?{opacity:0.6,cursor:"default",pointerEvents:"none"}:{}}
                   >
                     {p.label}
@@ -3647,8 +3744,8 @@ export default function App() {
               <div>
                 <div className="nav-section">Admin</div>
                 <div
-                  className={clsx("nav-item", page === "admin" && "active")}
-                  onClick={() => { setPage("admin"); setSidebarOpen(false); setPendingAdminCount(0); }}
+                  className={clsx("nav-item", location.pathname === "/admin" && "active")}
+                  onClick={() => { navigate("/admin"); setSidebarOpen(false); setPendingAdminCount(0); }}
                   style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}
                 >
                   Submissions
@@ -3678,7 +3775,7 @@ export default function App() {
 
           {/* Profile button — signed-in users */}
           {user && (
-            <div className="profile-btn-wrap" onClick={() => { setProfileSection("account"); setProfileOpen(true); }}>
+            <div className="profile-btn-wrap" onClick={() => navigate("/app/account")}>
               <div style={{position:"relative",flexShrink:0}}>
                 <div className="profile-avatar">{userInitial}</div>
                 {(notifications.filter(n => !n.read).length > 0 ||
@@ -3857,7 +3954,7 @@ export default function App() {
                 </span>
               </div>
               <button
-                onClick={() => setProfileOpen(true)}
+                onClick={() => navigate("/app/account")}
                 style={{
                   padding:"5px 12px",borderRadius:6,fontSize:11,fontWeight:700,cursor:"pointer",
                   fontFamily:"Syne,sans-serif",border:`1px solid ${COLORS.amber}`,
@@ -3917,6 +4014,22 @@ export default function App() {
             {page === "char-profile" && <CharacterProfilePage hgHeroes={hgHeroes} inv={inv} onCompleteSvs={completeSvs("all")}
                 rcLevels={rcLevels} profileVersion={profileVersion}
                 cpSpeedBuff={cpSpeedBuff} setCpSpeedBuff={setCpSpeedBuff} />}
+            {page === "account" && (
+              <ProfileModal asPage={true} open={true} onClose={() => navigate(-1)}
+                user={user} characters={characters} activeCharId={activeCharId}
+                addCharacter={addCharacter} removeCharacter={removeCharacter}
+                renameCharacter={renameCharacter} makeDefault={makeDefault}
+                switchCharacter={handleSwitchCharacter}
+                changePassword={changePassword}
+                requestDeleteAccount={requestDeleteAccount}
+                confirmDeleteAccount={confirmDeleteAccount}
+                charError={charError} clearCharError={clearCharError}
+                authError={authError} clearAuthError={clearError}
+                theme={theme} setTheme={setTheme} resetToSystem={resetToSystem}
+                notifications={notifications} setNotifications={setNotifications}
+                userMessages={userMessages} setUserMessages={setUserMessages}
+              />
+            )}
             </>)}
           </div>
 
@@ -3932,11 +4045,10 @@ export default function App() {
               fontFamily:"'Space Mono',monospace", display:"flex", alignItems:"center",
               gap:12, flexWrap:"wrap"}}>
               <span>Tundra Command · WoS SvS Planning Tracker · v1.0</span>
-              <button onClick={() => setTermsOpen(true)} style={{
-                background:"none", border:"none", padding:0, cursor:"pointer",
+              <Link to="/terms" style={{
                 color:COLORS.textDim, fontSize:11, fontFamily:"'Space Mono',monospace",
                 textDecoration:"underline", textUnderlineOffset:3,
-              }}>Terms &amp; Conditions</button>
+              }}>Terms & Conditions</Link>
               {user && !isPro && (
                 <button onClick={() => setUpgradeOpen(true)} style={{
                   background:"none", border:"none", padding:0, cursor:"pointer",
