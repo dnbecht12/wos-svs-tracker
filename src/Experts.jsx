@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useLocalStorage } from "./useLocalStorage.js";
-import { useTierContext, GuestBanner } from "./TierContext.jsx";
+import { useTierContext, GuestBanner, UpgradeBanner } from "./TierContext.jsx";
 
 // ─── COLORS (CSS variable references — theme applied by App.jsx on :root) ─────
 const COLORS = {
@@ -1497,7 +1497,7 @@ function ConstructionPage({ inv }) {
 
 function ExpertsPage({ inv, setInv, onCompleteSvs }) {
   const C = COLORS;
-  const { isGuest } = useTierContext();
+  const { isGuest, isPro } = useTierContext();
 
   // ── Expert Data Tables ──────────────────────────────────────────────────────
 
@@ -1723,7 +1723,11 @@ function ExpertsPage({ inv, setInv, onCompleteSvs }) {
   const visibleExperts = EXPERTS;
 
   // ── State ────────────────────────────────────────────────────────────────────
-  const [expertData, setExpertData] = useLocalStorage("experts-data", {});
+  const [expertDataLS, setExpertDataLS] = useLocalStorage("experts-data", {});
+  const [expertDataLocal, setExpertDataLocal] = React.useState({});
+  // Free users: calculator only — local React state, no persistence
+  const expertData    = (!isGuest && !isPro) ? expertDataLocal    : expertDataLS;
+  const setExpertData = (!isGuest && !isPro) ? setExpertDataLocal : setExpertDataLS;
   const [openCard, setOpenCard] = React.useState(null);
 
   const getExpert = (name) => expertData[name] || {};
@@ -2349,6 +2353,9 @@ function ExpertsPage({ inv, setInv, onCompleteSvs }) {
       {/* ── Guest limit banner ── */}
       {isGuest && (
         <GuestBanner message="Expert tracking and progress saving requires a free account. Sign up to save your levels and sync across devices." />
+      )}
+      {!isGuest && !isPro && (
+        <UpgradeBanner message="Upgrade to Pro to save your Expert progress and sync across devices." />
       )}
 
       {/* ── Expert Cards ── */}

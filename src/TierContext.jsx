@@ -51,10 +51,10 @@ function UpgradePrompt({ variant, message }) {
   const bg    = isPro ? "var(--c-accentBg)" : "var(--c-blueBg)";
   const bdr   = isPro ? "var(--c-accentDim)" : "var(--c-blueDim)";
 
-  const heading = isPro ? "Pro Feature" : "Account Required";
+  const heading = isPro ? "⚡ Pro Feature" : "Account Required";
   const body    = message || (
     variant === "guest"     ? "Create a free account to access this feature." :
-    variant === "pro"       ? "Upgrade to Pro to unlock this feature." :
+    variant === "pro"       ? "Upgrade to Pro to unlock full tracking, cloud sync, and unlimited characters." :
     /* pro-guest */           "Sign up and upgrade to Pro to unlock this feature."
   );
   const btnLabel = isGuest ? "Sign Up Free" : "Upgrade to Pro";
@@ -131,6 +131,36 @@ export function GuestBanner({ message }) {
         }}
       >
         Sign Up Free
+      </button>
+    </div>
+  );
+}
+
+// ─── Upgrade Banner ──────────────────────────────────────────────────────────
+// Inline orange strip for Free users hitting a Pro-only feature within a page.
+
+export function UpgradeBanner({ message }) {
+  const { openUpgradeModal } = useTierContext();
+  return (
+    <div style={{
+      background:"var(--c-accentBg)", border:"1px solid var(--c-accentDim)",
+      borderRadius:8, padding:"10px 16px", marginBottom:16,
+      display:"flex", alignItems:"center", justifyContent:"space-between",
+      gap:12, flexWrap:"wrap",
+    }}>
+      <span style={{fontSize:12, color:"var(--c-accent)", fontFamily:"Syne, sans-serif", lineHeight:1.5}}>
+        ⚡ {message}
+      </span>
+      <button
+        onClick={openUpgradeModal}
+        style={{
+          padding:"5px 14px", borderRadius:6, border:"none",
+          background:"var(--c-accent)", color:"#0a0c10",
+          fontSize:11, fontWeight:700, cursor:"pointer",
+          fontFamily:"Syne, sans-serif", whiteSpace:"nowrap", flexShrink:0,
+        }}
+      >
+        Upgrade to Pro
       </button>
     </div>
   );

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo, Component } f
 import { createPortal } from "react-dom";
 import { supabase } from "./supabase.js";
 import { useTier } from "./useTier.js";
-import { TierProvider, FreeGate } from "./TierContext.jsx";
+import { TierProvider, FreeGate, ProGate, useTierContext, UpgradeBanner } from "./TierContext.jsx";
 import {
   useLocalStorage, setGuestFlag, setSyncUserId, setSyncCharId, scheduleSync, _isGuest, NO_SYNC_KEYS,
 } from "./useLocalStorage.js";
@@ -657,6 +657,7 @@ function ProfileModal({ open, onClose, initialSection="account",
   notifications=[], setNotifications,
   userMessages=[], setUserMessages,
 }) {
+  const { isPro, openUpgradeModal } = useTierContext();
   const [section, setSection]       = useState(initialSection);
   const [msg, setMsg]               = useState("");
   const [msgType, setMsgType]       = useState("success"); // "success"|"error"
@@ -828,7 +829,7 @@ function ProfileModal({ open, onClose, initialSection="account",
           {section === "characters" && (
             <>
               <div className="modal-section">
-                <div className="modal-section-title">Your Characters ({characters.length}/5)</div>
+                <div className="modal-section-title">Your Characters ({characters.length}/{isPro ? 5 : 1})</div>
                 {characters.map(c => (
                   <div key={c.id} className={`char-list-item${c.id === activeCharId ? " is-active" : ""}`}>
                     <div className="char-avatar-sm">{c.name?.[0]?.toUpperCase() ?? "?"}</div>
@@ -881,7 +882,16 @@ function ProfileModal({ open, onClose, initialSection="account",
                 {charError && <div className="modal-error">{charError}</div>}
               </div>
 
-              {characters.length < 5 && (
+              {!isPro && characters.length >= 1 && (
+                <div style={{padding:"10px 14px",background:"var(--c-accentBg)",border:"1px solid var(--c-accentDim)",
+                  borderRadius:8,display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap"}}>
+                  <span style={{fontSize:12,color:"var(--c-accent)",fontFamily:"Syne,sans-serif"}}>⚡ Upgrade to Pro for unlimited characters</span>
+                  <button onClick={openUpgradeModal} style={{padding:"5px 12px",borderRadius:6,border:"none",
+                    background:"var(--c-accent)",color:"#0a0c10",fontSize:11,fontWeight:700,cursor:"pointer",
+                    fontFamily:"Syne,sans-serif",whiteSpace:"nowrap"}}>Upgrade to Pro</button>
+                </div>
+              )}
+              {(isPro ? characters.length < 5 : characters.length < 1) && (
                 <div className="modal-section">
                   <div className="modal-section-title">Add New Character</div>
                   <div style={{display:"flex",flexDirection:"column",gap:8}}>
@@ -1986,8 +1996,8 @@ const PAGES = [
   { id:"chief-charms",     label:"Chief Charms",     icon:"[K]", section:"Chief"                     },
   { id:"experts",          label:"Experts",           icon:"[E]", section:"Chief"                     },
   { id:"pets",              label:"Pets",              icon:"[P]", section:"Chief"                     },
-  { id:"daybreak-island",  label:"Daybreak Island",  icon:"[D]", section:"Chief",   guestHidden:true },
-  { id:"inventory",        label:"Inventory",         icon:"[I]", section:"Chief",   guestHidden:true },
+  { id:"daybreak-island",  label:"Daybreak Island",  icon:"[D]", section:"Chief",   guestHidden:true, proOnly:true },
+  { id:"inventory",        label:"Inventory",         icon:"[I]", section:"Chief",   guestHidden:true, proOnly:true },
   // COMBAT
   { id:"heroes",           label:"Heroes",            icon:"[H]", section:"Combat"                    },
   { id:"hero-gear",        label:"Hero Gear",         icon:"[G]", section:"Combat"                    },
@@ -1999,7 +2009,7 @@ const PAGES = [
   // PLANNING
   { id:"rfc-planner",      label:"RFC Planner",      icon:"[R]", section:"Planning", guestHidden:true },
   { id:"svs-calendar",     label:"SvS Calendar",     icon:"[C]", section:"Planning"                  },
-  { id:"battle-sim",       label:"Battle Simulator",  icon:"[B]", section:"Planning", guestHidden:true },
+  { id:"battle-sim",       label:"Battle Simulator",  icon:"[B]", section:"Planning", guestHidden:true, proOnly:true },
 ];
 
 const PAGE_TITLES = {
@@ -3435,8 +3445,8 @@ export default function App() {
   const { title, sub } = pageTitle;
   const planKeys  = Object.keys(savedPlans).sort();
   const userInitial = (user?.user_metadata?.full_name?.[0] ?? user?.email?.[0] ?? "?").toUpperCase();
-  // Gate Complete Upgrades modal — guests never see it (button hidden by passing undefined)
-  const completeSvs = (scope) => user ? () => setSvsModal({ open:true, scope }) : undefined;
+  // Gate Complete Upgrades modal — Pro only (guests and free users never see it)
+  const completeSvs = (scope) => (user && isPro) ? () => setSvsModal({ open:true, scope }) : undefined;
   // Signup trigger — increments to tell AuthPanel to switch to signup mode and focus email
   const [signupTrigger, setSignupTrigger] = useState(0);
 
@@ -3584,7 +3594,10 @@ export default function App() {
 
           <nav className="sidebar-nav">
             {sections.map(sec => {
-              const visibleInSec = PAGES.filter(p => p.section === sec && !(!user && p.guestHidden));
+              const visibleInSec = PAGES.filter(p => p.section === sec
+                && !(!user && p.guestHidden)
+                && !(user && !isPro && p.proOnly)
+              );
               if (!visibleInSec.length) return null;
               return (
               <div key={sec}>
@@ -3594,9 +3607,15 @@ export default function App() {
                     key={p.id}
                     className={clsx("nav-item", page === p.id && !loadedPlanKey && "active")}
                     onClick={() => { setLoadedPlanKey(null); setPage(p.id); setSidebarOpen(false); }}
+                    style={p.id==="battle-sim"?{opacity:0.6,cursor:"default",pointerEvents:"none"}:{}}
                   >
                     {p.label}
-
+                    {p.id==="battle-sim" && (
+                      <span style={{marginLeft:"auto",fontSize:9,fontWeight:700,
+                        fontFamily:"Space Mono,monospace",background:"var(--c-accentBg)",
+                        color:"var(--c-accent)",border:"1px solid var(--c-accentDim)",
+                        padding:"1px 5px",borderRadius:3}}>SOON</span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -3868,7 +3887,7 @@ export default function App() {
                 }}>Loading character data…</div>
               </div>
             ) : (<>
-            {page === "inventory"    && <FreeGate><InventoryPage inv={inv} setInv={setInv} /></FreeGate>}
+            {page === "inventory"    && <ProGate><InventoryPage inv={inv} setInv={setInv} /></ProGate>}
             {page === "construction" && <ConstructionPlanner inv={inv} setInv={setInv}
                 planSnapshot={planSnapshot}
                 onSetSnapshot={handleSetSnapshot}
@@ -3890,11 +3909,11 @@ export default function App() {
             {page === "chief-charms" && <ChiefCharmsPage inv={inv}  onCompleteSvs={completeSvs("chief-charms")}/>}
             {page === "experts"      && <ExpertsPage      inv={inv} setInv={setInv}  onCompleteSvs={completeSvs("experts")}/>}
             {page === "pets"           && <PetsPage inv={inv} setInv={setInv}  onCompleteSvs={completeSvs("pets")}/>}
-            {page === "daybreak-island" && <FreeGate><DaybreakIslandPage /></FreeGate>}
+            {page === "daybreak-island" && <ProGate><DaybreakIslandPage /></ProGate>}
             {page === "war-academy"  && <WarAcademyPage   inv={inv} setInv={setInv}  onCompleteSvs={completeSvs("war-academy")}/>}
             {page === "research-center" && <ResearchCenterPage inv={inv} rcLevels={rcLevels} setRcLevels={setRcLevels} rcCollapse={rcCollapse} setRcCollapse={setRcCollapse}  onCompleteSvs={completeSvs("research-center")}/>}
             {page === "svs-calendar" && <SvSCalendar />}
-            {page === "battle-sim"   && <FreeGate><BattleSimPage inv={inv} /></FreeGate>}
+            {page === "battle-sim"   && <ProGate><BattleSimPage inv={inv} /></ProGate>}
             {page === "char-profile" && <CharacterProfilePage hgHeroes={hgHeroes} inv={inv} onCompleteSvs={completeSvs("all")}
                 rcLevels={rcLevels} profileVersion={profileVersion}
                 cpSpeedBuff={cpSpeedBuff} setCpSpeedBuff={setCpSpeedBuff} />}

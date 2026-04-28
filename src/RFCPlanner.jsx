@@ -2,6 +2,7 @@ import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { _isGuest, useLocalStorage, scheduleSync } from "./useLocalStorage.js";
 import { buildCycles, getCurrentCycleNum, getCycleStartDate, toIso, fmtIso, fmtDate as fmtDateUtil, cycleLabelFull } from "./svsCalendar.js";
 import { supabase } from "./supabase.js";
+import { useTierContext, UpgradeBanner } from "./TierContext.jsx";
 
 const ADMIN_UID = "c5c3392e-2399-4cc9-b2ab-f22a61e7b91c";
 
@@ -267,7 +268,169 @@ function getConstructionRfcNeeded() {
   } catch { return 0; }
 }
 
+// ─── Free Tier: Simplified 4-week RFC Calculator ─────────────────────────────
+// No SvS calendar tie, no save/sync. Uses the same REFINE_TABLE + calcRefines.
+
+function FreeRFCCalculator() {
+  const { openUpgradeModal } = useTierContext();
+  const C = new Proxy({}, { get(_, k) { return `var(--c-${k})`; } });
+  const fmtN = n => Math.round(n).toLocaleString();
+
+  const [monRefines, setMonRefines] = useState(40);
+  const [wkdRefines, setWkdRefines] = useState(1);
+
+  const rows = useMemo(() => {
+    let weekCum = 0;
+    const out = [];
+    for (let i = 0; i < 28; i++) {
+      const isMon = WEEKDAYS[i % 7] === "Monday";
+      if (isMon) weekCum = 0;
+      const refines = isMon ? monRefines : wkdRefines;
+      const { fcBurn, rfcEarned, endCumulative } = calcRefines(weekCum, refines);
+      weekCum = endCumulative;
+      out.push({ day:i+1, weekNum:Math.floor(i/7)+1, isMon, weekday:WEEKDAYS[i%7], fcBurn, rfcEarned });
+    }
+    return out;
+  }, [monRefines, wkdRefines]);
+
+  const totalFC  = rows.reduce((s,r) => s+r.fcBurn, 0);
+  const totalRFC = rows.reduce((s,r) => s+r.rfcEarned, 0);
+  const weeks    = [0,1,2,3].map(wi => rows.slice(wi*7, (wi+1)*7));
+
+  const thS = { padding:"8px 10px", fontSize:9, fontWeight:700, letterSpacing:"0.8px",
+    textTransform:"uppercase", color:C.textSec, fontFamily:"Space Mono,monospace",
+    textAlign:"right", borderBottom:`1px solid ${C.border}`, whiteSpace:"nowrap" };
+  const selS = { background:C.surface, border:`1px solid ${C.border}`, borderRadius:6,
+    padding:"6px 10px", fontSize:12, color:C.textPri, outline:"none",
+    fontFamily:"Space Mono,monospace", cursor:"pointer" };
+
+  return (
+    <div style={{fontFamily:"Syne,sans-serif", color:C.textPri, minHeight:"100vh"}}>
+
+      {/* Upgrade banner */}
+      <UpgradeBanner message="Upgrade to Pro for the full 28-day SvS-linked planner with actuals tracking, cycle sync, and cloud save." />
+
+      {/* Header */}
+      <div style={{background:C.surface, border:`1px solid ${C.border}`, borderRadius:10,
+        padding:"16px 20px", marginBottom:20}}>
+        <div style={{fontSize:18, fontWeight:800, marginBottom:4}}>
+          RFC <span style={{color:C.accent}}>Refining Calculator</span>
+        </div>
+        <div style={{fontSize:11, color:C.textSec}}>
+          4-week estimate · set your refine counts · first daily refine at 50% FC
+        </div>
+      </div>
+
+      {/* Settings */}
+      <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:20}}>
+        <div style={{background:C.card, border:`1px solid ${C.border}`, borderRadius:10,
+          padding:"14px 16px"}}>
+          <div style={{fontSize:10, fontWeight:700, letterSpacing:"1px", textTransform:"uppercase",
+            color:C.textSec, fontFamily:"Space Mono,monospace", marginBottom:8}}>Monday Refines</div>
+          <select value={monRefines} onChange={e => setMonRefines(Number(e.target.value))} style={selS}>
+            <optgroup label="── Favorites ──">
+              {MON_FAVORITES.map(v => <option key={v} value={v}>{v} refines</option>)}
+            </optgroup>
+            <optgroup label="── All (1–100) ──">
+              {Array.from({length:100}, (_,i) => i+1).map(v => <option key={v} value={v}>{v}</option>)}
+            </optgroup>
+          </select>
+        </div>
+        <div style={{background:C.card, border:`1px solid ${C.border}`, borderRadius:10,
+          padding:"14px 16px"}}>
+          <div style={{fontSize:10, fontWeight:700, letterSpacing:"1px", textTransform:"uppercase",
+            color:C.textSec, fontFamily:"Space Mono,monospace", marginBottom:8}}>Tue–Sun Refines</div>
+          <select value={wkdRefines} onChange={e => setWkdRefines(Number(e.target.value))} style={selS}>
+            {Array.from({length:40}, (_,i) => i+1).map(v => <option key={v} value={v}>{v} refines</option>)}
+          </select>
+        </div>
+      </div>
+
+      {/* Totals */}
+      <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:20}}>
+        {[
+          {label:"28-Day RFC Total", value:fmtN(totalRFC), color:C.green},
+          {label:"28-Day FC Burned", value:fmtN(totalFC),  color:C.accent},
+        ].map(t => (
+          <div key={t.label} style={{background:C.card, border:`1px solid ${C.border}`,
+            borderRadius:10, padding:"14px 16px"}}>
+            <div style={{fontSize:10, fontWeight:700, letterSpacing:"1px", textTransform:"uppercase",
+              color:C.textSec, fontFamily:"Space Mono,monospace", marginBottom:6}}>{t.label}</div>
+            <div style={{fontSize:24, fontWeight:800, fontFamily:"Space Mono,monospace",
+              color:t.color}}>{t.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Week tables */}
+      {weeks.map((wkRows, wi) => (
+        <div key={wi} style={{marginBottom:16}}>
+          <div style={{fontSize:10, fontWeight:700, letterSpacing:"2px", textTransform:"uppercase",
+            color:C.textSec, fontFamily:"Space Mono,monospace", marginBottom:6, display:"flex",
+            alignItems:"center", gap:8}}>
+            Week {wi+1}
+            <span style={{flex:1, height:1, background:C.border, display:"block"}}/>
+          </div>
+          <div style={{background:C.card, border:`1px solid ${C.border}`, borderRadius:10, overflow:"hidden"}}>
+            <div style={{overflowX:"auto"}}>
+              <table style={{width:"100%", borderCollapse:"collapse", fontSize:11, minWidth:400}}>
+                {wi === 0 && (
+                  <thead>
+                    <tr style={{background:C.surface}}>
+                      <th style={{...thS, textAlign:"left"}}>Day</th>
+                      <th style={{...thS, textAlign:"left"}}>Weekday</th>
+                      <th style={thS}>Refines</th>
+                      <th style={thS}>FC Burned</th>
+                      <th style={thS}>RFC Earned</th>
+                    </tr>
+                  </thead>
+                )}
+                <tbody>
+                  {wkRows.map(r => (
+                    <tr key={r.day}
+                      style={{background:r.isMon?"rgba(56,139,253,0.05)":"transparent",
+                        borderBottom:`1px solid ${C.border}`}}>
+                      <td style={{padding:"7px 10px", fontFamily:"Space Mono,monospace",
+                        color:r.isMon?C.blue:C.textSec, fontWeight:r.isMon?700:400}}>{r.day}</td>
+                      <td style={{padding:"7px 10px", color:r.isMon?C.blue:C.textPri,
+                        fontWeight:r.isMon?700:400}}>{r.weekday}</td>
+                      <td style={{padding:"7px 10px", textAlign:"right", fontFamily:"Space Mono,monospace",
+                        color:C.textPri}}>{r.isMon ? monRefines : wkdRefines}</td>
+                      <td style={{padding:"7px 10px", textAlign:"right", fontFamily:"Space Mono,monospace",
+                        color:C.accent}}>{fmtN(r.fcBurn)}</td>
+                      <td style={{padding:"7px 10px", textAlign:"right", fontFamily:"Space Mono,monospace",
+                        color:C.green, fontWeight:700}}>{fmtN(r.rfcEarned)}</td>
+                    </tr>
+                  ))}
+                  <tr style={{background:C.surface, borderTop:`2px solid ${C.borderHi}`}}>
+                    <td colSpan={3} style={{padding:"7px 10px", fontWeight:700,
+                      fontFamily:"Space Mono,monospace", fontSize:10, color:C.textSec}}>
+                      Week {wi+1} total
+                    </td>
+                    <td style={{padding:"7px 10px", textAlign:"right", fontFamily:"Space Mono,monospace",
+                      fontWeight:700, color:C.accent}}>
+                      {fmtN(wkRows.reduce((s,r)=>s+r.fcBurn,0))}
+                    </td>
+                    <td style={{padding:"7px 10px", textAlign:"right", fontFamily:"Space Mono,monospace",
+                      fontWeight:700, color:C.green}}>
+                      {fmtN(wkRows.reduce((s,r)=>s+r.rfcEarned,0))}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSavePopup, currentUser }) {
+  const { isPro } = useTierContext();
+  // Free logged-in users get the simplified 4-week calculator
+  if (!isPro) return <FreeRFCCalculator />;
+
   const currentCycle = useMemo(()=>getCurrentCycleNum(),[]);
   const cycleOpts    = useMemo(()=>buildCycles(Math.max(1,currentCycle-1),16),[currentCycle]);
 

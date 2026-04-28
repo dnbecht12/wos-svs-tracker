@@ -1,6 +1,6 @@
 import React from "react";
 import { useLocalStorage } from "./useLocalStorage.js";
-import { useTierContext, GuestBanner } from "./TierContext.jsx";
+import { useTierContext, GuestBanner, UpgradeBanner } from "./TierContext.jsx";
 
 // ─── COLORS ───────────────────────────────────────────────────────────────────
 // Inject pet dropdown option colors once
@@ -640,8 +640,12 @@ const PetDrawer = React.memo(function PetDrawer({ pet, data, onChange, inv }) {
 // ─── Main Pets Page ───────────────────────────────────────────────────────────
 export default function PetsPage({ inv, setInv, onCompleteSvs }) {
   const C = COLORS;
-  const { isGuest } = useTierContext();
-  const [petData, setPetData] = useLocalStorage("pets-data", {});
+  const { isGuest, isPro } = useTierContext();
+  const [petDataLS, setPetDataLS] = useLocalStorage("pets-data", {});
+  const [petDataLocal, setPetDataLocal] = React.useState({});
+  // Free users: calculator only — local React state, no persistence
+  const petData    = (!isGuest && !isPro) ? petDataLocal    : petDataLS;
+  const setPetData = (!isGuest && !isPro) ? setPetDataLocal : setPetDataLS;
   const [openCard, setOpenCard] = React.useState(null); // which pet card is expanded
   const [genFilter, setGenFilter] = useLocalStorage("pets-gen-filter", 7);
 
@@ -739,6 +743,9 @@ export default function PetsPage({ inv, setInv, onCompleteSvs }) {
       {/* ── Guest limit banner ── */}
       {isGuest && (
         <GuestBanner message="3 of 14 pets available as guest — sign up for free to access all 14 pets and full tracking" />
+      )}
+      {!isGuest && !isPro && (
+        <UpgradeBanner message="Upgrade to Pro to save your Pet progress and sync across devices." />
       )}
 
       {/* ── Pet Stat Totals ── */}

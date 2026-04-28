@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useLocalStorage } from "./useLocalStorage.js";
 import { supabase } from "./supabase.js";
 import { GEAR_DB, EMPOWERMENT, GEAR_TYPE, HERO_GEAR_SET, SLOT_TO_GEAR, getGearStats, getUnlockedEmpowerments } from "./GearData.js";
-import { useTierContext, GuestBanner } from "./TierContext.jsx";
+import { useTierContext, GuestBanner, UpgradeBanner } from "./TierContext.jsx";
 
 // ─── COLORS ───────────────────────────────────────────────────────────────────
 const COLORS = {
@@ -1980,7 +1980,7 @@ function GuestHeroGearCalc() {
 
 function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, hgTeams: hgTeamsProp, setHgTeams, onCompleteSvs }) {
   const C = COLORS;
-  const { isGuest } = useTierContext();
+  const { isGuest, isPro } = useTierContext();
   if (isGuest) return <GuestHeroGearCalc />;
 
   // Guard: ensure hgTeams always has the expected shape even for guests
@@ -1989,7 +1989,9 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
   const [showRemoveModal, setShowRemoveModal] = useState(false);
   const [removeTarget,    setRemoveTarget]    = useState("");
 
-  const teamLetters = Object.keys(hgTeams.teams).sort();
+  const allTeamLetters  = Object.keys(hgTeams.teams).sort();
+  // Free users: Team A only
+  const teamLetters = isPro ? allTeamLetters : allTeamLetters.filter(l => l === "A").concat(allTeamLetters.length === 0 ? ["A"] : []);
   const activeTeam  = hgTeams.activeTeam;
   const heroData    = hgTeams.teams[activeTeam] || HERO_SLOTS.slice(0,3).map(s => defaultHeroState(s.type));
 
@@ -2171,7 +2173,7 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
               {teamLabel(letter)}
             </button>
           ))}
-          {teamLetters.length < 6 && (
+          {isPro && teamLetters.length < 6 && (
             <button onClick={addTeam}
               style={{
                 padding:"8px 14px", borderRadius:6, cursor:"pointer",
@@ -2185,6 +2187,12 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
             >
               <span style={{fontSize:16, lineHeight:1}}>+</span> Add Team
             </button>
+          )}
+          {!isPro && (
+            <span style={{fontSize:10,color:"var(--c-accent)",fontFamily:"'Space Mono',monospace",
+              padding:"4px 8px",borderRadius:4,border:"1px solid var(--c-accentDim)",
+              background:"var(--c-accentBg)",cursor:"pointer"}}
+              onClick={()=>{}}>⚡ Pro: unlock up to 6 teams</span>
           )}
         </div>
       </div>
@@ -2486,7 +2494,16 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                         );
                       })()}
                     </tr>
-                    {combinedSummary}
+                    {isPro && combinedSummary}
+                  {!isPro && slotIdx === 4 && (
+                    <tr style={{background:"var(--c-accentBg)"}}>
+                      <td colSpan={13} style={{padding:"8px 12px"}}>
+                        <span style={{fontSize:11,color:"var(--c-accent)",fontFamily:"Syne,sans-serif"}}>
+                          ⚡ Upgrade to Pro to see full gear stat improvements
+                        </span>
+                      </td>
+                    </tr>
+                  )}
                     </React.Fragment>
                   );
                 });

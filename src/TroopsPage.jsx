@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useLocalStorage } from "./useLocalStorage.js";
+import { useTierContext, UpgradeBanner } from "./TierContext.jsx";
 
 // ─── COLORS ───────────────────────────────────────────────────────────────────
 const COLORS = {
@@ -123,6 +124,7 @@ function getTroopStats(troopId, tierStr, fcLevel) {
 
 function TroopsPage() {
   const C = COLORS;
+  const { isGuest, isPro } = useTierContext();
 
   const defaultTroops = () => {
     const out = {};
@@ -130,7 +132,11 @@ function TroopsPage() {
     return out;
   };
 
-  const [troops, setTroops] = useLocalStorage("troops-inventory-v2", defaultTroops());
+  const [troopsLS, setTroopsLS] = useLocalStorage("troops-inventory-v2", defaultTroops());
+  const [troopsLocal, setTroopsLocal] = React.useState(defaultTroops);
+  // Free users: calculator only — local state, no persistence
+  const troops    = (!isGuest && !isPro) ? troopsLocal    : troopsLS;
+  const setTroops = (!isGuest && !isPro) ? setTroopsLocal : setTroopsLS;
   const [showPromote, setShowPromote] = React.useState(false);
 
   // Bust localStorage-reading useMemos when character switches
@@ -246,6 +252,10 @@ function TroopsPage() {
 
   return (
     <div className="fade-in" style={{ padding:"0 0 40px" }}>
+
+      {!isGuest && !isPro && (
+        <UpgradeBanner message="Upgrade to Pro to save your Troop data and sync across devices." />
+      )}
 
       {/* ── Banner ─────────────────────────────────────────────────────────── */}
       <div style={{ marginBottom:20, padding:"16px 20px", background:C.accentBg,
