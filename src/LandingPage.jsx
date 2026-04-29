@@ -146,7 +146,7 @@ export default function LandingPage({ signUp, signIn, signInWithDiscord, authErr
           TUNDRA <span style={{ color:C.textSec, fontSize:14, fontWeight:600, letterSpacing:4 }}>COMMAND</span>
         </div>
         <div style={{ display:"flex", gap:10, alignItems:"center" }}>
-          <a href="https://whiteout-survival.fandom.com/wiki/Whiteout_Survival_Wiki"
+          <a href="https://www.whiteoutsurvival.wiki/"
             target="_blank" rel="noopener noreferrer"
             style={{ color:C.textSec, fontSize:11, textDecoration:"none", ...mono,
               padding:"5px 10px", borderRadius:6, border:`1px solid ${C.border}` }}>
