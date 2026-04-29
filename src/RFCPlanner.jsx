@@ -969,9 +969,15 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
                                 </div>
                               </td>
 
-                              {/* Difference — only show for today */}
+                              {/* Difference + Accept — shown for today */}
                               <td>
                                 <div className="cp r" style={{gap:5,justifyContent:"flex-end"}}>
+                                  {isToday && r.difference!==0 && (
+                                    <button className="accept-btn"
+                                      onClick={()=>persistInv("refinedFC")(r.rollingRFC)}>
+                                      Accept
+                                    </button>
+                                  )}
                                   {isToday && (
                                     <span style={{color:diffColor,fontWeight:700,fontFamily:"Space Mono,monospace",fontSize:11}}>
                                       {r.difference===0?"✓":`${r.difference>0?"+":""}${fmtN(r.difference)}`}

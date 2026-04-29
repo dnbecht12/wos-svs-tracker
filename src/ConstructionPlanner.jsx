@@ -1014,9 +1014,12 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
   const { rfcAccumulated, accumRows } = useMemo(() => {
     const actuals    = loadRFCActuals(selectedCycle);
     const monRefines = (() => { try { const v = localStorage.getItem("rfc-monref"); return v ? JSON.parse(v) : 1; } catch { return 1; } })();
+    // Use the RFC Planner's per-cycle starting balance override if set,
+    // so this table and the RFC Planner always start from the same seed.
+    const rfcStartOverride = (() => { try { const v = localStorage.getItem(`rfc-start-rfc-${selectedCycle}`); return v !== null ? JSON.parse(v) : null; } catch { return null; } })();
 
     const cycleStart = getCycleStartDate(selectedCycle);
-    let rollingRFC = rfc;
+    let rollingRFC = rfcStartOverride !== null ? rfcStartOverride : rfc;
     let weekCum    = 0;
     let totalRfc   = 0;
     const rows = [];
