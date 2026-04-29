@@ -517,16 +517,14 @@ function RFCPlannerPro({ inv, setInv, savedPlans, onSavePlan, openSavePopup, cur
   // Per-cycle starting RFC: override takes priority over seedRFC / inv.refinedFC
   const effectiveSeedRFC = startRFCOverride !== null ? startRFCOverride : seedRFC;
 
-  // Accept: pin the rolling seed first so it doesn't shift when inv.refinedFC changes,
-  // then update inv.refinedFC to match today's rolling total → difference becomes 0.
+  // Accept: shift the seed so today's rolling total equals inv.refinedFC exactly.
+  // Works for both positive diff (rolling rises) and negative (rolling falls).
+  // inv.refinedFC is never changed — the planner adjusts to the user's actual balance.
   const handleAccept = useCallback((rowRollingRFC) => {
-    if (startRFCOverride === null) {
-      // No override yet — pin to the current seed so rolling totals stay anchored.
-      setStartRFCOverride(effectiveSeedRFC);
-      saveLS(`rfc-start-rfc-${selectedCycle}`, effectiveSeedRFC);
-    }
-    persistInv("refinedFC")(rowRollingRFC);
-  }, [startRFCOverride, effectiveSeedRFC, selectedCycle, persistInv]);
+    const newOverride = effectiveSeedRFC + (inv.refinedFC - rowRollingRFC);
+    setStartRFCOverride(newOverride);
+    saveLS(`rfc-start-rfc-${selectedCycle}`, newOverride);
+  }, [inv.refinedFC, effectiveSeedRFC, selectedCycle]);
 
   const applyMonRefines = useCallback(val=>{
     setMonRefines(val);
