@@ -426,11 +426,14 @@ function FreeRFCCalculator() {
   );
 }
 
-export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSavePopup, currentUser }) {
+// Wrapper: checks tier first so hooks in RFCPlannerPro are never conditionally skipped
+export default function RFCPlanner(props) {
   const { isPro } = useTierContext();
-  // Free logged-in users get the simplified 4-week calculator
   if (!isPro) return <FreeRFCCalculator />;
+  return <RFCPlannerPro {...props} />;
+}
 
+function RFCPlannerPro({ inv, setInv, savedPlans, onSavePlan, openSavePopup, currentUser }) {
   const currentCycle = useMemo(()=>getCurrentCycleNum(),[]);
   const cycleOpts    = useMemo(()=>buildCycles(Math.max(1,currentCycle-1),16),[currentCycle]);
 
