@@ -1138,12 +1138,30 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
             {(() => {
               if (!statsMatch) return <DataUnavailable />;
               const t = hero.type;
+              // Add gear expedition contributions from equipped pieces
+              let gearExpAtk=0, gearExpDef=0, gearExpLeth=0, gearExpHp=0;
+              ["Goggles","Gloves","Belt","Boots"].forEach(slot => {
+                const slotIdx = GEAR_SLOTS.indexOf(slot);
+                const s = liveGearData?.slots?.[slotIdx];
+                const gearName = SLOT_TO_GEAR(hero.type, slot);
+                if (!s || !gearName || !s.status) return;
+                const gs = getGearStats(gearName, s.status, s.gearCurrent ?? 0, s.masteryCurrent ?? 0);
+                if (!gs) return;
+                const isATK = GEAR_TYPE[gearName] === "ATK";
+                if (isATK) gearExpLeth += gs.troop;
+                else       gearExpHp   += gs.troop;
+                getUnlockedEmpowerments(gearName, s.status, s.gearCurrent ?? 0).forEach(e => {
+                  if (!e.unlocked) return;
+                  if (e.label === "Inf. Attack")  gearExpAtk += e.value;
+                  if (e.label === "Inf. Defense") gearExpDef += e.value;
+                });
+              });
               return (
                 <>
-                  <StatRow label={`${t} Attack`}    val={(ref.infAtk  * 100)} isPercent={true} />
-                  <StatRow label={`${t} Defense`}   val={(ref.infDef  * 100)} isPercent={true} />
-                  <StatRow label={`${t} Lethality`} val={(ref.infLeth * 100)} isPercent={true} />
-                  <StatRow label={`${t} Health`}    val={(ref.infHp   * 100)} isPercent={true} />
+                  <StatRow label={`${t} Attack`}    val={ref.infAtk*100  + gearExpAtk}  isPercent={true} />
+                  <StatRow label={`${t} Defense`}   val={ref.infDef*100  + gearExpDef}  isPercent={true} />
+                  <StatRow label={`${t} Lethality`} val={ref.infLeth*100 + gearExpLeth} isPercent={true} />
+                  <StatRow label={`${t} Health`}    val={ref.infHp*100   + gearExpHp}   isPercent={true} />
                 </>
               );
             })()}
@@ -2299,9 +2317,6 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                     );
                     if (!anyChanged) return null;
 
-                    // Slot → expedition stat: Goggles→atk, Gloves→def, Belt→hp, Boots→leth
-                    const SLOT_EXP = ["atk","def","hp","leth"];
-
                     let curHeroAtk=0, curHeroDef=0, curHeroHp=0, curEscAtk=0, curEscDef=0, curEscHp=0;
                     let goalHeroAtk=0, goalHeroDef=0, goalHeroHp=0, goalEscAtk=0, goalEscDef=0, goalEscHp=0;
                     let curExpAtk=0, curExpDef=0, curExpHp=0, curExpLeth=0;
@@ -2316,42 +2331,49 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                       const cS = getGearStats(gearName, curTier,  gs.gearCurrent  ?? 0, gs.masteryCurrent ?? 0);
                       const gS = getGearStats(gearName, goalTier, gs.gearGoal     ?? 0, gs.masteryGoal    ?? 0);
                       const isATK = GEAR_TYPE[gearName] === "ATK";
-                      const exp   = SLOT_EXP[si];
                       if (cS) {
                         if (isATK) { curHeroAtk += cS.heroMain; curEscAtk += cS.escMain; }
                         else        { curHeroDef += cS.heroMain; curEscDef += cS.escMain; }
                         curHeroHp += cS.heroHp;
                         curEscHp  += cS.escHp;
-                        if (exp==="atk")  curExpAtk  += cS.troop;
-                        if (exp==="def")  curExpDef  += cS.troop;
-                        if (exp==="hp")   curExpHp   += cS.troop;
-                        if (exp==="leth") curExpLeth += cS.troop;
+                        // troop% on ATK pieces = Lethality; on DEF pieces = Health
+                        if (isATK) curExpLeth += cS.troop;
+                        else       curExpHp   += cS.troop;
                       }
                       if (gS) {
                         if (isATK) { goalHeroAtk += gS.heroMain; goalEscAtk += gS.escMain; }
                         else        { goalHeroDef += gS.heroMain; goalEscDef += gS.escMain; }
                         goalHeroHp += gS.heroHp;
                         goalEscHp  += gS.escHp;
-                        if (exp==="atk")  goalExpAtk  += gS.troop;
-                        if (exp==="def")  goalExpDef  += gS.troop;
-                        if (exp==="hp")   goalExpHp   += gS.troop;
-                        if (exp==="leth") goalExpLeth += gS.troop;
+                        if (isATK) goalExpLeth += gS.troop;
+                        else       goalExpHp   += gS.troop;
                       }
+                      // Empowerments (flat, no mastery scale): "Inf. Attack" → ATK, "Inf. Defense" → DEF
+                      getUnlockedEmpowerments(gearName, curTier,  gs.gearCurrent ?? 0).forEach(e => {
+                        if (!e.unlocked) return;
+                        if (e.label === "Inf. Attack")  curExpAtk  += e.value;
+                        if (e.label === "Inf. Defense") curExpDef  += e.value;
+                      });
+                      getUnlockedEmpowerments(gearName, goalTier, gs.gearGoal    ?? 0).forEach(e => {
+                        if (!e.unlocked) return;
+                        if (e.label === "Inf. Attack")  goalExpAtk += e.value;
+                        if (e.label === "Inf. Defense") goalExpDef += e.value;
+                      });
                     });
 
-                    // Add hero base stats (same for cur and goal — base doesn't change with gear)
+                    // infAtk/infDef/infLeth/infHp are stored as decimal fractions → × 100 for %
                     const base = heroStatsForSlot;
                     const hasBase = base.heroAtk > 0 || base.heroDef > 0 || base.heroHp > 0;
-                    curHeroAtk += base.heroAtk;   goalHeroAtk += base.heroAtk;
-                    curHeroDef += base.heroDef;   goalHeroDef += base.heroDef;
-                    curHeroHp  += base.heroHp;    goalHeroHp  += base.heroHp;
-                    curEscAtk  += base.escortAtk; goalEscAtk  += base.escortAtk;
-                    curEscDef  += base.escortDef; goalEscDef  += base.escortDef;
-                    curEscHp   += base.escortHp;  goalEscHp   += base.escortHp;
-                    curExpAtk  += base.infAtk;    goalExpAtk  += base.infAtk;
-                    curExpDef  += base.infDef;    goalExpDef  += base.infDef;
-                    curExpHp   += base.infHp;     goalExpHp   += base.infHp;
-                    curExpLeth += base.infLeth;   goalExpLeth += base.infLeth;
+                    curHeroAtk += base.heroAtk;        goalHeroAtk += base.heroAtk;
+                    curHeroDef += base.heroDef;        goalHeroDef += base.heroDef;
+                    curHeroHp  += base.heroHp;         goalHeroHp  += base.heroHp;
+                    curEscAtk  += base.escortAtk;      goalEscAtk  += base.escortAtk;
+                    curEscDef  += base.escortDef;      goalEscDef  += base.escortDef;
+                    curEscHp   += base.escortHp;       goalEscHp   += base.escortHp;
+                    curExpAtk  += base.infAtk  * 100;  goalExpAtk  += base.infAtk  * 100;
+                    curExpDef  += base.infDef  * 100;  goalExpDef  += base.infDef  * 100;
+                    curExpHp   += base.infHp   * 100;  goalExpHp   += base.infHp   * 100;
+                    curExpLeth += base.infLeth * 100;  goalExpLeth += base.infLeth * 100;
 
                     const Row2 = ({label, cur, goal, pct}) => {
                       const diff = goal - cur;
