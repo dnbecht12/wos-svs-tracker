@@ -2368,6 +2368,7 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                     );
                     if (!anyChanged) return null;
 
+                    let curPwr=0, goalPwr=0;
                     let curHeroAtk=0, curHeroDef=0, curHeroHp=0, curEscAtk=0, curEscDef=0, curEscHp=0;
                     let goalHeroAtk=0, goalHeroDef=0, goalHeroHp=0, goalEscAtk=0, goalEscDef=0, goalEscHp=0;
                     let curExpAtk=0, curExpDef=0, curExpHp=0, curExpLeth=0;
@@ -2383,6 +2384,7 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                       const gS = getGearStats(gearName, goalTier, gs.gearGoal     ?? 0, gs.masteryGoal    ?? 0);
                       const isATK = GEAR_TYPE[gearName] === "ATK";
                       if (cS) {
+                        curPwr += cS.power;
                         if (isATK) { curHeroAtk += cS.heroMain; curEscAtk += cS.escMain; }
                         else        { curHeroDef += cS.heroMain; curEscDef += cS.escMain; }
                         curHeroHp += cS.heroHp;
@@ -2392,6 +2394,7 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                         else       curExpHp   += cS.troop;
                       }
                       if (gS) {
+                        goalPwr += gS.power;
                         if (isATK) { goalHeroAtk += gS.heroMain; goalEscAtk += gS.escMain; }
                         else        { goalHeroDef += gS.heroMain; goalEscDef += gS.escMain; }
                         goalHeroHp += gS.heroHp;
@@ -2399,16 +2402,22 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                         if (isATK) goalExpLeth += gS.troop;
                         else       goalExpHp   += gS.troop;
                       }
-                      // Empowerments (flat, no mastery): any "* Attack"/"* Defense" label (not Hero)
+                      // Empowerments (flat): troop stats + Hero ATK/DEF/Health exploration bonuses
                       getUnlockedEmpowerments(gearName, curTier,  gs.gearCurrent ?? 0).forEach(e => {
                         if (!e.unlocked) return;
                         if (e.label.endsWith("Attack")  && !e.label.startsWith("Hero")) curExpAtk  += e.value;
                         if (e.label.endsWith("Defense") && !e.label.startsWith("Hero")) curExpDef  += e.value;
+                        if (e.label === "Hero Attack")  { if (isATK) curHeroAtk += e.value; else curHeroDef += e.value; }
+                        if (e.label === "Hero Defense") { if (!isATK) curHeroDef += e.value; else curHeroAtk += e.value; }
+                        if (e.label === "Hero Health")  curHeroHp += e.value;
                       });
                       getUnlockedEmpowerments(gearName, goalTier, gs.gearGoal    ?? 0).forEach(e => {
                         if (!e.unlocked) return;
                         if (e.label.endsWith("Attack")  && !e.label.startsWith("Hero")) goalExpAtk += e.value;
                         if (e.label.endsWith("Defense") && !e.label.startsWith("Hero")) goalExpDef += e.value;
+                        if (e.label === "Hero Attack")  { if (isATK) goalHeroAtk += e.value; else goalHeroDef += e.value; }
+                        if (e.label === "Hero Defense") { if (!isATK) goalHeroDef += e.value; else goalHeroAtk += e.value; }
+                        if (e.label === "Hero Health")  goalHeroHp += e.value;
                       });
                     });
 
@@ -2483,6 +2492,7 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                               </thead>
                               <tbody>
                                 <SectionLabel label="Exploration" />
+                                <Row2 label="Gear Power"  cur={curPwr}      goal={goalPwr} />
                                 <Row2 label="Hero ATK"    cur={curHeroAtk}  goal={goalHeroAtk} />
                                 <Row2 label="Hero DEF"    cur={curHeroDef}  goal={goalHeroDef} />
                                 <Row2 label="Hero HP"     cur={curHeroHp}   goal={goalHeroHp} />
