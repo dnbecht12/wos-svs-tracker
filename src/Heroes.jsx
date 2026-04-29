@@ -2071,11 +2071,10 @@ function GuestHeroGearCalc() {
   );
 }
 
-function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, hgTeams: hgTeamsProp, setHgTeams, onCompleteSvs }) {
+function HeroGearPagePro({ inv, genFilter, setGenFilter, heroStats, setHeroStats, hgTeams: hgTeamsProp, setHgTeams, onCompleteSvs }) {
   const C = COLORS;
-  const { isGuest, isPro } = useTierContext();
+  const { isPro } = useTierContext();
   const navigate = useNavigate();
-  if (isGuest) return <GuestHeroGearCalc />;
 
   // Guard: ensure hgTeams always has the expected shape even for guests
   const hgTeams = hgTeamsProp || defaultTeamsData();
@@ -2771,6 +2770,12 @@ function StatCard({ label, value, sub, color, prefix = "" }) {
       {sub && <div className="stat-sub">{sub}</div>}
     </div>
   );
+}
+
+function HeroGearPage(props) {
+  const { isGuest } = useTierContext();
+  if (isGuest) return <GuestHeroGearCalc />;
+  return <HeroGearPagePro {...props} />;
 }
 
 // ─── Exports ──────────────────────────────────────────────────────────────────

@@ -854,10 +854,7 @@ function GuestConstructionCalc() {
   );
 }
 
-export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSnapshot, onUpdatePlan, cpSpeedBuff: cpSpeedBuffProp, setCpSpeedBuff: setCpSpeedBuffProp, activeCharId, onCompleteSvs }) {
-  const { isGuest } = useTierContext();
-  if (isGuest) return <GuestConstructionCalc />;
-
+function ConstructionPlannerPro({ inv, setInv, planSnapshot, onSetSnapshot, onUpdatePlan, cpSpeedBuff: cpSpeedBuffProp, setCpSpeedBuff: setCpSpeedBuffProp, activeCharId, onCompleteSvs }) {
   // Cycle selector linked to SvS Calendar
   const currentCycle = useMemo(() => getCurrentCycleNum(), []);
   const cycleOpts    = useMemo(() => buildCycles(Math.max(1, currentCycle - 1), 16), [currentCycle]);
@@ -1636,4 +1633,10 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
       </div>
     </>
   );
+}
+
+export default function ConstructionPlanner(props) {
+  const { isGuest } = useTierContext();
+  if (isGuest) return <GuestConstructionCalc />;
+  return <ConstructionPlannerPro {...props} />;
 }
