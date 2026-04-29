@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
+import { useNavigate } from "react-router-dom";
 import { useLocalStorage } from "./useLocalStorage.js";
 import { supabase } from "./supabase.js";
 import { GEAR_DB, EMPOWERMENT, GEAR_TYPE, HERO_GEAR_SET, SLOT_TO_GEAR, getGearStats, getUnlockedEmpowerments } from "./GearData.js";
@@ -2004,6 +2005,7 @@ function GuestHeroGearCalc() {
 function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, hgTeams: hgTeamsProp, setHgTeams, onCompleteSvs }) {
   const C = COLORS;
   const { isGuest, isPro } = useTierContext();
+  const navigate = useNavigate();
   if (isGuest) return <GuestHeroGearCalc />;
 
   // Guard: ensure hgTeams always has the expected shape even for guests
@@ -2296,8 +2298,15 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                       (gs.goalStatus ?? gs.status ?? "") !== (gs.status ?? "")
                     );
                     if (!anyChanged) return null;
-                    let curPwr=0, curHeroMain=0, curHeroHp=0, curEscMain=0, curEscHp=0, curTroop=0, curMast=0;
-                    let goalPwr=0,goalHeroMain=0,goalHeroHp=0,goalEscMain=0,goalEscHp=0,goalTroop=0,goalMast=0;
+
+                    // Slot → expedition stat: Goggles→atk, Gloves→def, Belt→hp, Boots→leth
+                    const SLOT_EXP = ["atk","def","hp","leth"];
+
+                    let curHeroAtk=0, curHeroDef=0, curHeroHp=0, curEscAtk=0, curEscDef=0, curEscHp=0;
+                    let goalHeroAtk=0, goalHeroDef=0, goalHeroHp=0, goalEscAtk=0, goalEscDef=0, goalEscHp=0;
+                    let curExpAtk=0, curExpDef=0, curExpHp=0, curExpLeth=0;
+                    let goalExpAtk=0, goalExpDef=0, goalExpHp=0, goalExpLeth=0;
+
                     gearSlots.forEach((gs, si) => {
                       const gearName = SLOT_TO_GEAR(slot.type, GEAR_SLOTS[si]);
                       if (!gearName) return;
@@ -2306,47 +2315,111 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                       if (!curTier) return;
                       const cS = getGearStats(gearName, curTier,  gs.gearCurrent  ?? 0, gs.masteryCurrent ?? 0);
                       const gS = getGearStats(gearName, goalTier, gs.gearGoal     ?? 0, gs.masteryGoal    ?? 0);
-                      if (cS) { curPwr+=cS.power; curHeroMain+=cS.heroMain; curHeroHp+=cS.heroHp; curEscMain+=cS.escMain; curEscHp+=cS.escHp; curTroop+=cS.troop; curMast+=(gs.masteryCurrent??0)*10; }
-                      if (gS) { goalPwr+=gS.power;goalHeroMain+=gS.heroMain;goalHeroHp+=gS.heroHp;goalEscMain+=gS.escMain;goalEscHp+=gS.escHp;goalTroop+=gS.troop;goalMast+=(gs.masteryGoal??0)*10; }
+                      const isATK = GEAR_TYPE[gearName] === "ATK";
+                      const exp   = SLOT_EXP[si];
+                      if (cS) {
+                        if (isATK) { curHeroAtk += cS.heroMain; curEscAtk += cS.escMain; }
+                        else        { curHeroDef += cS.heroMain; curEscDef += cS.escMain; }
+                        curHeroHp += cS.heroHp;
+                        curEscHp  += cS.escHp;
+                        if (exp==="atk")  curExpAtk  += cS.troop;
+                        if (exp==="def")  curExpDef  += cS.troop;
+                        if (exp==="hp")   curExpHp   += cS.troop;
+                        if (exp==="leth") curExpLeth += cS.troop;
+                      }
+                      if (gS) {
+                        if (isATK) { goalHeroAtk += gS.heroMain; goalEscAtk += gS.escMain; }
+                        else        { goalHeroDef += gS.heroMain; goalEscDef += gS.escMain; }
+                        goalHeroHp += gS.heroHp;
+                        goalEscHp  += gS.escHp;
+                        if (exp==="atk")  goalExpAtk  += gS.troop;
+                        if (exp==="def")  goalExpDef  += gS.troop;
+                        if (exp==="hp")   goalExpHp   += gS.troop;
+                        if (exp==="leth") goalExpLeth += gS.troop;
+                      }
                     });
-                    const Diff = ({cur,goal,pct}) => {
+
+                    // Add hero base stats (same for cur and goal — base doesn't change with gear)
+                    const base = heroStatsForSlot;
+                    const hasBase = base.heroAtk > 0 || base.heroDef > 0 || base.heroHp > 0;
+                    curHeroAtk += base.heroAtk;   goalHeroAtk += base.heroAtk;
+                    curHeroDef += base.heroDef;   goalHeroDef += base.heroDef;
+                    curHeroHp  += base.heroHp;    goalHeroHp  += base.heroHp;
+                    curEscAtk  += base.escortAtk; goalEscAtk  += base.escortAtk;
+                    curEscDef  += base.escortDef; goalEscDef  += base.escortDef;
+                    curEscHp   += base.escortHp;  goalEscHp   += base.escortHp;
+                    curExpAtk  += base.infAtk;    goalExpAtk  += base.infAtk;
+                    curExpDef  += base.infDef;    goalExpDef  += base.infDef;
+                    curExpHp   += base.infHp;     goalExpHp   += base.infHp;
+                    curExpLeth += base.infLeth;   goalExpLeth += base.infLeth;
+
+                    const Row2 = ({label, cur, goal, pct}) => {
                       const diff = goal - cur;
-                      if (diff === 0) return <span style={{color:C.textDim}}>—</span>;
-                      const col = diff > 0 ? C.blue : C.red;
-                      return <span style={{color:col}}>{diff>0?"+":""}{pct?diff.toFixed(1):Math.round(diff).toLocaleString()}{pct?"%":""}</span>;
+                      const diffCol = diff > 0 ? C.blue : diff < 0 ? C.red : C.textDim;
+                      const fmtVal = v => pct ? v.toFixed(2)+"%" : Math.round(v).toLocaleString();
+                      const fmtDiff = d => pct ? (d>0?"+":"")+d.toFixed(2)+"%" : (d>0?"+":"")+Math.round(d).toLocaleString();
+                      return (
+                        <tr>
+                          <td style={{padding:"1px 6px",color:C.textDim,fontSize:10,whiteSpace:"nowrap"}}>{label}</td>
+                          <td style={{padding:"1px 6px",fontFamily:"'Space Mono',monospace",fontSize:10,textAlign:"right",color:C.textSec}}>{fmtVal(cur)}</td>
+                          <td style={{padding:"1px 6px",fontFamily:"'Space Mono',monospace",fontSize:10,textAlign:"right",color:diffCol}}>{diff===0?"—":fmtDiff(diff)}</td>
+                          <td style={{padding:"1px 6px",fontFamily:"'Space Mono',monospace",fontSize:10,textAlign:"right",color:C.textPri}}>{fmtVal(goal)}</td>
+                        </tr>
+                      );
                     };
-                    const Row2 = ({label,cur,goal,pct}) => (
+                    const SectionLabel = ({label}) => (
                       <tr>
-                        <td style={{padding:"1px 6px",color:C.textDim,fontSize:10,whiteSpace:"nowrap"}}>{label}</td>
-                        <td style={{padding:"1px 6px",fontFamily:"'Space Mono',monospace",fontSize:10,textAlign:"right",color:C.textSec}}>{pct?cur.toFixed(1)+"%":Math.round(cur).toLocaleString()}</td>
-                        <td style={{padding:"1px 6px",fontFamily:"'Space Mono',monospace",fontSize:10,textAlign:"right"}}><Diff cur={cur} goal={goal} pct={pct}/></td>
-                        <td style={{padding:"1px 6px",fontFamily:"'Space Mono',monospace",fontSize:10,textAlign:"right",color:C.textPri}}>{pct?goal.toFixed(1)+"%":Math.round(goal).toLocaleString()}</td>
+                        <td colSpan={4} style={{padding:"4px 6px 2px",fontSize:9,fontWeight:700,
+                          letterSpacing:"1.2px",textTransform:"uppercase",color:C.textDim,
+                          fontFamily:"'Space Mono',monospace",borderTop:`1px solid ${C.border}`}}>
+                          {label}
+                        </td>
                       </tr>
                     );
                     return (
                       <tr key={`${slot.slotId}-combined-stats`} style={{background:"rgba(56,139,253,0.04)"}}>
                         <td colSpan={13} style={{padding:"6px 10px"}}>
+                          {!hasBase && (
+                            <div style={{display:"flex",alignItems:"center",gap:10,
+                              background:C.amberBg,border:`1px solid ${C.amber}55`,
+                              borderRadius:6,padding:"6px 12px",marginBottom:8}}>
+                              <span style={{fontSize:10,color:C.amber}}>
+                                ⚠ Hero stats unavailable — showing gear stats only
+                              </span>
+                              <button onClick={() => navigate("/app/heroes")} style={{
+                                fontSize:10,padding:"3px 10px",borderRadius:4,
+                                border:`1px solid ${C.amber}`,background:"transparent",
+                                color:C.amber,cursor:"pointer",fontFamily:"Syne,sans-serif",
+                                whiteSpace:"nowrap",
+                              }}>Submit Stats</button>
+                            </div>
+                          )}
                           <div style={{fontSize:10,fontWeight:700,color:C.blue,fontFamily:"'Space Mono',monospace",marginBottom:4,letterSpacing:"0.5px"}}>
                             {heroVal} — CURRENT vs GOAL
                           </div>
                           <div style={{overflowX:"auto"}}>
-                            <table style={{borderCollapse:"collapse",width:"100%",fontSize:10}}>
+                            <table style={{borderCollapse:"collapse",fontSize:10}}>
                               <thead>
                                 <tr style={{borderBottom:`1px solid ${C.border}`}}>
-                                  <th style={{padding:"1px 6px",textAlign:"left",color:C.textDim,fontSize:9,fontWeight:700,textTransform:"uppercase",letterSpacing:"1px",whiteSpace:"nowrap"}}>Stat</th>
-                                  <th style={{padding:"1px 6px",textAlign:"right",color:C.textDim,fontSize:9,fontWeight:700,letterSpacing:"1px"}}>Current</th>
-                                  <th style={{padding:"1px 6px",textAlign:"right",color:C.textDim,fontSize:9,fontWeight:700,letterSpacing:"1px"}}>Change</th>
-                                  <th style={{padding:"1px 6px",textAlign:"right",color:C.textDim,fontSize:9,fontWeight:700,letterSpacing:"1px"}}>Goal</th>
+                                  <th style={{padding:"1px 6px",textAlign:"left",color:C.textDim,fontSize:9,fontWeight:700,textTransform:"uppercase",letterSpacing:"1px",whiteSpace:"nowrap",minWidth:120}}>Stat</th>
+                                  <th style={{padding:"1px 6px",textAlign:"right",color:C.textDim,fontSize:9,fontWeight:700,letterSpacing:"1px",minWidth:90}}>Current</th>
+                                  <th style={{padding:"1px 6px",textAlign:"right",color:C.textDim,fontSize:9,fontWeight:700,letterSpacing:"1px",minWidth:80}}>Change</th>
+                                  <th style={{padding:"1px 6px",textAlign:"right",color:C.textDim,fontSize:9,fontWeight:700,letterSpacing:"1px",minWidth:90}}>Goal</th>
                                 </tr>
                               </thead>
                               <tbody>
-                                <Row2 label="Gear Power"       cur={curPwr}      goal={goalPwr}      />
-                                <Row2 label="Hero Main Stat"   cur={curHeroMain} goal={goalHeroMain} pct />
-                                <Row2 label="Hero HP"          cur={curHeroHp}   goal={goalHeroHp}   pct />
-                                <Row2 label="Escort Main Stat" cur={curEscMain}  goal={goalEscMain}  pct />
-                                <Row2 label="Escort HP"        cur={curEscHp}    goal={goalEscHp}    pct />
-                                <Row2 label="Troop Capacity"   cur={curTroop}    goal={goalTroop}    />
-                                <Row2 label="Mastery Score"    cur={curMast}     goal={goalMast}     />
+                                <SectionLabel label="Exploration" />
+                                <Row2 label="Hero ATK"    cur={curHeroAtk}  goal={goalHeroAtk} />
+                                <Row2 label="Hero DEF"    cur={curHeroDef}  goal={goalHeroDef} />
+                                <Row2 label="Hero HP"     cur={curHeroHp}   goal={goalHeroHp} />
+                                <Row2 label="Escort ATK"  cur={curEscAtk}   goal={goalEscAtk} />
+                                <Row2 label="Escort DEF"  cur={curEscDef}   goal={goalEscDef} />
+                                <Row2 label="Escort HP"   cur={curEscHp}    goal={goalEscHp} />
+                                <SectionLabel label="Expedition" />
+                                <Row2 label="Troop ATK"       cur={curExpAtk}  goal={goalExpAtk}  pct />
+                                <Row2 label="Troop DEF"       cur={curExpDef}  goal={goalExpDef}  pct />
+                                <Row2 label="Troop Lethality" cur={curExpLeth} goal={goalExpLeth} pct />
+                                <Row2 label="Troop Health"    cur={curExpHp}   goal={goalExpHp}   pct />
                               </tbody>
                             </table>
                           </div>

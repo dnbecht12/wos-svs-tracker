@@ -261,7 +261,7 @@ function GearLevelPicker({ value, onChange, minStep, sel }) {
 }
 function ChiefGearPage({ inv, onCompleteSvs }) {
   const C = COLORS;
-  const { isGuest } = useTierContext();
+  const { isGuest, isPro } = useTierContext();
   const sel = { background:C.surface, border:`1px solid ${C.border}`, borderRadius:6,
     color:C.textPri, padding:"4px 6px", fontSize:11, outline:"none" };
   const [slots, setSlots] = useLocalStorage("cg-slots", defaultChiefGearSlots());
@@ -407,7 +407,43 @@ function ChiefGearPage({ inv, onCompleteSvs }) {
                     <td style={tdMono}>{changed ? cost.amber.toLocaleString() : "—"}</td>
                     <td style={tdMono}>{showDeploy ? (goalRow[9] > 0 ? `+${goalRow[9].toLocaleString()}` : "—") : "—"}</td>
                   </tr>
-
+                  {changed && isPro && (
+                    <tr style={{ background: idx%2===0 ? "rgba(56,139,253,0.04)" : "rgba(56,139,253,0.06)" }}>
+                      <td colSpan={9} style={{ padding:"2px 10px 8px 32px" }}>
+                        <table style={{ borderCollapse:"collapse", fontSize:10, minWidth:320 }}>
+                          <thead>
+                            <tr>
+                              {["Stat","Current","Change","Goal"].map(h => (
+                                <th key={h} style={{ padding:"1px 8px", textAlign:h==="Stat"?"left":"right",
+                                  color:C.textDim, fontSize:9, fontWeight:700, letterSpacing:"0.8px" }}>{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {[
+                              { label:"Power",              cur:curRow[6], goal:goalRow[6], pct:false },
+                              { label:`${piece.troop} ATK%`, cur:curRow[7], goal:goalRow[7], pct:true  },
+                              { label:`${piece.troop} DEF%`, cur:curRow[8], goal:goalRow[8], pct:true  },
+                              ...(showDeploy ? [{ label:"Deploy Buff", cur:curRow[9], goal:goalRow[9], pct:false }] : []),
+                            ].map(({ label, cur, goal, pct }) => {
+                              const diff = goal - cur;
+                              const diffCol = diff > 0 ? C.blue : diff < 0 ? C.red : C.textDim;
+                              const fmtVal = v => pct ? (v*100).toFixed(2)+"%" : fmt(v);
+                              const fmtDiff = d => pct ? (d>0?"+":"")+((d)*100).toFixed(2)+"%" : (d>0?"+":"")+fmt(d);
+                              return (
+                                <tr key={label}>
+                                  <td style={{ padding:"1px 8px", fontSize:10, color:C.textDim, whiteSpace:"nowrap" }}>{label}</td>
+                                  <td style={{ padding:"1px 8px", fontFamily:"'Space Mono',monospace", fontSize:10, textAlign:"right", color:C.textSec }}>{fmtVal(cur)}</td>
+                                  <td style={{ padding:"1px 8px", fontFamily:"'Space Mono',monospace", fontSize:10, textAlign:"right", color:diffCol }}>{diff===0?"—":fmtDiff(diff)}</td>
+                                  <td style={{ padding:"1px 8px", fontFamily:"'Space Mono',monospace", fontSize:10, textAlign:"right", color:C.textPri }}>{fmtVal(goal)}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </td>
+                    </tr>
+                  )}
                 </React.Fragment>
               );
             })}
@@ -659,7 +695,7 @@ function CharmLevelPicker({ value, onChange, minVal, sel }) {
 
 function ChiefCharmsPage({ inv, onCompleteSvs }) {
   const C = COLORS;
-  const { isGuest } = useTierContext();
+  const { isGuest, isPro } = useTierContext();
   const sel = { background:C.surface, border:`1px solid ${C.border}`, borderRadius:6,
     color:C.textPri, padding:"4px 6px", fontSize:11, outline:"none" };
   const [slots, setSlots] = useLocalStorage("cc-slots", defaultCharmSlots());
@@ -814,7 +850,42 @@ function ChiefCharmsPage({ inv, onCompleteSvs }) {
                     <td style={tdMono}>{goalLeth > 0 ? `${(goalLeth * 100).toFixed(2)}%` : "—"}</td>
                     <td style={tdMono}>{goalHp   > 0 ? `${(goalHp   * 100).toFixed(2)}%` : "—"}</td>
                   </tr>
-
+                  {changed && isPro && (
+                    <tr style={{ background: Math.floor(idx/3)%2===0 ? "rgba(56,139,253,0.04)" : "rgba(56,139,253,0.06)" }}>
+                      <td colSpan={10} style={{ padding:"2px 10px 8px 32px" }}>
+                        <table style={{ borderCollapse:"collapse", fontSize:10, minWidth:300 }}>
+                          <thead>
+                            <tr>
+                              {["Stat","Current","Change","Goal"].map(h => (
+                                <th key={h} style={{ padding:"1px 8px", textAlign:h==="Stat"?"left":"right",
+                                  color:C.textDim, fontSize:9, fontWeight:700, letterSpacing:"0.8px" }}>{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {[
+                              { label:"Power",      cur: curLvl?.power  ?? 0, goal: goalLvl?.power  ?? 0, pct:false },
+                              { label:"Lethality%", cur: curLvl?.leth   ?? 0, goal: goalLvl?.leth   ?? 0, pct:true  },
+                              { label:"Health%",    cur: curLvl?.health ?? 0, goal: goalLvl?.health ?? 0, pct:true  },
+                            ].map(({ label, cur, goal, pct }) => {
+                              const diff = goal - cur;
+                              const diffCol = diff > 0 ? C.blue : diff < 0 ? C.red : C.textDim;
+                              const fmtVal = v => pct ? (v*100).toFixed(2)+"%" : fmt(v);
+                              const fmtDiff = d => pct ? (d>0?"+":"")+((d)*100).toFixed(2)+"%" : (d>0?"+":"")+fmt(d);
+                              return (
+                                <tr key={label}>
+                                  <td style={{ padding:"1px 8px", fontSize:10, color:C.textDim, whiteSpace:"nowrap" }}>{label}</td>
+                                  <td style={{ padding:"1px 8px", fontFamily:"'Space Mono',monospace", fontSize:10, textAlign:"right", color:C.textSec }}>{fmtVal(cur)}</td>
+                                  <td style={{ padding:"1px 8px", fontFamily:"'Space Mono',monospace", fontSize:10, textAlign:"right", color:diffCol }}>{diff===0?"—":fmtDiff(diff)}</td>
+                                  <td style={{ padding:"1px 8px", fontFamily:"'Space Mono',monospace", fontSize:10, textAlign:"right", color:C.textPri }}>{fmtVal(goal)}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </td>
+                    </tr>
+                  )}
                 </React.Fragment>
               );
             })}
