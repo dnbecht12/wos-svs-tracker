@@ -493,6 +493,17 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
 
   const persistInv = field=>val=>setInv(p=>({...p,[field]:val}));
 
+  // Accept: pin the rolling seed first so it doesn't shift when inv.refinedFC changes,
+  // then update inv.refinedFC to match today's rolling total → difference becomes 0.
+  const handleAccept = useCallback((rowRollingRFC) => {
+    if (startRFCOverride === null) {
+      // No override yet — pin to the current seed so rolling totals stay anchored.
+      setStartRFCOverride(effectiveSeedRFC);
+      saveLS(`rfc-start-rfc-${selectedCycle}`, effectiveSeedRFC);
+    }
+    persistInv("refinedFC")(rowRollingRFC);
+  }, [startRFCOverride, effectiveSeedRFC, selectedCycle, persistInv]);
+
   const applyMonRefines = useCallback(val=>{
     setMonRefines(val);
     saveLS("rfc-monref",val);
@@ -561,8 +572,8 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
 
       weekCumRef = endCumulative;
 
-      // difference: how much MORE the projected RFC is vs current inventory (live)
-      const difference = rollingRFC - inv.refinedFC;
+      // difference: Inventory RFC − Rolling RFC (positive = you have more than planner, negative = less)
+      const difference = inv.refinedFC - rollingRFC;
       const variance   = hasActual ? Number(act.actualRfc) - rfcEarned : null;
       const displayTier = isMon ? tierAfter : tierAtStart;
 
@@ -974,7 +985,7 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
                                 <div className="cp r" style={{gap:5,justifyContent:"flex-end"}}>
                                   {isToday && r.difference!==0 && (
                                     <button className="accept-btn"
-                                      onClick={()=>persistInv("refinedFC")(r.rollingRFC)}>
+                                      onClick={()=>handleAccept(r.rollingRFC)}>
                                       Accept
                                     </button>
                                   )}
@@ -1070,7 +1081,7 @@ export default function RFCPlanner({ inv, setInv, savedPlans, onSavePlan, openSa
             Enter <strong>Actual RFC Rec'd</strong> to override — Rolling RFC uses actuals where available.
             <strong> Event RFC Rec'd</strong> logs RFC from events separately to keep refine variance data clean.
             <strong> RFC Used</strong> tracks mid-cycle RFC spent on upgrades.
-            <strong> Difference</strong> = Inventory RFC − Rolling RFC. <strong>Accept</strong> appears on today's row only.
+            <strong> Difference</strong> = Inventory RFC − Rolling RFC (+&nbsp;= you have more than planner, −&nbsp;= you have less). <strong>Accept</strong> on today's row syncs your inventory to the rolling total.
             Past cycles are <strong>archived and read-only</strong>.
             <strong style={{color:"var(--c-accent)"}}> Week 4 = SvS</strong> (neon yellow). <strong style={{color:"var(--c-blue)"}}> Week 2 = KOI</strong> (neon blue).
           </div>
