@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useLocalStorage } from "./useLocalStorage.js";
 import { useTierContext, GuestBanner } from "./TierContext.jsx";
+import { scheduleSync } from "./useLocalStorage.js";
 import { supabase } from "./supabase.js";
 import { CHIEF_GEAR_LEVELS, CHIEF_CHARM_LEVELS } from "./ChiefEquipment.jsx";
 import { WA_RESEARCH, waPower } from "./WarAcademy.jsx";
@@ -31,6 +32,101 @@ const fmt = n => {
   if (Math.abs(n) >= 1000000) return (n/1000000).toFixed(1)+"M";
   if (Math.abs(n) >= 1000) return (n/1000).toFixed(1)+"K";
   return Math.round(n).toLocaleString();
+};
+
+// ─── State Age Interpolation ──────────────────────────────────────────────────
+// Known anchor points: state number → UTC timestamp of that state's creation
+// Derived via piecewise linear interpolation from community-verified data
+const STATE_ANCHORS = [
+  { s:4,    t: Date.UTC(2022,11,12, 0,12,0) },
+  { s:14,   t: Date.UTC(2023, 1,15, 9, 9,0) },
+  { s:88,   t: Date.UTC(2023, 3, 9, 0,54,0) },
+  { s:208,  t: Date.UTC(2023, 6, 1,11,58,0) },
+  { s:437,  t: Date.UTC(2023, 8,20, 0,13,0) },
+  { s:665,  t: Date.UTC(2023,11,13,16,53,0) },
+  { s:943,  t: Date.UTC(2024, 2, 8, 0,13,0) },
+  { s:1250, t: Date.UTC(2024, 4,29, 2,28,0) },
+  { s:1486, t: Date.UTC(2024, 6,20,15, 4,0) },
+  { s:1616, t: Date.UTC(2024, 7,19, 7,43,0) },
+  { s:2053, t: Date.UTC(2024,10,11, 0,53,0) },
+  { s:2251, t: Date.UTC(2024,11,23, 0,52,0) },
+  { s:2389, t: Date.UTC(2025, 0,12,13,49,0) },
+  { s:2505, t: Date.UTC(2025, 1, 3, 2,22,0) },
+  { s:2831, t: Date.UTC(2025, 3,28, 0,22,0) },
+  { s:2995, t: Date.UTC(2025, 5, 9, 1,52,0) },
+  { s:3176, t: Date.UTC(2025, 6,21, 2,12,0) },
+  { s:3305, t: Date.UTC(2025, 7,16, 0,15,0) },
+  { s:3454, t: Date.UTC(2025, 8,15, 7, 7,0) },
+  { s:3572, t: Date.UTC(2025, 9,13, 4,37,0) },
+  { s:3731, t: Date.UTC(2025,10,20,14, 5,0) },
+  { s:3831, t: Date.UTC(2025,11,16, 9,50,0) },
+  { s:3931, t: Date.UTC(2026, 0, 4, 5,20,0) },
+  { s:4031, t: Date.UTC(2026, 0,24,13, 4,0) },
+  { s:4131, t: Date.UTC(2026, 1,20, 1, 4,0) },
+  { s:4333, t: Date.UTC(2026, 3,29,11,36,0) },
+];
+// Last segment rate: ~0.3388 days/state (used for extrapolation beyond last anchor)
+const LAST_RATE_MS = (STATE_ANCHORS[STATE_ANCHORS.length-1].t - STATE_ANCHORS[STATE_ANCHORS.length-2].t)
+  / (STATE_ANCHORS[STATE_ANCHORS.length-1].s - STATE_ANCHORS[STATE_ANCHORS.length-2].s);
+// First segment rate (for states before anchor[0])
+const FIRST_RATE_MS = (STATE_ANCHORS[1].t - STATE_ANCHORS[0].t) / (STATE_ANCHORS[1].s - STATE_ANCHORS[0].s);
+
+function getStateStartMs(stateNum) {
+  const n = Number(stateNum);
+  if (!n || n < 1) return null;
+  const anchors = STATE_ANCHORS;
+  if (n <= anchors[0].s) return anchors[0].t - (anchors[0].s - n) * FIRST_RATE_MS;
+  if (n >= anchors[anchors.length-1].s) return anchors[anchors.length-1].t + (n - anchors[anchors.length-1].s) * LAST_RATE_MS;
+  for (let i = 0; i < anchors.length - 1; i++) {
+    const lo = anchors[i], hi = anchors[i+1];
+    if (n >= lo.s && n <= hi.s) {
+      const frac = (n - lo.s) / (hi.s - lo.s);
+      return lo.t + frac * (hi.t - lo.t);
+    }
+  }
+  return null;
+}
+
+// Consolidated server timeline milestones (sorted by day, multi-event days merged)
+const SERVER_MILESTONES = [
+  { day:0,    label:"Gen 1 Heroes (Natalia, Jeronimo, Molly, Zinman)", category:"hero" },
+  { day:40,   label:"Gen 2 Heroes (Flint, Philly, Alonso)", category:"hero" },
+  { day:53,   label:"Sunfire Castle", category:"event" },
+  { day:54,   label:"Pets Gen 1 (Cave Hyena, Arctic Wolf, Musk Ox)", category:"pet" },
+  { day:60,   label:"Road to Recovery Monument", category:"event" },
+  { day:80,   label:"SvS & King of Ice", category:"event" },
+  { day:90,   label:"Pets Gen 2 (Titan Roc, Giant Tapir)", category:"pet" },
+  { day:120,  label:"Gen 3 Heroes (Logan, Mia, Greg) · Vision of Dawn", category:"hero" },
+  { day:140,  label:"Pets Gen 3 (Snow Leopard, Giant Elk)", category:"pet" },
+  { day:150,  label:"Fire Crystal 5 + Laboratory", category:"fc" },
+  { day:180,  label:"Legendary Chief Gear", category:"gear" },
+  { day:195,  label:"Gen 4 Heroes (Ahmose, Reina, Lynn) · Hero Hall & Intel Missions Update", category:"hero" },
+  { day:200,  label:"Pets Gen 4 & 5 (Cave Lion, Snow Ape)", category:"pet" },
+  { day:220,  label:"War Academy · Fire Crystal Lab 5 (6× refines/day)", category:"fc" },
+  { day:270,  label:"Gen 5 Heroes (Hector, Nora, Gwen)", category:"hero" },
+  { day:280,  label:"Pets Gen 6 & 7 (Iron Rhino, Saber-tooth)", category:"pet" },
+  { day:315,  label:"Fire Crystal 8 · FC Lab 6 (7× refines) · Daily Missions ×2", category:"fc" },
+  { day:360,  label:"Gen 6 Heroes (Wu Ming, Renee, Wayne)", category:"hero" },
+  { day:370,  label:"Pets Gen 8 & 9 (Frost Gorilla, Mammoth)", category:"pet" },
+  { day:440,  label:"Gen 7 Heroes (Edith, Gordon, Bradley)", category:"hero" },
+  { day:450,  label:"Pets Gen 10 (Frostscale Chameleon)", category:"pet" },
+  { day:500,  label:"Fire Crystal 10", category:"fc" },
+  { day:520,  label:"Gen 8 Heroes (Gatot, Sonya, Hendrik)", category:"hero" },
+  { day:600,  label:"Gen 9 Heroes (Magnus, Fred, Xura)", category:"hero" },
+  { day:680,  label:"Gen 10 Heroes (Gregory, Freya, Blanchette)", category:"hero" },
+  { day:760,  label:"Gen 11 Heroes (Eleonora, Lloyd, Rufus)", category:"hero" },
+  { day:840,  label:"Gen 12 Heroes (Hervor, Karol, Ligeia)", category:"hero" },
+  { day:920,  label:"Gen 13 Heroes (Gisela, Flora, Vulcanus)", category:"hero" },
+  { day:1000, label:"Gen 14 Heroes (Elif, Dominic, Cara)", category:"hero" },
+  { day:1080, label:"Gen 15 Heroes (Hank, Estrella, Viveca)", category:"hero" },
+];
+
+const CATEGORY_COLOR = {
+  hero:  "var(--c-blue)",
+  pet:   "var(--c-green)",
+  fc:    "var(--c-amber)",
+  gear:  "var(--c-accent)",
+  event: "var(--c-textSec)",
 };
 
 // ─── Character Profile Page ───────────────────────────────────────────────────
@@ -83,7 +179,302 @@ function getBuildingLevel(buildingName) {
   } catch { return null; }
 }
 
-function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeedBuff: cpSpeedBuffProp, setCpSpeedBuff: setCpSpeedBuffProp, onCompleteSvs }) {
+// ─── State Age Section ────────────────────────────────────────────────────────
+function StateAgeSection({ stateNum, C }) {
+  const n = Number(stateNum) || 0;
+  const storageKey = n ? `milestone-early-${n}` : "milestone-early-0";
+  const [earlyMarks, setEarlyMarks] = useLocalStorage(storageKey, {});
+  const [futureConfirmed, setFutureConfirmed] = useState(false);
+
+  const startMs = n ? getStateStartMs(n) : null;
+  const now = Date.now();
+  const isFuture = startMs != null && startMs > now;
+  const ageMs = startMs != null ? Math.max(0, now - startMs) : null;
+  const ageDays = ageMs != null ? ageMs / 86400000 : null;
+
+  // Estimated start date string
+  const startDate = startMs != null ? new Date(startMs).toLocaleDateString("en-US", {
+    month:"short", day:"numeric", year:"numeric", timeZone:"UTC"
+  }) : null;
+
+  // Days until start (for future states)
+  const daysUntil = isFuture ? Math.ceil((startMs - now) / 86400000) : null;
+
+  // Next 3 milestones
+  const upcomingMilestones = useMemo(() => {
+    if (ageDays == null) return [];
+    const remaining = SERVER_MILESTONES.filter(m => m.day > ageDays);
+    return remaining.slice(0, 3);
+  }, [ageDays]);
+
+  // For future states show first 3 milestones from day 0
+  const futureMilestones = SERVER_MILESTONES.slice(0, 3);
+
+  const toggleEarly = (day) => {
+    setEarlyMarks(prev => {
+      const existing = prev[day];
+      if (existing?.markedEarly) return { ...prev, [day]: { markedEarly: false, timestamp: null } };
+      return { ...prev, [day]: { markedEarly: true, timestamp: new Date().toISOString() } };
+    });
+  };
+
+  const sectionHead = (label, sub) => (
+    <div style={{ marginBottom:16 }}>
+      <div style={{ fontSize:16, fontWeight:800, color:C.textPri, fontFamily:"Syne,sans-serif",
+        letterSpacing:"0.3px" }}>{label}</div>
+      {sub && <div style={{ fontSize:11, color:C.textSec, marginTop:3 }}>{sub}</div>}
+    </div>
+  );
+
+  const SectionCard = ({ children, style }) => (
+    <div style={{ background:C.card, border:`1px solid ${C.border}`, borderRadius:10,
+      padding:"20px 20px", marginBottom:16, ...style }}>
+      {children}
+    </div>
+  );
+
+  if (!n) {
+    return (
+      <SectionCard>
+        {sectionHead("State Age & Upcoming Releases")}
+        <div style={{ padding:"16px 0", display:"flex", alignItems:"center", gap:10 }}>
+          <span style={{ fontSize:20 }}>🏔️</span>
+          <span style={{ fontSize:13, color:C.textSec }}>
+            Please add your state number to this character to see age and upcoming content.
+          </span>
+        </div>
+      </SectionCard>
+    );
+  }
+
+  // Future state — show confirmation prompt
+  if (isFuture && !futureConfirmed) {
+    return (
+      <SectionCard>
+        {sectionHead("State Age & Upcoming Releases")}
+        <div style={{ padding:"12px 16px", background:C.amberBg, border:`1px solid ${C.amber}55`,
+          borderRadius:8, marginBottom:16 }}>
+          <div style={{ fontSize:13, fontWeight:700, color:C.amber, marginBottom:6 }}>
+            ⚠ State {n} hasn't started yet
+          </div>
+          <div style={{ fontSize:12, color:C.textSec, marginBottom:12 }}>
+            Estimated start date: <strong style={{color:C.textPri}}>{startDate}</strong> (~{daysUntil} day{daysUntil !== 1 ? "s" : ""} from now).<br/>
+            Are you sure this is your state number?
+          </div>
+          <div style={{ display:"flex", gap:10 }}>
+            <button onClick={() => setFutureConfirmed(true)} style={{
+              padding:"7px 16px", borderRadius:6, cursor:"pointer", fontSize:12, fontWeight:700,
+              border:`1px solid ${C.amber}`, background:C.amberBg, color:C.amber,
+              fontFamily:"Syne,sans-serif" }}>Yes, proceed</button>
+            <span style={{ fontSize:12, color:C.textDim, alignSelf:"center" }}>
+              or update state number in account settings
+            </span>
+          </div>
+        </div>
+      </SectionCard>
+    );
+  }
+
+  const milestonesToShow = (isFuture && futureConfirmed) ? futureMilestones : upcomingMilestones;
+
+  const fmtAge = (days) => {
+    const d = Math.floor(days);
+    const h = Math.floor((days - d) * 24);
+    const m = Math.floor(((days - d) * 24 - h) * 60);
+    return `${d}d ${h}h ${m}m`;
+  };
+
+  const thStyle = { padding:"7px 10px", fontSize:10, fontWeight:700, textAlign:"left",
+    borderBottom:`1px solid ${C.border}`, color:C.textSec,
+    fontFamily:"'Space Mono',monospace", whiteSpace:"nowrap" };
+  const tdStyle = { padding:"8px 10px", fontSize:11, borderBottom:`1px solid ${C.border}`,
+    verticalAlign:"middle" };
+
+  return (
+    <SectionCard>
+      {sectionHead("State Age & Upcoming Releases",
+        `State ${n} · estimated start ${startDate}`)}
+
+      {/* Age summary */}
+      <div style={{ display:"flex", flexWrap:"wrap", gap:16, marginBottom:20,
+        padding:"12px 14px", background:C.surface, borderRadius:8,
+        border:`1px solid ${C.border}` }}>
+        {isFuture ? (
+          <div>
+            <div style={{ fontSize:11, color:C.textDim, marginBottom:2 }}>Status</div>
+            <div style={{ fontSize:22, fontWeight:800, color:C.amber,
+              fontFamily:"Syne,sans-serif" }}>Not yet started</div>
+            <div style={{ fontSize:11, color:C.textSec, marginTop:2 }}>
+              Starts in ~{daysUntil} day{daysUntil !== 1 ? "s" : ""}
+            </div>
+          </div>
+        ) : (
+          <div>
+            <div style={{ fontSize:11, color:C.textDim, marginBottom:2 }}>Current Age</div>
+            <div style={{ fontSize:22, fontWeight:800, color:C.textPri,
+              fontFamily:"Syne,sans-serif" }}>{fmtAge(ageDays)}</div>
+            <div style={{ fontSize:11, color:C.textSec, marginTop:2 }}>
+              ≈ {Math.floor(ageDays)} days since state opened
+            </div>
+          </div>
+        )}
+        <div style={{ borderLeft:`1px solid ${C.border}`, paddingLeft:16, marginLeft:4 }}>
+          <div style={{ fontSize:11, color:C.textDim, marginBottom:2 }}>Estimated Start</div>
+          <div style={{ fontSize:13, fontWeight:700, color:C.textPri,
+            fontFamily:"'Space Mono',monospace" }}>{startDate}</div>
+          <div style={{ fontSize:10, color:C.textDim, marginTop:2 }}>
+            Piecewise interpolation from community data
+          </div>
+        </div>
+      </div>
+
+      {/* Upcoming milestones table */}
+      <div style={{ fontSize:11, fontWeight:700, color:C.textDim,
+        fontFamily:"'Space Mono',monospace", letterSpacing:"1.2px",
+        textTransform:"uppercase", marginBottom:10 }}>
+        {isFuture ? "First Milestones" : "Next 3 Upcoming"}
+      </div>
+
+      {milestonesToShow.length === 0 ? (
+        <div style={{ fontSize:12, color:C.textDim, padding:"12px 0" }}>
+          All known milestones passed.
+        </div>
+      ) : (
+        <div style={{ overflowX:"auto" }}>
+          <table style={{ width:"100%", borderCollapse:"collapse" }}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Day</th>
+                <th style={thStyle}>
+                  {isFuture ? "Days After Start" : "Days Away"}
+                </th>
+                <th style={thStyle}>Milestone</th>
+                <th style={{ ...thStyle, textAlign:"center" }}>Released Early?</th>
+                <th style={{ ...thStyle, textAlign:"left" }}>Marked At</th>
+              </tr>
+            </thead>
+            <tbody>
+              {milestonesToShow.map(m => {
+                const mark = earlyMarks[m.day] || {};
+                const daysAway = isFuture ? m.day : (m.day - ageDays);
+                const catColor = CATEGORY_COLOR[m.category] || C.textSec;
+                return (
+                  <tr key={m.day}>
+                    <td style={{ ...tdStyle, fontFamily:"'Space Mono',monospace",
+                      fontWeight:700, color:catColor }}>
+                      Day {m.day}
+                    </td>
+                    <td style={{ ...tdStyle, fontFamily:"'Space Mono',monospace",
+                      color:C.textSec }}>
+                      +{Math.ceil(daysAway)}d
+                    </td>
+                    <td style={{ ...tdStyle, color:C.textPri }}>{m.label}</td>
+                    <td style={{ ...tdStyle, textAlign:"center" }}>
+                      <input type="checkbox"
+                        checked={!!mark.markedEarly}
+                        onChange={() => toggleEarly(m.day)}
+                        style={{ accentColor:C.accent, cursor:"pointer", width:14, height:14 }} />
+                    </td>
+                    <td style={{ ...tdStyle, fontFamily:"'Space Mono',monospace",
+                      fontSize:10, color:C.textDim }}>
+                      {mark.markedEarly && mark.timestamp
+                        ? new Date(mark.timestamp).toLocaleDateString("en-US",
+                            { month:"short", day:"numeric", year:"numeric" })
+                        : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Show all milestones toggle */}
+      <AllMilestonesPanel ageDays={ageDays} isFuture={isFuture}
+        earlyMarks={earlyMarks} toggleEarly={toggleEarly} C={C} />
+    </SectionCard>
+  );
+}
+
+function AllMilestonesPanel({ ageDays, isFuture, earlyMarks, toggleEarly, C }) {
+  const [expanded, setExpanded] = useState(false);
+
+  const allMilestones = useMemo(() => {
+    if (isFuture) return SERVER_MILESTONES;
+    return SERVER_MILESTONES;
+  }, [isFuture]);
+
+  const thStyle = { padding:"6px 10px", fontSize:10, fontWeight:700, textAlign:"left",
+    borderBottom:`1px solid ${C.border}`, color:C.textSec,
+    fontFamily:"'Space Mono',monospace", whiteSpace:"nowrap" };
+  const tdStyle = { padding:"6px 10px", fontSize:11, borderBottom:`1px solid ${C.border}`,
+    verticalAlign:"middle" };
+
+  return (
+    <div style={{ marginTop:14 }}>
+      <button onClick={() => setExpanded(e => !e)} style={{
+        background:"none", border:"none", cursor:"pointer", padding:0,
+        fontSize:11, color:C.blue, fontFamily:"'Space Mono',monospace",
+        display:"flex", alignItems:"center", gap:4,
+      }}>
+        {expanded ? "▾" : "▸"} {expanded ? "Hide" : "Show"} full timeline
+      </button>
+      {expanded && (
+        <div style={{ overflowX:"auto", marginTop:10 }}>
+          <table style={{ width:"100%", borderCollapse:"collapse" }}>
+            <thead>
+              <tr>
+                <th style={thStyle}>Day</th>
+                <th style={thStyle}>Status</th>
+                <th style={thStyle}>Milestone</th>
+                <th style={{ ...thStyle, textAlign:"center" }}>Released Early?</th>
+                <th style={{ ...thStyle, textAlign:"left" }}>Marked At</th>
+              </tr>
+            </thead>
+            <tbody>
+              {allMilestones.map(m => {
+                const mark = earlyMarks[m.day] || {};
+                const isPast = !isFuture && ageDays >= m.day;
+                const catColor = CATEGORY_COLOR[m.category] || C.textSec;
+                const daysAway = isFuture ? m.day : (m.day - ageDays);
+                return (
+                  <tr key={m.day} style={{ opacity: isPast ? 0.55 : 1 }}>
+                    <td style={{ ...tdStyle, fontFamily:"'Space Mono',monospace",
+                      fontWeight:700, color:catColor }}>
+                      Day {m.day}
+                    </td>
+                    <td style={{ ...tdStyle, fontFamily:"'Space Mono',monospace",
+                      fontSize:10, color: isPast ? C.green : C.textSec }}>
+                      {isPast ? "✓ past" : `+${Math.ceil(daysAway)}d`}
+                    </td>
+                    <td style={{ ...tdStyle, color:C.textPri }}>{m.label}</td>
+                    <td style={{ ...tdStyle, textAlign:"center" }}>
+                      <input type="checkbox"
+                        checked={!!mark.markedEarly}
+                        onChange={() => toggleEarly(m.day)}
+                        style={{ accentColor:C.accent, cursor:"pointer", width:14, height:14 }} />
+                    </td>
+                    <td style={{ ...tdStyle, fontFamily:"'Space Mono',monospace",
+                      fontSize:10, color:C.textDim }}>
+                      {mark.markedEarly && mark.timestamp
+                        ? new Date(mark.timestamp).toLocaleDateString("en-US",
+                            { month:"short", day:"numeric", year:"numeric" })
+                        : "—"}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeedBuff: cpSpeedBuffProp, setCpSpeedBuff: setCpSpeedBuffProp, onCompleteSvs, activeCharacter }) {
   const C = COLORS;
   const { isGuest } = useTierContext();
 
@@ -700,6 +1091,9 @@ function CharacterProfilePage({ hgHeroes, inv, rcLevels, profileVersion, cpSpeed
         <Row label="Training Speed" value="—"
           source="Research Center (coming soon)" dim />
       </SectionCard>
+
+      {/* ── State Age & Upcoming Releases ───────────────────────────────── */}
+      <StateAgeSection stateNum={activeCharacter?.state_number} C={C} />
 
       {/* ── Growth ──────────────────────────────────────────────────────── */}
       <SectionCard>

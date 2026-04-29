@@ -4021,7 +4021,8 @@ export default function App() {
             {page === "battle-sim"   && <ProGate><BattleSimPage inv={inv} /></ProGate>}
             {page === "char-profile" && <CharacterProfilePage hgHeroes={hgHeroes} inv={inv} onCompleteSvs={completeSvs("all")}
                 rcLevels={rcLevels} profileVersion={profileVersion}
-                cpSpeedBuff={cpSpeedBuff} setCpSpeedBuff={setCpSpeedBuff} />}
+                cpSpeedBuff={cpSpeedBuff} setCpSpeedBuff={setCpSpeedBuff}
+                activeCharacter={activeCharacter} />}
             {page === "account" && (
               <ProfileModal asPage={true} open={true} onClose={() => navigate(-1)}
                 user={user} characters={characters} activeCharId={activeCharId}
