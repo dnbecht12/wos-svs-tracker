@@ -418,13 +418,17 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
   const hardcodedRef = HERO_BASE_STATS[hero.name];
   const ref = dbRef ? { ...dbRef, ...(dbRef.stats || {}) } : hardcodedRef;
 
-  // statsMatch: true when ref data exists for current level/stars/widget
+  // statsMatch: true only when ref data exactly matches current level/stars/widget.
+  // dbRef may come from a fallback (non-exact) query, so we always validate all three fields.
   const statsMatch = dbRefLoading ? false
-    : dbRef ? true  // fetched by exact level/stars/widget so always matches
+    : dbRef
+      ? (Number(dbRef.level)        === Number(local.level)        &&
+         Number(dbRef.stars)        === Number(local.stars)        &&
+         Number(dbRef.widget ?? 0)  === Number(local.widget ?? 0))
     : !!(hardcodedRef &&
-        hardcodedRef.level === local.level &&
-        hardcodedRef.stars === local.stars &&
-        hardcodedRef.widget === local.widget);
+        hardcodedRef.level   === local.level   &&
+        hardcodedRef.stars   === local.stars   &&
+        hardcodedRef.widget  === local.widget);
 
   // Find if user has an existing submission matching current level/stars/widget
   const matchingSub = existingSubs.find(s =>
