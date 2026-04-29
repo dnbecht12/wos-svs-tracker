@@ -1,6 +1,68 @@
 import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { supabase } from "./supabase.js";
+import { heroWidget } from "./Heroes.jsx";
+
+const ADMIN_UID = "c5c3392e-2399-4cc9-b2ab-f22a61e7b91c";
+
+async function getHeroStatsFromDB(heroName, level, stars, widget) {
+  const w = heroWidget(heroName, widget);
+  const q = supabase.from("hero_stats_data")
+    .select("*")
+    .eq("hero_name", heroName)
+    .eq("level", level)
+    .eq("stars", stars)
+    .eq("is_current", true);
+  if (w === null) q.is("widget", null);
+  else q.eq("widget", w);
+  const { data } = await q.maybeSingle();
+  return data || null;
+}
+
+async function acceptSubmission(submission, forceAccept = false) {
+  const now = new Date().toISOString();
+  const w = heroWidget(submission.hero_name, submission.widget);
+
+  const existing = await getHeroStatsFromDB(
+    submission.hero_name, submission.level, submission.stars, submission.widget
+  );
+
+  if (existing && !forceAccept) {
+    const subStats = submission.stats || {};
+    const exStats  = existing.stats  || {};
+    const diffs = Object.keys(subStats).filter(k =>
+      subStats[k] != null && exStats[k] != null &&
+      Math.abs(Number(subStats[k]) - Number(exStats[k])) > 0.0001
+    );
+    if (diffs.length > 0) return { needsValidation: true, existing, diffs };
+  }
+
+  const newRowData = {
+    hero_name:   submission.hero_name,
+    stars:       submission.stars,
+    level:       submission.level,
+    widget:      w,
+    stats:       submission.stats,
+    accepted_at: now,
+    accepted_by: ADMIN_UID,
+    is_current:  true,
+  };
+
+  if (existing) {
+    const { data: newRow } = await supabase.from("hero_stats_data")
+      .insert(newRowData).select().single();
+    if (newRow) {
+      await supabase.from("hero_stats_data")
+        .update({ is_current: false, superseded_at: now, superseded_by: newRow.id })
+        .eq("id", existing.id);
+    }
+  } else {
+    await supabase.from("hero_stats_data").insert(newRowData);
+  }
+
+  await updateSubmission(submission.id, { status: "accepted" });
+  return { needsValidation: false };
+}
 
 // ─── COLORS ───────────────────────────────────────────────────────────────────
 const COLORS = {

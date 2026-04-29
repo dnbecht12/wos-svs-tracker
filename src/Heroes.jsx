@@ -536,16 +536,18 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
     }
   };
 
-  const NumField = ({ label, field, isPct }) => {
+  const NumField = ({ label, field, isPct, tabIdx }) => {
     const [local, setLocal] = React.useState(submitForm[field] ?? "");
     const inputRef = React.useRef(null);
     React.useEffect(() => { setLocal(submitForm[field] ?? ""); }, [field]);
     return (
-      <div>
+      <div onClick={() => inputRef.current?.focus()}>
         <div style={{fontSize:11,color:C.textSec,marginBottom:3}}>
           {label}{isPct && <span style={{fontSize:10,color:C.accent,marginLeft:4}}>enter as % (e.g. 26.70)</span>}
         </div>
-        <input ref={inputRef} type="number" min={0} step="any"
+        <input ref={inputRef}
+          type="text" inputMode="numeric" autoComplete="off"
+          tabIndex={tabIdx}
           value={local}
           onChange={e => setLocal(e.target.value)}
           onBlur={e => setSubmitForm(p => ({...p,[field]:e.target.value}))}
@@ -1285,40 +1287,40 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
               <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",
                 color:C.textDim,marginBottom:8,fontFamily:"'Space Mono',monospace"}}>Power Details</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
-                <NumField label="Level Power"  field="levelPower" />
-                <NumField label="Star Power"   field="starPower" />
-                <NumField label="Skill Power"  field="skillPower" />
-                {isSSR && <NumField label="Gear Strength" field="gearStrength" />}
+                <NumField label="Level Power"  field="levelPower"   tabIdx={1} />
+                <NumField label="Star Power"   field="starPower"    tabIdx={2} />
+                <NumField label="Skill Power"  field="skillPower"   tabIdx={3} />
+                {isSSR && <NumField label="Gear Strength" field="gearStrength" tabIdx={4} />}
               </div>
               <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",
                 color:C.textDim,marginBottom:8,fontFamily:"'Space Mono',monospace"}}>Exploration</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
-                <NumField label="Hero Attack"    field="heroAtk" />
-                <NumField label="Hero Defense"   field="heroDef" />
-                <NumField label="Hero Health"    field="heroHp" />
-                <NumField label="Escort Attack"  field="escortAtk" />
-                <NumField label="Escort Defense" field="escortDef" />
-                <NumField label="Escort Health"  field="escortHp" />
+                <NumField label="Hero Attack"    field="heroAtk"    tabIdx={5} />
+                <NumField label="Hero Defense"   field="heroDef"    tabIdx={6} />
+                <NumField label="Hero Health"    field="heroHp"     tabIdx={7} />
+                <NumField label="Escort Attack"  field="escortAtk"  tabIdx={8} />
+                <NumField label="Escort Defense" field="escortDef"  tabIdx={9} />
+                <NumField label="Escort Health"  field="escortHp"   tabIdx={10} />
               </div>
               <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",
                 color:C.textDim,marginBottom:8,fontFamily:"'Space Mono',monospace"}}>Expedition (%) — {hero.type}</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
-                <NumField label={`${hero.type} Attack`}    field="infAtk"  isPct />
-                <NumField label={`${hero.type} Defense`}   field="infDef"  isPct />
-                <NumField label={`${hero.type} Lethality`} field="infLeth" isPct />
-                <NumField label={`${hero.type} Health`}    field="infHp"   isPct />
+                <NumField label={`${hero.type} Attack`}    field="infAtk"  isPct tabIdx={11} />
+                <NumField label={`${hero.type} Defense`}   field="infDef"  isPct tabIdx={12} />
+                <NumField label={`${hero.type} Lethality`} field="infLeth" isPct tabIdx={13} />
+                <NumField label={`${hero.type} Health`}    field="infHp"   isPct tabIdx={14} />
               </div>
               <div style={{fontSize:10,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",
                 color:C.textDim,marginBottom:8,fontFamily:"'Space Mono',monospace"}}>Widget Stats</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
-                <NumField label="Hero Attack"    field="wgtHeroAtk" />
-                <NumField label="Hero Defense"   field="wgtHeroDef" />
-                <NumField label="Hero Health"    field="wgtHeroHp" />
-                <NumField label="Escort Attack"  field="wgtEscortAtk" />
-                <NumField label="Escort Defense" field="wgtEscortDef" />
-                <NumField label="Escort Health"  field="wgtEscortHp" />
-                <NumField label="Troop Lethality" field="wgtTroopLeth" isPct />
-                <NumField label="Troop Health"   field="wgtTroopHp"   isPct />
+                <NumField label="Hero Attack"     field="wgtHeroAtk"   tabIdx={15} />
+                <NumField label="Hero Defense"    field="wgtHeroDef"   tabIdx={16} />
+                <NumField label="Hero Health"     field="wgtHeroHp"    tabIdx={17} />
+                <NumField label="Escort Attack"   field="wgtEscortAtk" tabIdx={18} />
+                <NumField label="Escort Defense"  field="wgtEscortDef" tabIdx={19} />
+                <NumField label="Escort Health"   field="wgtEscortHp"  tabIdx={20} />
+                <NumField label="Troop Lethality" field="wgtTroopLeth" isPct tabIdx={21} />
+                <NumField label="Troop Health"    field="wgtTroopHp"   isPct tabIdx={22} />
               </div>
               {/* Base stats confirmation checkbox */}
               <div style={{display:"flex",alignItems:"flex-start",gap:10,padding:"10px 12px",
