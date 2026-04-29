@@ -836,10 +836,17 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
                 acc.heroHp   += p.stats.heroHp;
                 acc.escMain  += p.stats.escMain;
                 acc.escHp    += p.stats.escHp;
-                acc.troop    += p.stats.troop;
+                if (p.isATK) acc.leth += p.stats.troop;
+                else         acc.hp   += p.stats.troop;
                 acc.power    += p.stats.power;
+                // Empowerment ATK/DEF contributions
+                getUnlockedEmpowerments(p.gearName, p.tier, p.gearLv).forEach(e => {
+                  if (!e.unlocked) return;
+                  if (e.label.endsWith("Attack")  && !e.label.startsWith("Hero")) acc.empAtk += e.value;
+                  if (e.label.endsWith("Defense") && !e.label.startsWith("Hero")) acc.empDef += e.value;
+                });
                 return acc;
-              }, { heroMain:0, heroHp:0, escMain:0, escHp:0, troop:0, power:0 });
+              }, { heroMain:0, heroHp:0, escMain:0, escHp:0, leth:0, hp:0, empAtk:0, empDef:0, power:0 });
 
               const colStyle = { textAlign:"center", padding:"6px 8px", fontSize:11, borderBottom:`1px solid ${C.border}40` };
               const hdStyle  = { ...colStyle, fontSize:10, fontWeight:700, color:C.textSec,
@@ -876,29 +883,50 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
                         </thead>
                         <tbody>
                           {[
-                            { label: "Hero Atk / Def", key: "heroMain" },
-                            { label: "Hero Health",     key: "heroHp"   },
-                            { label: "Escort Atk / Def",key: "escMain"  },
-                            { label: "Escort Health",   key: "escHp"    },
-                            { label: "Troop %",         key: "troop", pct: true },
-                            { label: "👊 Power",        key: "power"    },
-                          ].map(row => (
-                            <tr key={row.key}>
-                              <td style={labelStyle}>{row.label}</td>
-                              {pieces.map(p => (
-                                <td key={p.slot} style={{...colStyle,
-                                  fontFamily:"'Space Mono',monospace",fontWeight:600,color:C.textPri}}>
-                                  {p.stats
-                                    ? (row.pct ? p.stats[row.key].toFixed(2)+"%" : p.stats[row.key].toLocaleString())
-                                    : <span style={{color:C.textDim}}>—</span>}
+                            { label: "Hero Atk / Def",  fn: p => p.stats?.heroMain, tot: total.heroMain },
+                            { label: "Hero Health",      fn: p => p.stats?.heroHp,   tot: total.heroHp   },
+                            { label: "Escort Atk / Def", fn: p => p.stats?.escMain,  tot: total.escMain  },
+                            { label: "Escort Health",    fn: p => p.stats?.escHp,    tot: total.escHp    },
+                            { label: "Lethality %",  pct: true, fn: p => p.isATK ? p.stats?.troop : null, tot: total.leth },
+                            { label: "Health %",     pct: true, fn: p => !p.isATK ? p.stats?.troop : null, tot: total.hp  },
+                            { label: "Emp. ATK %",   pct: true, empFn: p => {
+                              let v=0;
+                              getUnlockedEmpowerments(p.gearName,p.tier,p.gearLv).forEach(e=>{
+                                if(e.unlocked && e.label.endsWith("Attack") && !e.label.startsWith("Hero")) v+=e.value;
+                              });
+                              return v || null;
+                            }, tot: total.empAtk },
+                            { label: "Emp. DEF %",   pct: true, empFn: p => {
+                              let v=0;
+                              getUnlockedEmpowerments(p.gearName,p.tier,p.gearLv).forEach(e=>{
+                                if(e.unlocked && e.label.endsWith("Defense") && !e.label.startsWith("Hero")) v+=e.value;
+                              });
+                              return v || null;
+                            }, tot: total.empDef },
+                            { label: "👊 Power", fn: p => p.stats?.power, tot: total.power },
+                          ].map(row => {
+                            const getVal = p => row.empFn ? row.empFn(p) : row.fn(p);
+                            return (
+                              <tr key={row.label}>
+                                <td style={labelStyle}>{row.label}</td>
+                                {pieces.map(p => {
+                                  const v = getVal(p);
+                                  return (
+                                    <td key={p.slot} style={{...colStyle,
+                                      fontFamily:"'Space Mono',monospace",fontWeight:600,color:C.textPri}}>
+                                      {v != null
+                                        ? (row.pct ? Number(v).toFixed(2)+"%" : Number(v).toLocaleString())
+                                        : <span style={{color:C.textDim}}>—</span>}
+                                    </td>
+                                  );
+                                })}
+                                <td style={{...colStyle,fontFamily:"'Space Mono',monospace",
+                                  fontWeight:700,color:C.accent}}>
+                                  {row.pct ? Number(row.tot).toFixed(2)+"%" : Number(row.tot).toLocaleString()}
                                 </td>
-                              ))}
-                              <td style={{...colStyle,fontFamily:"'Space Mono',monospace",
-                                fontWeight:700,color:C.accent}}>
-                                {row.pct ? total[row.key].toFixed(2)+"%" : total[row.key].toLocaleString()}
-                              </td>
-                            </tr>
-                          ))}
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -1152,8 +1180,8 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
                 else       gearExpHp   += gs.troop;
                 getUnlockedEmpowerments(gearName, s.status, s.gearCurrent ?? 0).forEach(e => {
                   if (!e.unlocked) return;
-                  if (e.label === "Inf. Attack")  gearExpAtk += e.value;
-                  if (e.label === "Inf. Defense") gearExpDef += e.value;
+                  if (e.label.endsWith("Attack")  && !e.label.startsWith("Hero")) gearExpAtk += e.value;
+                  if (e.label.endsWith("Defense") && !e.label.startsWith("Hero")) gearExpDef += e.value;
                 });
               });
               return (
@@ -2348,21 +2376,22 @@ function HeroGearPage({ inv, genFilter, setGenFilter, heroStats, setHeroStats, h
                         if (isATK) goalExpLeth += gS.troop;
                         else       goalExpHp   += gS.troop;
                       }
-                      // Empowerments (flat, no mastery scale): "Inf. Attack" → ATK, "Inf. Defense" → DEF
+                      // Empowerments (flat, no mastery): any "* Attack"/"* Defense" label (not Hero)
                       getUnlockedEmpowerments(gearName, curTier,  gs.gearCurrent ?? 0).forEach(e => {
                         if (!e.unlocked) return;
-                        if (e.label === "Inf. Attack")  curExpAtk  += e.value;
-                        if (e.label === "Inf. Defense") curExpDef  += e.value;
+                        if (e.label.endsWith("Attack")  && !e.label.startsWith("Hero")) curExpAtk  += e.value;
+                        if (e.label.endsWith("Defense") && !e.label.startsWith("Hero")) curExpDef  += e.value;
                       });
                       getUnlockedEmpowerments(gearName, goalTier, gs.gearGoal    ?? 0).forEach(e => {
                         if (!e.unlocked) return;
-                        if (e.label === "Inf. Attack")  goalExpAtk += e.value;
-                        if (e.label === "Inf. Defense") goalExpDef += e.value;
+                        if (e.label.endsWith("Attack")  && !e.label.startsWith("Hero")) goalExpAtk += e.value;
+                        if (e.label.endsWith("Defense") && !e.label.startsWith("Hero")) goalExpDef += e.value;
                       });
                     });
 
+                    // Use HERO_BASE_STATS for actual stat values; heroStats only has config (stars/level/widget)
                     // infAtk/infDef/infLeth/infHp are stored as decimal fractions → × 100 for %
-                    const base = heroStatsForSlot;
+                    const base = HERO_BASE_STATS[heroVal] || defaultHeroStats();
                     const hasBase = base.heroAtk > 0 || base.heroDef > 0 || base.heroHp > 0;
                     curHeroAtk += base.heroAtk;        goalHeroAtk += base.heroAtk;
                     curHeroDef += base.heroDef;        goalHeroDef += base.heroDef;
