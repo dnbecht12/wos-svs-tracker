@@ -5,16 +5,16 @@ const C = new Proxy({}, { get(_, k) { return `var(--c-${k})`; } });
 const mono = { fontFamily:"'Space Mono',monospace" };
 
 const MODULES = [
-  { icon:"🏔️", name:"Chief Profile",      desc:"Live power calculator — tech, gear, heroes, troops, buildings in one place." },
-  { icon:"⚔️",  name:"Chief Gear & Charms", desc:"Track current vs goal levels, see material costs to reach your upgrade target." },
-  { icon:"🎯",  name:"Experts",             desc:"Level and skill planning for all 9 experts with affinity and sigil breakdowns." },
-  { icon:"🐾",  name:"Pets",               desc:"Stat tracking and upgrade cost calculator for all 14 pets." },
-  { icon:"🦸",  name:"Heroes & Hero Gear",  desc:"Roster manager, team gear planner, and stat submission for hero data." },
-  { icon:"🏗️",  name:"Construction Planner",desc:"21-day SvS cycle plan with RFC accumulation linked to the RFC Planner." },
-  { icon:"📅",  name:"RFC Planner",         desc:"28-day day-by-day refine schedule with actuals tracking and FC burn tracking." },
-  { icon:"⚗️",  name:"Research Center",     desc:"Cost and time calculator across Growth, Economy, and Battle trees." },
-  { icon:"📖",  name:"War Academy",         desc:"Per-troop research levels with shards, steel, and time cost tracking." },
-  { icon:"📅",  name:"SvS Calendar",        desc:"Full SvS event schedule with KOI, prep weeks, and cycle timing." },
+  { icon:"🏔️", name:"Chief Profile",       path:"/app/chief",        desc:"Live power calculator — tech, gear, heroes, troops, buildings in one place." },
+  { icon:"⚔️",  name:"Chief Gear & Charms", path:"/app/chief-gear",   desc:"Track current vs goal levels, see material costs to reach your upgrade target." },
+  { icon:"🎯",  name:"Experts",             path:"/app/experts",      desc:"Level and skill planning for all 9 experts with affinity and sigil breakdowns." },
+  { icon:"🐾",  name:"Pets",               path:"/app/pets",         desc:"Stat tracking and upgrade cost calculator for all 14 pets." },
+  { icon:"🦸",  name:"Heroes & Hero Gear",  path:"/app/heroes",       desc:"Roster manager, team gear planner, and stat submission for hero data." },
+  { icon:"🏗️",  name:"Construction Planner",path:"/app/construction", desc:"Building upgrade cost calculator with RFC and resource requirements." },
+  { icon:"📅",  name:"RFC Planner",         path:"/app/rfc-planner",  desc:"4-week refine estimator — see your estimated RFC earned and FC burned per day." },
+  { icon:"⚗️",  name:"Research Center",     path:"/app/research",     desc:"Cost and time calculator across Growth, Economy, and Battle trees." },
+  { icon:"📖",  name:"War Academy",         path:"/app/war-academy",  desc:"Per-troop research levels with shards, steel, and time cost tracking." },
+  { icon:"📅",  name:"SvS Calendar",        path:"/app/svs-calendar", desc:"Full SvS event schedule with KOI, prep weeks, and cycle timing." },
 ];
 
 const TIER_TABLE = [
@@ -213,14 +213,23 @@ export default function LandingPage({ signUp, signIn, signInWithDiscord, authErr
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))", gap:12 }}>
             {MODULES.map(m => (
-              <div key={m.name} style={{ background:C.card, border:`1px solid ${C.border}`,
-                borderRadius:10, padding:"16px 18px" }}>
+              <Link key={m.name} to={m.path}
+                style={{ textDecoration:"none", display:"block",
+                  background:C.card, border:`1px solid ${C.border}`,
+                  borderRadius:10, padding:"16px 18px",
+                  transition:"border-color 0.15s, transform 0.1s",
+                  cursor:"pointer" }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor="var(--c-accent)"; e.currentTarget.style.transform="translateY(-1px)"; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor="var(--c-border)";  e.currentTarget.style.transform="translateY(0)"; }}>
                 <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:8 }}>
                   <span style={{ fontSize:20 }}>{m.icon}</span>
                   <span style={{ fontSize:13, fontWeight:700, color:C.textPri }}>{m.name}</span>
                 </div>
-                <div style={{ fontSize:12, color:C.textSec, lineHeight:1.6 }}>{m.desc}</div>
-              </div>
+                <div style={{ fontSize:12, color:C.textSec, lineHeight:1.6, marginBottom:10 }}>{m.desc}</div>
+                <div style={{ fontSize:10, fontWeight:700, color:C.accent, ...mono, letterSpacing:"0.5px" }}>
+                  Try it free →
+                </div>
+              </Link>
             ))}
           </div>
         </div>
