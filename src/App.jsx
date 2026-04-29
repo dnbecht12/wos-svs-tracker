@@ -3533,7 +3533,8 @@ export default function App() {
     );
   }
 
-  // ── Auth guard for /app/* and /admin ──────────────────────────────────────
+  // ── Route guards ──────────────────────────────────────────────────────────
+  // Show spinner while auth resolves so the shell doesn't flash between states
   if (authLoading) return (
     <div style={{ display:"flex", alignItems:"center", justifyContent:"center",
       height:"100vh", background:"var(--c-bg)", flexDirection:"column", gap:16 }}>
@@ -3543,10 +3544,17 @@ export default function App() {
         animation:"spin 0.7s linear infinite" }}/>
     </div>
   );
-  if (!user) return <Navigate to="/" replace />;
-  if (location.pathname === '/admin' && user.id !== ADMIN_UID) return <Navigate to="/app/chief" replace />;
+  // /admin requires a logged-in user with the admin UID
+  if (location.pathname === '/admin') {
+    if (!user) return <Navigate to="/" replace />;
+    if (user.id !== ADMIN_UID) return <Navigate to="/app/chief" replace />;
+  }
+  // /app/account requires being logged in (guests have no account to manage)
+  if (location.pathname === '/app/account' && !user) return <Navigate to="/" replace />;
+  // /app and /app/ redirect to the default page
   if (location.pathname === '/app' || location.pathname === '/app/') return <Navigate to="/app/chief" replace />;
-  if (!location.pathname.startsWith('/app/') && location.pathname !== '/admin') return <Navigate to="/app/chief" replace />;
+  // Unknown paths fall back to home
+  if (!location.pathname.startsWith('/app/') && location.pathname !== '/admin') return <Navigate to="/" replace />;
 
   return (
     <TierProvider
