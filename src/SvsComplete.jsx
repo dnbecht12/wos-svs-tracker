@@ -441,9 +441,9 @@ function SectionDivider({ label }) {
 }
 
 export function SvsCompleteModal({ open, onClose, scope, userId, charId }) {
-  if (!open) return null;
   const initialChanges = useMemo(()=>buildChangeList(scope),[open,scope]);
   const [changes, setChanges] = useState(initialChanges);
+  if (!open) return null;
 
   const updateAchieved = (key, val) =>
     setChanges(prev => prev.map(c => c.key===key ? {...c, achieved:val} : c));
