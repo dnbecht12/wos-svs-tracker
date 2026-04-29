@@ -490,30 +490,8 @@ function RFCPlannerPro({ inv, setInv, savedPlans, onSavePlan, openSavePopup, cur
 
   const persistInv = field=>val=>setInv(p=>({...p,[field]:val}));
 
-  // Accept: pin the rolling seed first so it doesn't shift when inv.refinedFC changes,
-  // then update inv.refinedFC to match today's rolling total → difference becomes 0.
-  const handleAccept = useCallback((rowRollingRFC) => {
-    if (startRFCOverride === null) {
-      // No override yet — pin to the current seed so rolling totals stay anchored.
-      setStartRFCOverride(effectiveSeedRFC);
-      saveLS(`rfc-start-rfc-${selectedCycle}`, effectiveSeedRFC);
-    }
-    persistInv("refinedFC")(rowRollingRFC);
-  }, [startRFCOverride, effectiveSeedRFC, selectedCycle, persistInv]);
-
-  const applyMonRefines = useCallback(val=>{
-    setMonRefines(val);
-    saveLS("rfc-monref",val);
-    setActuals(prev=>{
-      const next=prev.map((d,i)=>WEEKDAYS[i%7]==="Monday"?{...d,refines:val}:d);
-      saveLS(`rfc-actuals2-${selectedCycle}`,next);
-      return next;
-    });
-  },[selectedCycle]);
-
   // ── Seed RFC for the selected cycle ───────────────────────────────────────
-  // Future cycles chain through every intermediate cycle's saved actuals so
-  // that Day 1 of cycle N starts where Day 28 of cycle N-1 left off.
+  // Declared before handleAccept to avoid TDZ (effectiveSeedRFC is in the dependency array)
   const seedRFC = useMemo(() => {
     if (!isFutureCycle) return inv.refinedFC;
     let rolling = inv.refinedFC;
@@ -538,6 +516,27 @@ function RFCPlannerPro({ inv, setInv, savedPlans, onSavePlan, openSavePopup, cur
 
   // Per-cycle starting RFC: override takes priority over seedRFC / inv.refinedFC
   const effectiveSeedRFC = startRFCOverride !== null ? startRFCOverride : seedRFC;
+
+  // Accept: pin the rolling seed first so it doesn't shift when inv.refinedFC changes,
+  // then update inv.refinedFC to match today's rolling total → difference becomes 0.
+  const handleAccept = useCallback((rowRollingRFC) => {
+    if (startRFCOverride === null) {
+      // No override yet — pin to the current seed so rolling totals stay anchored.
+      setStartRFCOverride(effectiveSeedRFC);
+      saveLS(`rfc-start-rfc-${selectedCycle}`, effectiveSeedRFC);
+    }
+    persistInv("refinedFC")(rowRollingRFC);
+  }, [startRFCOverride, effectiveSeedRFC, selectedCycle, persistInv]);
+
+  const applyMonRefines = useCallback(val=>{
+    setMonRefines(val);
+    saveLS("rfc-monref",val);
+    setActuals(prev=>{
+      const next=prev.map((d,i)=>WEEKDAYS[i%7]==="Monday"?{...d,refines:val}:d);
+      saveLS(`rfc-actuals2-${selectedCycle}`,next);
+      return next;
+    });
+  },[selectedCycle]);
 
   // ── Row calculation ────────────────────────────────────────────────────────
   const rows = useMemo(()=>{
