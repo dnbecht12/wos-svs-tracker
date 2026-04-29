@@ -12,5 +12,8 @@
       "Bash(grep -n \"return \\(\\\\s*$\\\\|return \\(<div\\\\|return \\(<>\" \"C:\\\\Apps \\(dev\\)\\\\wos-svs-tracker\\\\wos-svs-tracker\\\\src\\\\WarAcademy.jsx\")",
       "Bash(grep -n \"return \\(\\\\s*$\" \"C:\\\\Apps \\(dev\\)\\\\wos-svs-tracker\\\\wos-svs-tracker\\\\src\\\\ResearchCenter.jsx\")"
     ]
+  },
+  "enabledPlugins": {
+    "vercel@claude-plugins-official": true
   }
 }

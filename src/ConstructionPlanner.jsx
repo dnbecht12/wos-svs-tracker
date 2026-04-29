@@ -1587,7 +1587,7 @@ export default function ConstructionPlanner({ inv, setInv, planSnapshot, onSetSn
             <div className="accum-card">
               <div style={{fontSize:10,color:C.textDim,marginBottom:10,
                 fontFamily:"Space Mono,monospace",letterSpacing:1}}>
-                BUILDINGS CAPPED AT FC 30 — ALWAYS AT MAX LEVEL
+                BUILDINGS CAPPED AT F30 — ALWAYS AT MAX LEVEL
               </div>
               {[
                 { name:"Hunter's Hut",      level:30, count:1, power:30470  },
