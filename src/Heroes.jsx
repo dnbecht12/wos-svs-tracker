@@ -331,9 +331,12 @@ function getHeroGearData(heroName) {
 
 function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeCharacter, hgHeroes, externalRefreshKey }) {
   const C = COLORS;
-  // Derive gear data live from lifted hgHeroes state so profile updates instantly
-  // when gear levels change in the Hero Gear Calculator
-  const liveGearData = hgHeroes?.find(h => h.hero === hero.name) ?? getHeroGearData(hero.name);
+  // Only show gear if this hero is currently assigned to a team slot.
+  // Fall back to null (not stale hg-heroes localStorage) so unassigned heroes
+  // show no gear in their profile.
+  const liveGearData = hgHeroes != null
+    ? (hgHeroes.find(h => h.hero === hero.name) ?? null)
+    : getHeroGearData(hero.name);
   const [showSubmit, setShowSubmit] = useState(false);
   const [submitDone, setSubmitDone] = useState(false);
   const [submitting, setSubmitting] = useState(false);
