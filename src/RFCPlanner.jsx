@@ -427,12 +427,6 @@ function FreeRFCCalculator() {
 }
 
 // Wrapper: checks tier first so hooks in RFCPlannerPro are never conditionally skipped
-export default function RFCPlanner(props) {
-  const { isPro } = useTierContext();
-  if (!isPro) return <FreeRFCCalculator />;
-  return <RFCPlannerPro {...props} />;
-}
-
 function RFCPlannerPro({ inv, setInv, savedPlans, onSavePlan, openSavePopup, currentUser }) {
   const currentCycle = useMemo(()=>getCurrentCycleNum(),[]);
   const cycleOpts    = useMemo(()=>buildCycles(Math.max(1,currentCycle-1),16),[currentCycle]);
@@ -1094,4 +1088,11 @@ function RFCPlannerPro({ inv, setInv, savedPlans, onSavePlan, openSavePopup, cur
       {toast&&<div className="save-toast">{toast}</div>}
     </>
   );
+}
+
+// Wrapper exported as default — tier check here keeps RFCPlannerPro's hooks unconditional
+export default function RFCPlanner(props) {
+  const { isPro } = useTierContext();
+  if (!isPro) return <FreeRFCCalculator />;
+  return <RFCPlannerPro {...props} />;
 }
