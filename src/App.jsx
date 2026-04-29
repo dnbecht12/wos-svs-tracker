@@ -20,6 +20,22 @@ import ExpertsPage, {
   EXPERT_SKILL_POWER, RESEARCH_POWER, ROMULUS_SK4_RALLY, ROMULUS_BONUS_DEPLOY,
 } from "./Experts.jsx";
 import ResearchCenterPage, { getRCTechPower, getRCDeployRally } from "./ResearchCenter.jsx";
+import ConstructionPlanner, { getBuildingPower, BUILDINGS_LIST } from "./ConstructionPlanner.jsx";
+import RFCPlanner from "./RFCPlanner.jsx";
+import SvSCalendar from "./SvSCalendar.jsx";
+import BattleSimPage from "./BattleSim.jsx";
+import PetsPage from "./Pets.jsx";
+import { useAuth } from "./useAuth.js";
+import { useCharacters, charLoadInventory, charSaveInventory, charLoadPlans, charSavePlan, charDeletePlan, savePlanSnapshot, loadPlanSnapshot } from "./useCharacters.js";
+import { GEAR_DB, EMPOWERMENT, GEAR_TYPE, HERO_GEAR_SET, SLOT_TO_GEAR, getGearStats, getUnlockedEmpowerments } from "./GearData.js";
+import { HeroesPage, HeroGearPage, HERO_ROSTER, HERO_SLOTS, GEAR_SLOTS,
+         defaultAllHeroStats, defaultHeroState, defaultTeamsData, migrateOldHeroes,
+         isSSRHero, heroWidget }
+  from "./Heroes.jsx";
+import { SvsCompleteModal } from "./SvsComplete.jsx";
+import { AdminPage, ReportIssueModal, ThreadView, submitIssue, sendMessage,
+         fetchUserThreads, markMessagesReadByUser, closeThread }
+  from "./AdminPanel.jsx";
 
 const ADMIN_UID = "c5c3392e-2399-4cc9-b2ab-f22a61e7b91c";
 const STRIPE_PRICE_MONTHLY = "price_1TQpwuQzuzgBlSTmLdoXI0YB";
@@ -104,23 +120,6 @@ async function acceptSubmission(submission, forceAccept = false) {
   await updateSubmission(submission.id, { status: "accepted" });
   return { needsValidation: false };
 }
-import ConstructionPlanner, { getBuildingPower, BUILDINGS_LIST } from "./ConstructionPlanner.jsx";
-import RFCPlanner from "./RFCPlanner.jsx";
-import SvSCalendar from "./SvSCalendar.jsx";
-import BattleSimPage from "./BattleSim.jsx";
-import PetsPage from "./Pets.jsx";
-import { useAuth } from "./useAuth.js";
-import { useCharacters, charLoadInventory, charSaveInventory, charLoadPlans, charSavePlan, charDeletePlan, savePlanSnapshot, loadPlanSnapshot } from "./useCharacters.js";
-import { GEAR_DB, EMPOWERMENT, GEAR_TYPE, HERO_GEAR_SET, SLOT_TO_GEAR, getGearStats, getUnlockedEmpowerments } from "./GearData.js";
-import { HeroesPage, HeroGearPage, HERO_ROSTER, HERO_SLOTS, GEAR_SLOTS,
-         defaultAllHeroStats, defaultHeroState, defaultTeamsData, migrateOldHeroes,
-         isSSRHero, heroWidget }
-  from "./Heroes.jsx";
-import { SvsCompleteModal } from "./SvsComplete.jsx";
-import { AdminPage, ReportIssueModal, ThreadView, submitIssue, sendMessage,
-         fetchUserThreads, markMessagesReadByUser, closeThread }
-  from "./AdminPanel.jsx";
-
 // ─── Theme & Design System ────────────────────────────────────────────────────
 // ─── Theme System ─────────────────────────────────────────────────────────────
 
