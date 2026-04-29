@@ -502,8 +502,8 @@ function WarAcademyPage({ inv, setInv, onCompleteSvs }) {
       paddingBottom:5, borderBottom:`1px solid ${C_.border}` }}>{txt}</div>
   );
 
-  // Collapse maxed rows per troop type
-  const [collapseMaxed, setCollapseMaxed] = React.useState({
+  // Collapse maxed rows per troop type — persisted so hide state survives navigation
+  const [collapseMaxed, setCollapseMaxed] = useLocalStorage("wa-collapse", {
     Infantry: false, Lancer: false, Marksman: false
   });
   const toggleCollapse = troop => setCollapseMaxed(p => ({ ...p, [troop]: !p[troop] }));

@@ -37,8 +37,8 @@ const TIER_TABLE = [
   { feature:"Unlimited characters",    guest:false, free:false, pro:true  },
 ];
 
-function AuthModal({ onClose, signUp, signIn, signInWithDiscord, authError, clearError }) {
-  const [mode,     setMode]     = useState("signup");
+function AuthModal({ onClose, initialMode="signup", signUp, signIn, signInWithDiscord, authError, clearError }) {
+  const [mode,     setMode]     = useState(initialMode);
   const [email,    setEmail]    = useState("");
   const [password, setPassword] = useState("");
   const [name,     setName]     = useState("");
@@ -308,6 +308,7 @@ export default function LandingPage({ signUp, signIn, signInWithDiscord, authErr
       {showAuth && (
         <AuthModal
           onClose={() => { setShowAuth(false); clearError?.(); }}
+          initialMode={authMode}
           signUp={signUp} signIn={signIn} signInWithDiscord={signInWithDiscord}
           authError={authError} clearError={clearError}
         />

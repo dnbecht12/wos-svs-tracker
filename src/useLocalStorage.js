@@ -14,7 +14,9 @@ export let _syncUserId = null;
 export let _syncCharId = null;
 export function setSyncUserId(id) {
   _syncUserId = id;
-  if (id) window.dispatchEvent(new CustomEvent("wos-user-ready", { detail: { id } }));
+  // wos-user-ready is dispatched by App.jsx *after* cloud data is written to localStorage.
+  // Firing it here (before the fetch) caused the { once } listener to consume a stale event,
+  // so hooks mounted before the fetch completed (e.g. cp-vip-level, hg-teams) never re-read.
 }
 export function setSyncCharId(charId) {
   _syncCharId = charId;
@@ -76,13 +78,14 @@ export function useLocalStorage(key, initial) {
 
   useEffect(() => {
     if (NO_SYNC_KEYS.has(key)) return;
-    if (_syncUserId) {
-      readFromLocal();
-    } else {
-      const handler = () => readFromLocal();
-      window.addEventListener("wos-user-ready", handler, { once: true });
-      return () => window.removeEventListener("wos-user-ready", handler);
-    }
+    // Read immediately in case data is already in localStorage (e.g. returning user,
+    // or component mounted after the cloud sync already completed).
+    readFromLocal();
+    // Also re-read when cloud data arrives — persistent listener so it fires regardless
+    // of whether _syncUserId was set before or after this hook mounted.
+    const handler = () => readFromLocal();
+    window.addEventListener("wos-user-ready", handler);
+    return () => window.removeEventListener("wos-user-ready", handler);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
 
