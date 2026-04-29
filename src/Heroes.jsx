@@ -6,6 +6,15 @@ import { supabase } from "./supabase.js";
 import { GEAR_DB, EMPOWERMENT, GEAR_TYPE, HERO_GEAR_SET, SLOT_TO_GEAR, getGearStats, getUnlockedEmpowerments } from "./GearData.js";
 import { useTierContext, GuestBanner, UpgradeBanner } from "./TierContext.jsx";
 
+async function submitHeroStats(payload) {
+  const { error } = await supabase.from("stat_submissions").insert({
+    ...payload,
+    status: "pending",
+    submitted_at: new Date().toISOString(),
+  });
+  return !error;
+}
+
 // ─── COLORS ───────────────────────────────────────────────────────────────────
 const COLORS = {
   bg:"var(--c-bg)", surface:"var(--c-surface)", card:"var(--c-card)",
@@ -500,26 +509,31 @@ function HeroProfileModal({ hero, stats, onUpdate, onClose, currentUser, activeC
 
   const handleSubmit = async () => {
     setSubmitting(true);
-    const pctFields = new Set(["infAtk","infDef","infLeth","infHp","wgtTroopLeth","wgtTroopHp"]);
-    const statsPayload = {};
-    Object.entries(submitForm).forEach(([k,v]) => {
-      if (v !== "") {
-        const num = parseFloat(v) || 0;
-        // % fields: user enters e.g. 26.70, store as 0.2670
-        statsPayload[k] = pctFields.has(k) ? Math.round(num / 100 * 1e6) / 1e6 : num;
-      }
-    });
-    const ok = await submitHeroStats({
-      hero_name:      hero.name,
-      submitted_by:   currentUser?.id || null,
-      character_name: activeCharacter?.name || null,
-      stars:          local.stars,
-      level:          local.level,
-      widget:         local.widget,
-      stats:          statsPayload,
-    });
-    setSubmitting(false);
-    if (ok) { setSubmitDone(true); setShowSubmit(false); setBaseStatsConfirmed(false); setDbRefreshKey(k => k + 1); }
+    try {
+      const pctFields = new Set(["infAtk","infDef","infLeth","infHp","wgtTroopLeth","wgtTroopHp"]);
+      const statsPayload = {};
+      Object.entries(submitForm).forEach(([k,v]) => {
+        if (v !== "") {
+          const num = parseFloat(v) || 0;
+          // % fields: user enters e.g. 26.70, store as 0.2670
+          statsPayload[k] = pctFields.has(k) ? Math.round(num / 100 * 1e6) / 1e6 : num;
+        }
+      });
+      const ok = await submitHeroStats({
+        hero_name:      hero.name,
+        submitted_by:   currentUser?.id || null,
+        character_name: activeCharacter?.name || null,
+        stars:          local.stars,
+        level:          local.level,
+        widget:         local.widget,
+        stats:          statsPayload,
+      });
+      if (ok) { setSubmitDone(true); setShowSubmit(false); setBaseStatsConfirmed(false); setDbRefreshKey(k => k + 1); }
+    } catch (e) {
+      console.error("handleSubmit error:", e);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const NumField = ({ label, field, isPct }) => {
