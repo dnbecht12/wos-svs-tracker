@@ -20,6 +20,7 @@ import ExpertsPage, {
   EXPERT_SKILL_POWER, RESEARCH_POWER, ROMULUS_SK4_RALLY, ROMULUS_BONUS_DEPLOY,
 } from "./Experts.jsx";
 import ResearchCenterPage, { getRCTechPower, getRCDeployRally } from "./ResearchCenter.jsx";
+import SetupWizard from "./SetupWizard.jsx";
 import ConstructionPlanner, { getBuildingPower, BUILDINGS_LIST } from "./ConstructionPlanner.jsx";
 import RFCPlanner from "./RFCPlanner.jsx";
 import SvSCalendar from "./SvSCalendar.jsx";
@@ -652,7 +653,7 @@ function UserArchivedMessages({ threads, renderT, C }) {
 // ─── Profile Management Modal ─────────────────────────────────────────────────
 
 function ProfileModal({ open, onClose, asPage=false, initialSection="account",
-  user, characters, activeCharId,
+  user, characters, activeCharId, onOpenWizard,
   addCharacter, removeCharacter, renameCharacter, makeDefault, switchCharacter,
   changePassword, requestDeleteAccount, confirmDeleteAccount,
   charError, clearCharError, authError, clearAuthError,
@@ -836,7 +837,19 @@ function ProfileModal({ open, onClose, asPage=false, initialSection="account",
           {section === "characters" && (
             <>
               <div className="modal-section">
-                <div className="modal-section-title">Your Characters ({characters.length}/{isPro ? 5 : 1})</div>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:10 }}>
+                  <div className="modal-section-title" style={{ marginBottom:0 }}>Your Characters ({characters.length}/{isPro ? 5 : 1})</div>
+                  {isPro && onOpenWizard && (
+                    <button onClick={onOpenWizard}
+                      style={{ padding:"5px 12px", borderRadius:6, fontSize:11, fontWeight:700,
+                        cursor:"pointer", fontFamily:"Syne,sans-serif",
+                        border:"1px solid var(--c-accent)", background:"var(--c-accentBg)",
+                        color:"var(--c-accent)", display:"flex", alignItems:"center", gap:5,
+                        whiteSpace:"nowrap" }}>
+                      🧭 Setup Wizard
+                    </button>
+                  )}
+                </div>
                 {characters.map(c => (
                   <div key={c.id} className={`char-list-item${c.id === activeCharId ? " is-active" : ""}`}>
                     <div className="char-avatar-sm">{c.name?.[0]?.toUpperCase() ?? "?"}</div>
@@ -3199,6 +3212,17 @@ export default function App() {
   const [contactOpen,     setContactOpen]     = useState(false);
   const [termsOpen,       setTermsOpen]       = useState(false);
   const [upgradeOpen,     setUpgradeOpen]     = useState(false);
+  const [wizardOpen,      setWizardOpen]      = useState(false);
+
+  // Auto-show setup wizard once for new Pro users (per character, one-time)
+  useEffect(() => {
+    if (!user || !isPro || !activeCharacter || tierLoading) return;
+    try {
+      const seen = localStorage.getItem(`wizard-seen-${activeCharacter.id}`);
+      if (!seen) setWizardOpen(true);
+    } catch {}
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, isPro, activeCharacter?.id, tierLoading]);
   const [svsModal,        setSvsModal]        = useState({ open:false, scope:"all" });
   const [userMessages,    setUserMessages]    = useState([]); // logged-in user's threads
   const [notifications,   setNotifications]   = useState([]);
@@ -3721,6 +3745,7 @@ export default function App() {
           user={user}
           characters={characters}
           activeCharId={activeCharId}
+          onOpenWizard={() => { setProfileOpen(false); setWizardOpen(true); }}
           addCharacter={addCharacter}
           removeCharacter={removeCharacter}
           renameCharacter={renameCharacter}
@@ -3740,6 +3765,19 @@ export default function App() {
           setNotifications={setNotifications}
           userMessages={userMessages}
           setUserMessages={setUserMessages}
+        />
+      )}
+
+      {/* Setup Wizard — auto-shows once for new Pro users, manual via Characters tab */}
+      {wizardOpen && user && isPro && activeCharacter && (
+        <SetupWizard
+          character={activeCharacter}
+          renameCharacter={renameCharacter}
+          inv={inv}
+          setInv={setInv}
+          rcLevels={rcLevels}
+          setRcLevels={setRcLevels}
+          onClose={() => setWizardOpen(false)}
         />
       )}
 

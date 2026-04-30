@@ -30,7 +30,7 @@ function fmtNum(n) {
 // Format: levels array = [{meat,wood,coal,iron,steel,secs,power,buff}, ...]
 // Level index = actual level (1-based), index 0 = level 0 (nothing)
 
-const RC = {
+export const RC = {
   Growth: {
     tiers: [
       {
