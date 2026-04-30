@@ -255,7 +255,7 @@ function StepChiefGear() {
   const setLevel = (idx, val) => setSlots(prev => prev.map((s, i) =>
     i === idx ? { ...s, current: val, goal: Math.max(s.goal, val) } : s));
 
-  const { groupIdx: grpOf, subIdx: subOf } = (stepIdx) => {
+  const getGroupSub = (stepIdx) => {
     for (let g = 0; g < GEAR_GROUPS.length; g++) {
       if (GEAR_GROUPS[g].stepIdx === stepIdx) return { groupIdx:g, subIdx:0 };
       for (let s = 0; s < GEAR_GROUPS[g].subs.length; s++)
@@ -275,7 +275,7 @@ function StepChiefGear() {
       <div style={{ display:"grid", gridTemplateColumns:"repeat(2, 1fr)", gap:10 }}>
         {CG_PIECES.map((piece, idx) => {
           const cur = slots[idx]?.current ?? 0;
-          const { groupIdx, subIdx } = grpOf(cur);
+          const { groupIdx, subIdx } = getGroupSub(cur);
           const grp = GEAR_GROUPS[groupIdx] || GEAR_GROUPS[0];
           const subOpts = [
             { label:"Base", si:0, stepIdx:grp.stepIdx },
