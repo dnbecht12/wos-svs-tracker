@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useLocalStorage } from "./useLocalStorage.js";
 import { useTierContext, UpgradeBanner } from "./TierContext.jsx";
 
