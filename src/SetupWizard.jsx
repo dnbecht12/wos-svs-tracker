@@ -38,6 +38,31 @@ const STAR_OPTS     = [0,1,2,3,3.1,3.2,3.3,4,4.1,4.2,4.3,4.4,5];
 const SKILL_OPTS    = [0,1,2,3,4,5];
 const WA_TROOPS     = ["Infantry","Lancer","Marksman"];
 
+const RELATIONSHIP_LEVELS = [
+  { value:0,  label:"0 — None"            },
+  { value:1,  label:"1 — Stranger"        },
+  { value:2,  label:"2 — Acquaintance 1"  },
+  { value:3,  label:"3 — Acquaintance 2"  },
+  { value:4,  label:"4 — Acquaintance 3"  },
+  { value:5,  label:"5 — Casual 1"        },
+  { value:6,  label:"6 — Casual 2"        },
+  { value:7,  label:"7 — Casual 3"        },
+  { value:8,  label:"8 — Close 1"         },
+  { value:9,  label:"9 — Close 2"         },
+  { value:10, label:"10 — Close 3"        },
+  { value:11, label:"11 — Intimate"       },
+];
+
+// Hero Gear wizard display order: Infantry, Marksman, Lancer
+// teamIdx maps to the actual index in hg-teams.teams.A
+const HERO_SLOT_CONFIG = [
+  { label:"Top Infantry", type:"Infantry", teamIdx:0 },
+  { label:"Top Marksman", type:"Marksman", teamIdx:2 },
+  { label:"Top Lancer",   type:"Lancer",   teamIdx:1 },
+];
+
+const BLDG_SUB_LABELS = ["Base", ".1", ".2", ".3", ".4"];
+
 // Chief gear groups (two-level: main tier + sub-levels with "+")
 const GEAR_GROUPS = (() => {
   const groups = [];
@@ -107,12 +132,30 @@ function WhereToFind({ children }) {
   );
 }
 
-function QASection() {
+function QABlock({ items, note }) {
   return (
-    <div style={{ marginTop:20, padding:"12px 14px",
-      background:C.amberBg, border:`1px solid ${C.amber}40`,
-      borderRadius:8, fontSize:11, color:C.amber }}>
-      <strong>Q&A</strong> — Common questions for this section will appear here soon.
+    <div style={{ marginTop:20, padding:"14px 16px",
+      background:C.surface, border:`1px solid ${C.border}`,
+      borderRadius:8 }}>
+      <div style={{ fontSize:10, fontWeight:700, letterSpacing:"1.5px", textTransform:"uppercase",
+        color:C.textDim, fontFamily:"'Space Mono',monospace", marginBottom:12 }}>❓ Q&A</div>
+      {items.map((item, i) => (
+        <div key={i} style={{ marginBottom: i < items.length-1 ? 12 : 0 }}>
+          <div style={{ fontSize:12, fontWeight:700, color:C.textPri, marginBottom:4 }}>
+            Q: {item.q}
+          </div>
+          <div style={{ fontSize:12, color:C.textSec, lineHeight:1.6 }}>
+            A: {item.a}
+          </div>
+        </div>
+      ))}
+      {note && (
+        <div style={{ marginTop:12, padding:"8px 12px", background:C.amberBg,
+          border:`1px solid ${C.amber}40`, borderRadius:6,
+          fontSize:11, color:C.amber, lineHeight:1.5 }}>
+          <strong>NOTE:</strong> {note}
+        </div>
+      )}
     </div>
   );
 }
@@ -242,7 +285,6 @@ function StepCharacter({ character, renameCharacter, onSaved }) {
           {saved && <span style={{ fontSize:12, color:C.green }}>✓ Saved</span>}
         </div>
       </div>
-      <QASection />
     </div>
   );
 }
@@ -309,7 +351,10 @@ function StepChiefGear() {
           );
         })}
       </div>
-      <QASection />
+      <QABlock
+        items={[{ q:"What do the letters mean?", a:"The letters are the acronyms for the gear's level — M = Mythic, L = Legendary, etc. Select the overall level for each of your Chief Gear pieces, and then a second dropdown will appear for the minor upgrades, where applicable." }]}
+        note="The minor upgrades will only list 3 or 4 steps based on the gear's level. This is because the last minor upgrade of a gear is actually the ascension to the next base level."
+      />
     </div>
   );
 }
@@ -390,7 +435,7 @@ function StepChiefCharms() {
           </div>
         </div>
       ))}
-      <QASection />
+      <QABlock items={[{ q:'What does "Base" mean on the new dropdowns starting at Lv. 4 on each of these?', a:"These are the minor upgrades between each major level in-game. Just like the Chief Gear minor upgrades, these will show 1 less minor upgrade per level because the last minor upgrade is actually the ascension upgrade to the next full level." }]} />
     </div>
   );
 }
@@ -439,7 +484,6 @@ function StepInventory({ inv, setInv }) {
       {row("Wood",  "wood")}
       {row("Coal",  "coal")}
       {row("Iron",  "iron")}
-      <QASection />
     </div>
   );
 }
@@ -469,8 +513,7 @@ function StepDaybreak() {
   return (
     <div>
       <WhereToFind>
-        <strong>Map → Daybreak Island → Alliance Buffs</strong> — view each active buff
-        and its current percentage.
+        <strong>Chief's City → Island → tap the stacked-lines icon below the shopping cart image</strong> to open the Daybreak Island Bonus table showing all current buff totals.
       </WhereToFind>
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
         {DAYBREAK_BUFFS.map(b => (
@@ -492,7 +535,7 @@ function StepDaybreak() {
           </div>
         ))}
       </div>
-      <QASection />
+      <QABlock items={[{ q:"Do I need to enter each building individually?", a:"No, simply enter the current total for each of these stats found in the Daybreak Island Bonus table found by clicking the three-rows stacked button under the shopping cart icon on your Daybreak Island." }]} />
     </div>
   );
 }
@@ -507,19 +550,18 @@ function StepExperts() {
   const selS = { background:C.surface, border:`1px solid ${C.border}`,
     borderRadius:5, color:C.textPri, padding:"3px 5px", fontSize:11, outline:"none" };
   const lvOpts = Array.from({length:101}, (_,i)=>i);
-  const affOpts = Array.from({length:12},  (_,i)=>i);
   const skOpts  = Array.from({length:21},  (_,i)=>i);
   return (
     <div>
       <WhereToFind>
         <strong>Alliance → Experts</strong> — tap each expert to see their current Level,
-        Affinity (Bond), and individual Skill levels (Sk1–Sk4).
+        Relationship Level (Bond), and individual Skill levels (Sk1–Sk4).
       </WhereToFind>
       <div style={{ overflowX:"auto" }}>
         <table style={{ borderCollapse:"collapse", width:"100%", fontSize:11 }}>
           <thead>
             <tr style={{ borderBottom:`1px solid ${C.border}` }}>
-              {["Expert","Level","Affinity","Sk 1","Sk 2","Sk 3","Sk 4"].map(h => (
+              {["Expert","Level","Relationship Level","Sk 1","Sk 2","Sk 3","Sk 4"].map(h => (
                 <th key={h} style={{ padding:"4px 8px", textAlign:"center",
                   color:C.textDim, fontFamily:"'Space Mono',monospace",
                   fontSize:10, whiteSpace:"nowrap" }}>{h}</th>
@@ -531,17 +573,20 @@ function StepExperts() {
               <tr key={name} style={{ borderBottom:`1px solid ${C.border}20` }}>
                 <td style={{ padding:"5px 8px", fontSize:12, color:C.textPri,
                   fontWeight:600, whiteSpace:"nowrap" }}>{name}</td>
-                {[
-                  ["level",    lvOpts],
-                  ["affinity", affOpts],
-                  ["sk1Level", skOpts],
-                  ["sk2Level", skOpts],
-                  ["sk3Level", skOpts],
-                  ["sk4Level", skOpts],
-                ].map(([field, opts]) => (
+                <td style={{ padding:"5px 6px", textAlign:"center" }}>
+                  <select value={get(name,"level")} onChange={e => set(name,"level",Number(e.target.value))} style={selS}>
+                    {lvOpts.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </td>
+                <td style={{ padding:"5px 6px", textAlign:"center" }}>
+                  <select value={get(name,"affinity")} onChange={e => set(name,"affinity",Number(e.target.value))} style={{...selS,minWidth:140}}>
+                    {RELATIONSHIP_LEVELS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                  </select>
+                </td>
+                {["sk1Level","sk2Level","sk3Level","sk4Level"].map(field => (
                   <td key={field} style={{ padding:"5px 6px", textAlign:"center" }}>
-                    <select value={get(name, field)} onChange={e => set(name, field, Number(e.target.value))} style={selS}>
-                      {opts.map(o => <option key={o} value={o}>{o}</option>)}
+                    <select value={get(name,field)} onChange={e => set(name,field,Number(e.target.value))} style={selS}>
+                      {skOpts.map(o => <option key={o} value={o}>{o}</option>)}
                     </select>
                   </td>
                 ))}
@@ -550,7 +595,6 @@ function StepExperts() {
           </tbody>
         </table>
       </div>
-      <QASection />
     </div>
   );
 }
@@ -601,7 +645,10 @@ function StepPets() {
           </tbody>
         </table>
       </div>
-      <QASection />
+      <QABlock items={[
+        { q:'What does "Advanced?" mean?', a:"Because players can reach each 10th level but not yet upgrade the skill level yet, this helps the app determine what skill bonus to apply and what materials will be needed to continue upgrading the pet." },
+        { q:"Where do I input the stat bonuses for the pets?", a:"Your attack and defense skills will auto-populate, but your refinement-controlled stats will be manually added by you on the Pets page." },
+      ]} />
     </div>
   );
 }
@@ -708,7 +755,11 @@ function StepHeroes() {
           </div>
         );
       })}
-      <QASection />
+      <QABlock items={[
+        { q:'What does "Max All" do?', a:"This button will auto-set each hero to 5 stars, level 80, and all skills to level 5." },
+        { q:"Do I need to input all of these hero levels?", a:"It is preferable to enter the stats as they will impact your Chief Profile's total power shown and some of the heroes have impacts to material requirements, research speed, etc." },
+        { q:"What if I don't have the hero generations yet or never purchased the premium heroes (Natalia/Jeronimo)?", a:"You may leave those heroes as 0 — you will be able to filter out heroes on the Heroes page until they're unlocked." },
+      ]} />
     </div>
   );
 }
@@ -717,23 +768,30 @@ function StepHeroes() {
 function StepHeroGear() {
   const [teams, setTeams] = useLocalStorage("hg-teams", { activeTeam:"A", teams:{ A:[null,null,null] } });
   const aTeam = teams.teams?.A || [null, null, null];
-  const gearSlots = GEAR_SLOTS.slice(0, 4); // Goggles, Gloves, Belt, Boots
+  const gearSlots = GEAR_SLOTS.slice(0, 4);
   const gearOpts = Array.from({length:101},(_,i)=>i);
   const mastOpts = Array.from({length:21}, (_,i)=>i);
+  const typeColor = { Infantry:C.green, Marksman:C.amber, Lancer:C.blue };
 
-  const setSlotField = (heroIdx, slotIdx, field, val) => {
-    setTeams(prev => {
-      const newTeams = { ...prev, teams: { ...prev.teams } };
-      const aArr = [...(newTeams.teams.A || [null,null,null])];
-      const hero = { ...(aArr[heroIdx] || { hero:"", slots:[] }) };
-      const slots = [...(hero.slots || [])];
-      slots[slotIdx] = { ...(slots[slotIdx] || {}), [field]: val };
-      hero.slots = slots;
-      aArr[heroIdx] = hero;
-      newTeams.teams.A = aArr;
-      return newTeams;
-    });
-  };
+  const setHeroName = (teamIdx, heroName) => setTeams(prev => {
+    const newTeams = { ...prev, teams: { ...prev.teams } };
+    const aArr = [...(newTeams.teams.A || [null,null,null])];
+    aArr[teamIdx] = { ...(aArr[teamIdx] || { hero:"", slots:[] }), hero:heroName };
+    newTeams.teams.A = aArr;
+    return newTeams;
+  });
+
+  const setSlotField = (teamIdx, slotIdx, field, val) => setTeams(prev => {
+    const newTeams = { ...prev, teams: { ...prev.teams } };
+    const aArr = [...(newTeams.teams.A || [null,null,null])];
+    const hd = { ...(aArr[teamIdx] || { hero:"", slots:[] }) };
+    const slots = [...(hd.slots || [])];
+    slots[slotIdx] = { ...(slots[slotIdx] || {}), [field]: val };
+    hd.slots = slots;
+    aArr[teamIdx] = hd;
+    newTeams.teams.A = aArr;
+    return newTeams;
+  });
 
   const selS = { background:C.surface, border:`1px solid ${C.border}`,
     borderRadius:5, color:C.textPri, padding:"3px 5px", fontSize:11, outline:"none" };
@@ -741,53 +799,66 @@ function StepHeroGear() {
   return (
     <div>
       <WhereToFind>
-        <strong>Heroes → Hero Gear → A-Team</strong> — check each hero's equipped gear: the tier
-        (Mythic or Legendary), current Gear Level (+0 to +100), and Mastery Level (0–20).
+        <strong>Heroes → Hero Gear → A-Team</strong> — select each hero, then check their
+        equipped gear tier (Mythic or Legendary), Gear Level (+0–+100), and Mastery Level (0–20).
       </WhereToFind>
-      {[0,1,2].map(heroIdx => {
-        const hd = aTeam[heroIdx] || { hero:"", slots:[] };
+      {HERO_SLOT_CONFIG.map(({ label, type, teamIdx }) => {
+        const hd = aTeam[teamIdx] || { hero:"", slots:[] };
+        const heroesOfType = HERO_ROSTER.filter(h => h.type === type);
         return (
-          <div key={heroIdx} style={{ marginBottom:14 }}>
-            <div style={{ fontSize:12, fontWeight:700, color:C.textSec, marginBottom:8 }}>
-              Slot {heroIdx+1}: <span style={{ color:C.textPri }}>{hd.hero || "—"}</span>
+          <div key={type} style={{ marginBottom:16 }}>
+            <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
+              <span style={{ fontSize:12, fontWeight:700, color:typeColor[type], minWidth:110 }}>
+                {label}:
+              </span>
+              <select value={hd.hero || ""} onChange={e => setHeroName(teamIdx, e.target.value)}
+                style={{...selS, minWidth:160}}>
+                <option value="">— Select Hero —</option>
+                {heroesOfType.map(h => <option key={h.name} value={h.name}>{h.name}</option>)}
+              </select>
             </div>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:8 }}>
-              {gearSlots.map((slotName, slotIdx) => {
-                const s = hd.slots?.[slotIdx] || {};
-                return (
-                  <div key={slotName} style={{ padding:"8px 10px", background:C.surface,
-                    borderRadius:7, border:`1px solid ${C.border}` }}>
-                    <div style={{ fontSize:10, color:C.textDim, marginBottom:6 }}>{slotName}</div>
-                    <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
-                      <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                        <span style={{ fontSize:10, color:C.textDim, width:56 }}>Tier</span>
-                        <select value={s.status || ""} onChange={e => setSlotField(heroIdx,slotIdx,"status",e.target.value)} style={selS}>
-                          <option value="">— Not Set —</option>
-                          <option value="Mythic">Mythic</option>
-                          <option value="Legendary">Legendary</option>
-                        </select>
-                      </div>
-                      <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                        <span style={{ fontSize:10, color:C.textDim, width:56 }}>Lvl</span>
-                        <select value={s.gearCurrent ?? 0} onChange={e => setSlotField(heroIdx,slotIdx,"gearCurrent",Number(e.target.value))} style={selS}>
-                          {gearOpts.map(v => <option key={v} value={v}>{v}</option>)}
-                        </select>
-                      </div>
-                      <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                        <span style={{ fontSize:10, color:C.textDim, width:56 }}>Mastery</span>
-                        <select value={s.masteryCurrent ?? 0} onChange={e => setSlotField(heroIdx,slotIdx,"masteryCurrent",Number(e.target.value))} style={selS}>
-                          {mastOpts.map(v => <option key={v} value={v}>{v}</option>)}
-                        </select>
+            {hd.hero && (
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(2,1fr)", gap:8, marginLeft:120 }}>
+                {gearSlots.map((slotName, slotIdx) => {
+                  const s = hd.slots?.[slotIdx] || {};
+                  return (
+                    <div key={slotName} style={{ padding:"8px 10px", background:C.surface,
+                      borderRadius:7, border:`1px solid ${C.border}` }}>
+                      <div style={{ fontSize:10, color:C.textDim, marginBottom:6, fontWeight:700 }}>{slotName}</div>
+                      <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+                        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                          <span style={{ fontSize:10, color:C.textDim, width:56 }}>Tier</span>
+                          <select value={s.status || ""} onChange={e => setSlotField(teamIdx,slotIdx,"status",e.target.value)} style={selS}>
+                            <option value="">— Not Set —</option>
+                            <option value="Mythic">Mythic</option>
+                            <option value="Legendary">Legendary</option>
+                          </select>
+                        </div>
+                        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                          <span style={{ fontSize:10, color:C.textDim, width:56 }}>Lvl</span>
+                          <select value={s.gearCurrent ?? 0} onChange={e => setSlotField(teamIdx,slotIdx,"gearCurrent",Number(e.target.value))} style={selS}>
+                            {gearOpts.map(v => <option key={v} value={v}>{v}</option>)}
+                          </select>
+                        </div>
+                        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                          <span style={{ fontSize:10, color:C.textDim, width:56 }}>Mastery</span>
+                          <select value={s.masteryCurrent ?? 0} onChange={e => setSlotField(teamIdx,slotIdx,"masteryCurrent",Number(e.target.value))} style={selS}>
+                            {mastOpts.map(v => <option key={v} value={v}>{v}</option>)}
+                          </select>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         );
       })}
-      <QASection />
+      <QABlock items={[
+        { q:"Do I need to input this?", a:"Yes, this will set up your Hero Gear table to allow you to plan out your hero gear upgrades to better plan for SvS and other events, calculate all materials you will need, and will impact the Battle Simulator (coming soon)." },
+        { q:"What if I have more than 3 heroes with gear I want to track?", a:"This wizard is to help you get started — Pro users are able to add additional teams to track more heroes. Once completed with the Wizard, go to Hero Gear → Add Team and follow the same steps." },
+      ]} />
     </div>
   );
 }
@@ -798,19 +869,19 @@ function StepConstruction() {
   const [buildings, setBuildings] = useLocalStorage("cp-buildings", DEFAULT_BLDGS);
   const [nonFcMax,  setNonFcMax]  = useLocalStorage("cp-nonfc-active", false);
 
-  const setLevel = (name, val) => setBuildings(prev => prev.map(b =>
-    b.name === name ? { ...b, current:val, goal:val } : b));
-
-  const getLevel = (name) => buildings.find(b => b.name === name)?.current || "FC1";
+  const setLevel = (name, fc, sub) => setBuildings(prev => prev.map(b =>
+    b.name === name ? { ...b, current:fc, currentSub:sub, goal:fc, goalSub:sub } : b));
+  const getFC  = name => buildings.find(b => b.name === name)?.current    || "FC1";
+  const getSub = name => buildings.find(b => b.name === name)?.currentSub ?? 0;
 
   const selS = { background:C.surface, border:`1px solid ${C.border}`,
-    borderRadius:5, color:C.textPri, padding:"4px 8px", fontSize:12, outline:"none" };
+    borderRadius:5, color:C.textPri, padding:"4px 6px", fontSize:12, outline:"none" };
 
   return (
     <div>
       <WhereToFind>
-        <strong>City view → tap each building</strong> to see its current Fire Crystal level.
-        Look for the "FC" badge on each building icon.
+        <strong>City view → tap each building</strong> to see its current Fire Crystal level
+        and sub-level. Look for the "FC" badge and the minor-upgrade number on each building.
       </WhereToFind>
 
       <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16,
@@ -824,18 +895,32 @@ function StepConstruction() {
       </div>
 
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-        {BLDG_NAMES.map(name => (
-          <div key={name} style={{ display:"flex", alignItems:"center",
-            justifyContent:"space-between", padding:"8px 12px",
-            background:C.surface, borderRadius:7, border:`1px solid ${C.border}`, gap:8 }}>
-            <span style={{ fontSize:12, color:C.textPri, fontWeight:600 }}>{name}</span>
-            <select value={getLevel(name)} onChange={e => setLevel(name, e.target.value)} style={selS}>
-              {FC_LEVEL_OPTS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-            </select>
-          </div>
-        ))}
+        {BLDG_NAMES.map(name => {
+          const fc  = getFC(name);
+          const sub = getSub(name);
+          return (
+            <div key={name} style={{ display:"flex", alignItems:"center",
+              justifyContent:"space-between", padding:"8px 12px",
+              background:C.surface, borderRadius:7, border:`1px solid ${C.border}`, gap:8 }}>
+              <span style={{ fontSize:12, color:C.textPri, fontWeight:600, flexShrink:0 }}>{name}</span>
+              <div style={{ display:"flex", gap:4 }}>
+                <select value={fc} onChange={e => setLevel(name, e.target.value, 0)} style={selS}>
+                  {FC_LEVEL_OPTS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                </select>
+                {fc !== "F30" && (
+                  <select value={sub} onChange={e => setLevel(name, fc, Number(e.target.value))} style={{...selS,minWidth:52}}>
+                    {BLDG_SUB_LABELS.map((lbl, i) => <option key={i} value={i}>{lbl}</option>)}
+                  </select>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
-      <QASection />
+      <QABlock items={[
+        { q:'What is the "All non-FC Buildings maxed" checkbox?', a:"These are all of the buildings that do not currently extend beyond level 30 and add to your Chief Profile's total power level to simulate as close to in-game levels as possible." },
+        { q:"What are the second dropdowns for?", a:"Just like the Chief Gear and Chief Charm tables, these are the minor upgrades between each FC level and will impact stats and material requirements when you are setting upgrade goals." },
+      ]} />
     </div>
   );
 }
@@ -862,8 +947,8 @@ function StepTroops() {
   return (
     <div>
       <WhereToFind>
-        <strong>Troops tab → Army</strong> — select each troop type and check the count
-        for each tier (T1–T11). Add a row for each tier you have troops in.
+        Either go to each troop camp individually, or to find all three at once:
+        <strong> tap your profile image in the top right → Troops (bottom of the page) → All</strong>.
       </WhereToFind>
       {TROOP_TYPES.map(type => {
         const rows = troops[type] || [];
@@ -894,7 +979,6 @@ function StepTroops() {
           </div>
         );
       })}
-      <QASection />
     </div>
   );
 }
@@ -930,11 +1014,20 @@ function StepResearch({ rcLevels, setRcLevels }) {
       </div>
       {treeData?.tiers?.map(tier => (
         <div key={tier.tier} style={{ marginBottom:14 }}>
-          <div style={{ fontSize:10, fontWeight:700, letterSpacing:"1.2px",
-            textTransform:"uppercase", color:C.textDim,
-            fontFamily:"'Space Mono',monospace", marginBottom:8,
-            paddingBottom:5, borderBottom:`1px solid ${C.border}` }}>
-            Tier {tier.tier}
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+            marginBottom:8, paddingBottom:5, borderBottom:`1px solid ${C.border}` }}>
+            <span style={{ fontSize:10, fontWeight:700, letterSpacing:"1.2px",
+              textTransform:"uppercase", color:C.textDim,
+              fontFamily:"'Space Mono',monospace" }}>
+              Tier {tier.tier}
+            </span>
+            <button onClick={() => tier.researches.forEach(res =>
+              setCur(res.id, res.levels.length - 1))}
+              style={{ padding:"3px 10px", borderRadius:5, fontSize:10, fontWeight:700,
+                cursor:"pointer", fontFamily:"Syne,sans-serif",
+                border:`1px solid ${C.green}`, background:C.greenBg, color:C.green }}>
+              Max Tier
+            </button>
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
             {tier.researches.map(res => {
@@ -955,7 +1048,6 @@ function StepResearch({ rcLevels, setRcLevels }) {
           </div>
         </div>
       ))}
-      <QASection />
     </div>
   );
 }
@@ -1015,7 +1107,6 @@ function StepWarAcademy() {
           );
         })}
       </div>
-      <QASection />
     </div>
   );
 }
@@ -1041,8 +1132,7 @@ function StepChiefStats({ inv, setInv }) {
   return (
     <div>
       <WhereToFind>
-        <strong>Chief Profile</strong> for march queue. <strong>Construction tab → Bonus Overview</strong> for
-        construction speed. <strong>War Academy tab → Bonus Overview</strong> for research speed.
+        Tap your <strong>hero power shown next to your profile image → scroll down to the bottom to "Growth"</strong> to find construction speed, research speed, and march queue details.
       </WhereToFind>
       {row("Purchased March Queue",
         "An extra march queue slot purchased via real-money pack",
@@ -1064,7 +1154,6 @@ function StepChiefStats({ inv, setInv }) {
           <span style={{ fontSize:11, color:C.textDim }}>%</span>
         </div>
       )}
-      <QASection />
     </div>
   );
 }

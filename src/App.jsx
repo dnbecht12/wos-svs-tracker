@@ -4186,6 +4186,7 @@ export default function App() {
             {page === "account" && (
               <ProfileModal asPage={true} open={true} onClose={() => navigate(-1)}
                 user={user} characters={characters} activeCharId={activeCharId}
+                onOpenWizard={() => { navigate("/app/chief"); setWizardOpen(true); }}
                 addCharacter={addCharacter} removeCharacter={removeCharacter}
                 renameCharacter={renameCharacter} makeDefault={makeDefault}
                 switchCharacter={handleSwitchCharacter}
