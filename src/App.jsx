@@ -3744,7 +3744,7 @@ export default function App() {
       )}
 
       {/* Profile completion — blocks app access until state + alliance are set */}
-      {user && !isGuest && activeCharacter &&
+      {user && activeCharacter &&
         (!activeCharacter.state_number || !activeCharacter.alliance) && (
         <ProfileCompletionModal
           character={activeCharacter}
