@@ -749,9 +749,11 @@ function ProfileModal({ open, onClose, asPage=false, initialSection="account",
   const C = COLORS;
 
   const handleAddChar = async () => {
-    if (!newName.trim()) return;
+    if (!newName.trim())    return flash("Character name is required.", "error");
+    if (!newState.trim())   return flash("State number is required.", "error");
+    if (!newAlliance.trim())return flash("Alliance tag is required.", "error");
     setBusy(true);
-    const c = await addCharacter(newName.trim(), newState ? parseInt(newState) : null, newAlliance.trim() || null);
+    const c = await addCharacter(newName.trim(), parseInt(newState), newAlliance.trim().toUpperCase().slice(0,3));
     setBusy(false);
     if (c) { setNewName(""); setNewState(""); setNewAlliance(""); flash(`Character "${c.name}" added!`); }
   };
@@ -903,7 +905,9 @@ function ProfileModal({ open, onClose, asPage=false, initialSection="account",
                     <input className="modal-inp" value={newName} onChange={e=>setNewName(e.target.value)} placeholder="Character name (e.g. Main, Alt 1)" />
                     <input className="modal-inp" type="number" value={newState} onChange={e=>setNewState(e.target.value)} placeholder="State number (e.g. 142)" />
                     <input className="modal-inp" value={newAlliance} onChange={e=>setNewAlliance(e.target.value.toUpperCase().slice(0,3))} placeholder="Alliance tag (e.g. ABC)" />
-                    <button className="modal-btn modal-btn-primary" onClick={handleAddChar} disabled={busy || !newName.trim()} style={{alignSelf:"flex-start"}}>
+                    <button className="modal-btn modal-btn-primary" onClick={handleAddChar}
+                      disabled={busy || !newName.trim() || !newState.trim() || !newAlliance.trim()}
+                      style={{alignSelf:"flex-start"}}>
                       {busy ? "Adding…" : "Add Character"}
                     </button>
                   </div>
@@ -2366,6 +2370,146 @@ function TermsModal({ open, onClose }) {
 
 
 // ─── Contact Modal ────────────────────────────────────────────────────────────
+// ─── Profile Completion Modal ─────────────────────────────────────────────────
+// Blocking overlay — shown to logged-in users who haven't set state + alliance.
+// Cannot be dismissed; disappears automatically once data is saved.
+function ProfileCompletionModal({ character, renameCharacter }) {
+  const C = COLORS;
+  const [name,     setName]     = React.useState(character.name     || "");
+  const [state,    setState]    = React.useState(character.state_number ? String(character.state_number) : "");
+  const [alliance, setAlliance] = React.useState(character.alliance  || "");
+  const [busy,     setBusy]     = React.useState(false);
+  const [err,      setErr]      = React.useState("");
+
+  const missingState    = !character.state_number;
+  const missingAlliance = !character.alliance;
+
+  const handleSave = async () => {
+    if (!name.trim())    return setErr("Character name is required.");
+    if (!state.trim())   return setErr("State number is required.");
+    if (!alliance.trim())return setErr("Alliance tag is required.");
+    setErr(""); setBusy(true);
+    await renameCharacter(character.id, name.trim(), parseInt(state), alliance.trim().toUpperCase().slice(0,3));
+    setBusy(false);
+  };
+
+  return createPortal(
+    <div style={{
+      position:"fixed", inset:0, zIndex:99999,
+      background:"rgba(0,0,0,0.85)",
+      display:"flex", alignItems:"center", justifyContent:"center", padding:20,
+    }}>
+      <div style={{
+        background:C.card, border:`1px solid ${C.borderHi}`, borderRadius:14,
+        width:"100%", maxWidth:440, padding:"28px 28px",
+        boxShadow:"0 24px 80px rgba(0,0,0,0.7)",
+      }}>
+        {/* Header */}
+        <div style={{marginBottom:20}}>
+          <div style={{fontSize:20, fontWeight:800, fontFamily:"Syne,sans-serif",
+            color:C.textPri, marginBottom:6}}>
+            Complete Your Character Profile
+          </div>
+          <div style={{fontSize:13, color:C.textSec, lineHeight:1.5}}>
+            {missingState && missingAlliance
+              ? "Your state number and alliance tag are required before you can use Tundra Command."
+              : missingState
+              ? "Your state number is required before you can use Tundra Command."
+              : "Your alliance tag is required before you can use Tundra Command."}
+          </div>
+        </div>
+
+        {/* Fields */}
+        <div style={{display:"flex", flexDirection:"column", gap:12, marginBottom:20}}>
+          <div>
+            <div style={{fontSize:11, fontWeight:700, color:C.textSec, marginBottom:4}}>
+              Character Name
+            </div>
+            <input
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="Your in-game name"
+              style={{
+                width:"100%", padding:"9px 12px", borderRadius:7, fontSize:13,
+                background:C.surface, border:`1px solid ${C.border}`,
+                color:C.textPri, outline:"none", fontFamily:"Syne,sans-serif",
+                boxSizing:"border-box",
+              }}
+            />
+          </div>
+
+          {missingState && (
+            <div>
+              <div style={{fontSize:11, fontWeight:700, color:C.textSec, marginBottom:4}}>
+                State Number <span style={{color:C.red}}>*</span>
+              </div>
+              <input
+                type="number"
+                value={state}
+                onChange={e => setState(e.target.value)}
+                placeholder="e.g. 142"
+                style={{
+                  width:"100%", padding:"9px 12px", borderRadius:7, fontSize:13,
+                  background:C.surface, border:`1px solid ${C.border}`,
+                  color:C.textPri, outline:"none", fontFamily:"'Space Mono',monospace",
+                  boxSizing:"border-box",
+                }}
+              />
+              <div style={{fontSize:10, color:C.textDim, marginTop:4}}>
+                Find this on your in-game profile page.
+              </div>
+            </div>
+          )}
+
+          {missingAlliance && (
+            <div>
+              <div style={{fontSize:11, fontWeight:700, color:C.textSec, marginBottom:4}}>
+                Alliance Tag <span style={{color:C.red}}>*</span>
+              </div>
+              <input
+                value={alliance}
+                onChange={e => setAlliance(e.target.value.toUpperCase().slice(0,3))}
+                placeholder="e.g. ABC"
+                maxLength={3}
+                style={{
+                  width:"100%", padding:"9px 12px", borderRadius:7, fontSize:13,
+                  background:C.surface, border:`1px solid ${C.border}`,
+                  color:C.textPri, outline:"none", fontFamily:"'Space Mono',monospace",
+                  boxSizing:"border-box", letterSpacing:2,
+                }}
+              />
+              <div style={{fontSize:10, color:C.textDim, marginTop:4}}>
+                2–3 letter tag shown in alliance chat.
+              </div>
+            </div>
+          )}
+        </div>
+
+        {err && (
+          <div style={{fontSize:12, color:C.red, marginBottom:12,
+            padding:"8px 12px", background:C.redBg, borderRadius:6}}>
+            {err}
+          </div>
+        )}
+
+        <button
+          onClick={handleSave}
+          disabled={busy}
+          style={{
+            width:"100%", padding:"11px", borderRadius:8, fontSize:14,
+            fontWeight:700, fontFamily:"Syne,sans-serif", cursor:"pointer",
+            background:C.accent, color:"#0a0c10", border:"none",
+            opacity: busy ? 0.6 : 1, transition:"opacity 0.15s",
+          }}
+        >
+          {busy ? "Saving…" : "Save & Continue"}
+        </button>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 function ContactModal({ open, onClose, user }) {
   const C = COLORS;
   const [category,      setCategory]      = React.useState("");
@@ -3599,6 +3743,15 @@ export default function App() {
         />
       )}
 
+      {/* Profile completion — blocks app access until state + alliance are set */}
+      {user && !isGuest && activeCharacter &&
+        (!activeCharacter.state_number || !activeCharacter.alliance) && (
+        <ProfileCompletionModal
+          character={activeCharacter}
+          renameCharacter={renameCharacter}
+        />
+      )}
+
       {/* Contact Modal */}
       <ContactModal open={contactOpen} onClose={() => setContactOpen(false)} user={user} />
       <TermsModal open={termsOpen} onClose={() => setTermsOpen(false)} />
@@ -3940,37 +4093,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* Incomplete profile notification */}
-          {user && activeCharacter && (!activeCharacter.state_number || !activeCharacter.alliance) && (
-            <div style={{
-              padding:"10px 20px",
-              background:COLORS.amberBg,
-              borderBottom:`1px solid ${COLORS.amber}40`,
-              display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap",
-            }}>
-              <div style={{display:"flex",alignItems:"center",gap:10}}>
-                <span style={{fontSize:14}}>⚠️</span>
-                <span style={{fontSize:12,color:COLORS.amber,fontWeight:600}}>
-                  Your character profile is incomplete —
-                  {!activeCharacter.state_number && !activeCharacter.alliance
-                    ? " State and Alliance are not set."
-                    : !activeCharacter.state_number
-                    ? " State number is not set."
-                    : " Alliance tag is not set."}
-                  {" "}Please update your character to help others identify you.
-                </span>
-              </div>
-              <button
-                onClick={() => navigate("/app/account")}
-                style={{
-                  padding:"5px 12px",borderRadius:6,fontSize:11,fontWeight:700,cursor:"pointer",
-                  fontFamily:"Syne,sans-serif",border:`1px solid ${COLORS.amber}`,
-                  background:"transparent",color:COLORS.amber,whiteSpace:"nowrap",flexShrink:0,
-                }}>
-                Update Profile
-              </button>
-            </div>
-          )}
+          {/* Profile completion is now handled by the blocking ProfileCompletionModal above */}
 
           <div className="page-body">
             {isSwitching ? (
