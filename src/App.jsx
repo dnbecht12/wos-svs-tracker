@@ -1662,12 +1662,23 @@ function SpeedupSingleInput({ totalMins, unit, onCommit, color, numStyle, tabInd
   );
 }
 
+function useIsMobile() {
+  const [mobile, setMobile] = useState(() => window.innerWidth <= 768);
+  useEffect(() => {
+    const handler = () => setMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  return mobile;
+}
+
 // Speed-up input: Days / Hours / Minutes with total display
 // mode: "dhm" = 3 fields, "hrs" = single hours field, "mins" = single minutes field
 function SpeedupInput({ label, icon, dField, hField, mField, dVal, hVal, mVal, onChange, color, tabIndexBase, mode="dhm" }) {
   const [localD, setLocalD] = useState(dVal||0);
   const [localH, setLocalH] = useState(hVal||0);
   const [localM, setLocalM] = useState(mVal||0);
+  const isMobile = useIsMobile();
 
   // Sync from parent when values change externally
   const prevD = useRef(dVal); const prevH = useRef(hVal); const prevM = useRef(mVal);
@@ -1682,7 +1693,6 @@ function SpeedupInput({ label, icon, dField, hField, mField, dVal, hVal, mVal, o
   const fmtTotal = totalMins===0 ? "—"
     : [dispD>0?`${dispD}d`:"", dispH>0?`${dispH}h`:"", dispM>0?`${dispM}m`:""].filter(Boolean).join(" ");
 
-  // Commit a total-minutes value back to D/H/M fields
   const commitMins = (mins) => {
     const m = Math.max(0, Math.round(mins));
     const d = Math.floor(m / 1440);
@@ -1699,62 +1709,75 @@ function SpeedupInput({ label, icon, dField, hField, mField, dVal, hVal, mVal, o
     transition:"border-color .15s",
   };
   const sepStyle = { fontSize:11, color:"var(--c-textDim)", fontFamily:"Space Mono,monospace", flexShrink:0 };
+  const wrapBase = { background:"var(--c-surface)", border:"1px solid var(--c-border)", borderRadius:8, transition:"border-color .15s" };
+  const onFocus = e => e.currentTarget.style.borderColor = "var(--c-accent)";
+  const onBlur  = e => { e.currentTarget.style.borderColor = "var(--c-border)"; };
+
+  if (isMobile) {
+    return (
+      <div style={{...wrapBase, padding:"8px 12px"}} onFocus={onFocus} onBlur={onBlur}>
+        <div style={{display:"flex", alignItems:"center", gap:6, marginBottom:6}}>
+          <span style={{fontSize:12,color:"var(--c-textSec)",fontFamily:"Space Mono,monospace",flexShrink:0,width:20,textAlign:"center"}}>{icon}</span>
+          <span style={{fontSize:12,fontWeight:600,color:"var(--c-textPri)",flex:1}}>{label}</span>
+          <span style={{fontSize:11,fontFamily:"Space Mono,monospace",flexShrink:0,
+            color:totalMins>0?(color||"var(--c-blue)"):"var(--c-textDim)"}}>{fmtTotal}</span>
+        </div>
+        <div style={{display:"flex", alignItems:"center", gap:5}}>
+          {mode === "dhm" && (<>
+            <input type="number" min={0} style={{...numStyle,width:52}} tabIndex={tabIndexBase}
+              value={localD} onChange={e=>{const v=Math.max(0,parseInt(e.target.value)||0);setLocalD(v);}}
+              onBlur={()=>onChange(dField,localD)} onFocus={e=>e.target.select()} />
+            <span style={sepStyle}>d</span>
+            <input type="number" min={0} max={23} style={{...numStyle,width:52}} tabIndex={tabIndexBase+1}
+              value={localH} onChange={e=>{const v=Math.max(0,parseInt(e.target.value)||0);setLocalH(v);}}
+              onBlur={()=>onChange(hField,localH)} onFocus={e=>e.target.select()} />
+            <span style={sepStyle}>h</span>
+            <input type="number" min={0} max={59} style={{...numStyle,width:52}} tabIndex={tabIndexBase+2}
+              value={localM} onChange={e=>{const v=Math.max(0,parseInt(e.target.value)||0);setLocalM(v);}}
+              onBlur={()=>onChange(mField,localM)} onFocus={e=>e.target.select()} />
+            <span style={sepStyle}>m</span>
+          </>)}
+          {mode === "hrs" && (<>
+            <SpeedupSingleInput totalMins={totalMins} unit="hrs" onCommit={raw=>commitMins(raw*60)} color={color} numStyle={{...numStyle,width:100}} tabIndex={tabIndexBase} />
+            <span style={sepStyle}>hrs</span>
+          </>)}
+          {mode === "mins" && (<>
+            <SpeedupSingleInput totalMins={totalMins} unit="mins" onCommit={raw=>commitMins(raw)} color={color} numStyle={{...numStyle,width:100}} tabIndex={tabIndexBase} />
+            <span style={sepStyle}>mins</span>
+          </>)}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div style={{
-      display:"flex",alignItems:"center",gap:10,
-      background:"var(--c-surface)",border:"1px solid var(--c-border)",
-      borderRadius:8,padding:"10px 14px",transition:"border-color .15s",
-      overflowX:"auto",
-    }}
-    onFocus={e=>e.currentTarget.style.borderColor="var(--c-accent)"}
-    onBlur={e=>{ e.currentTarget.style.borderColor="var(--c-border)"; }}
-    >
+    <div style={{...wrapBase, display:"flex", alignItems:"center", gap:10, padding:"10px 14px"}}
+      onFocus={onFocus} onBlur={onBlur}>
       <span style={{fontSize:13,color:"var(--c-textSec)",fontFamily:"Space Mono,monospace",flexShrink:0,width:24,textAlign:"center"}}>{icon}</span>
       <span style={{fontSize:12,fontWeight:600,color:"var(--c-textPri)",flexShrink:0,minWidth:100}}>{label}</span>
 
       {mode === "dhm" && (<>
         <input type="number" min={0} style={{...numStyle,width:64}} tabIndex={tabIndexBase}
-          value={localD}
-          onChange={e=>{const v=Math.max(0,parseInt(e.target.value)||0);setLocalD(v);}}
-          onBlur={()=>onChange(dField,localD)}
-          onFocus={e=>e.target.select()} />
+          value={localD} onChange={e=>{const v=Math.max(0,parseInt(e.target.value)||0);setLocalD(v);}}
+          onBlur={()=>onChange(dField,localD)} onFocus={e=>e.target.select()} />
         <span style={sepStyle}>d</span>
         <input type="number" min={0} max={23} style={{...numStyle,width:64}} tabIndex={tabIndexBase+1}
-          value={localH}
-          onChange={e=>{const v=Math.max(0,parseInt(e.target.value)||0);setLocalH(v);}}
-          onBlur={()=>onChange(hField,localH)}
-          onFocus={e=>e.target.select()} />
+          value={localH} onChange={e=>{const v=Math.max(0,parseInt(e.target.value)||0);setLocalH(v);}}
+          onBlur={()=>onChange(hField,localH)} onFocus={e=>e.target.select()} />
         <span style={sepStyle}>h</span>
         <input type="number" min={0} max={59} style={{...numStyle,width:64}} tabIndex={tabIndexBase+2}
-          value={localM}
-          onChange={e=>{const v=Math.max(0,parseInt(e.target.value)||0);setLocalM(v);}}
-          onBlur={()=>onChange(mField,localM)}
-          onFocus={e=>e.target.select()} />
+          value={localM} onChange={e=>{const v=Math.max(0,parseInt(e.target.value)||0);setLocalM(v);}}
+          onBlur={()=>onChange(mField,localM)} onFocus={e=>e.target.select()} />
         <span style={sepStyle}>m</span>
       </>)}
 
       {mode === "hrs" && (<>
-        <SpeedupSingleInput
-          totalMins={totalMins}
-          unit="hrs"
-          onCommit={raw => commitMins(raw * 60)}
-          color={color}
-          numStyle={numStyle}
-          tabIndex={tabIndexBase}
-        />
+        <SpeedupSingleInput totalMins={totalMins} unit="hrs" onCommit={raw=>commitMins(raw*60)} color={color} numStyle={numStyle} tabIndex={tabIndexBase} />
         <span style={sepStyle}>hrs</span>
       </>)}
 
       {mode === "mins" && (<>
-        <SpeedupSingleInput
-          totalMins={totalMins}
-          unit="mins"
-          onCommit={raw => commitMins(raw)}
-          color={color}
-          numStyle={numStyle}
-          tabIndex={tabIndexBase}
-        />
+        <SpeedupSingleInput totalMins={totalMins} unit="mins" onCommit={raw=>commitMins(raw)} color={color} numStyle={numStyle} tabIndex={tabIndexBase} />
         <span style={sepStyle}>mins</span>
       </>)}
 

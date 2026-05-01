@@ -818,7 +818,7 @@ export default function PetsPage({ inv, setInv, onCompleteSvs }) {
       </div>}
 
       {/* ── Resource Summary Bar ── */}
-      {!isGuest && <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)",
+      {!isGuest && <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(130px, 1fr))",
         gap:10, marginBottom:20 }}>
         {[
           { label:"Taming Manuals",       invKey:"tamingManuals",       value:manuals,   color:C.blue,   needed:totalManuals },

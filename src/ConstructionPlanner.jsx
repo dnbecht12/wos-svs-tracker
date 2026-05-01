@@ -531,6 +531,8 @@ const STYLE = `
   .s-val{font-size:18px}
   .svs-grid{grid-template-columns:repeat(2,1fr)}
 }
+.accum-layout{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:768px){.accum-layout{grid-template-columns:1fr}}
 `;
 
 // Format minutes as "Xd Xh Xm"
@@ -1504,7 +1506,7 @@ function ConstructionPlannerPro({ inv, setInv, planSnapshot, onSetSnapshot, onUp
           </div>
 
           {/* Accumulation breakdown */}
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
+          <div className="accum-layout">
             <div>
               <div className="sec-head">FC &amp; RFC accumulation — {daysToSVS} days remaining</div>
               <div className="accum-card">
@@ -1558,7 +1560,7 @@ function ConstructionPlannerPro({ inv, setInv, planSnapshot, onSetSnapshot, onUp
             {/* Daily accumulation table */}
             <div>
               <div className="sec-head">Day-by-day accumulation — from RFC Planner</div>
-              <div style={{overflowY:"auto",maxHeight:420,border:`1px solid ${C.border}`,borderRadius:8}}>
+              <div style={{overflowX:"auto",overflowY:"auto",maxHeight:420,border:`1px solid ${C.border}`,borderRadius:8}}>
                 <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
                   <thead>
                     <tr style={{background:C.surface,position:"sticky",top:0,zIndex:1}}>
