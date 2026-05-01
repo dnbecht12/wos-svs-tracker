@@ -866,7 +866,18 @@ function GuestConstructionCalc() {
   );
 }
 
+function useIsMobile() {
+  const [mobile, setMobile] = useState(() => window.innerWidth <= 768);
+  useEffect(() => {
+    const handler = () => setMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  return mobile;
+}
+
 function ConstructionPlannerPro({ inv, setInv, planSnapshot, onSetSnapshot, onUpdatePlan, cpSpeedBuff: cpSpeedBuffProp, setCpSpeedBuff: setCpSpeedBuffProp, activeCharId, onCompleteSvs }) {
+  const isMobile = useIsMobile();
   // Cycle selector linked to SvS Calendar
   const currentCycle = useMemo(() => getCurrentCycleNum(), []);
   const cycleOpts    = useMemo(() => buildCycles(Math.max(1, currentCycle - 1), 16), [currentCycle]);
@@ -1506,7 +1517,7 @@ function ConstructionPlannerPro({ inv, setInv, planSnapshot, onSetSnapshot, onUp
           </div>
 
           {/* Accumulation breakdown */}
-          <div className="accum-layout">
+          <div style={isMobile ? {display:"flex",flexDirection:"column",gap:16} : {display:"grid",gridTemplateColumns:"1fr 1fr",gap:16}}>
             <div>
               <div className="sec-head">FC &amp; RFC accumulation — {daysToSVS} days remaining</div>
               <div className="accum-card">
@@ -1560,8 +1571,9 @@ function ConstructionPlannerPro({ inv, setInv, planSnapshot, onSetSnapshot, onUp
             {/* Daily accumulation table */}
             <div>
               <div className="sec-head">Day-by-day accumulation — from RFC Planner</div>
-              <div style={{overflowX:"auto",overflowY:"auto",maxHeight:420,border:`1px solid ${C.border}`,borderRadius:8}}>
-                <table style={{width:"100%",borderCollapse:"collapse",fontSize:11}}>
+              <div style={{overflowY:"auto",maxHeight:420,border:`1px solid ${C.border}`,borderRadius:8}}>
+                <div style={{overflowX:"auto"}}>
+                <table style={{width:"100%",borderCollapse:"collapse",fontSize:11,minWidth:400}}>
                   <thead>
                     <tr style={{background:C.surface,position:"sticky",top:0,zIndex:1}}>
                       {["Day","Date","+FC Income","FC Burned","+RFC","Total RFC"].map((h, hi) => (
@@ -1589,6 +1601,7 @@ function ConstructionPlannerPro({ inv, setInv, planSnapshot, onSetSnapshot, onUp
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
             </div>
           </div>
