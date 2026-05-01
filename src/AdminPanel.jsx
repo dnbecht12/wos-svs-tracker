@@ -770,7 +770,7 @@ function AdminPage({ onStatsUpdated }) {
       <div className="page-title">Admin <span style={{color:C.accent}}>Panel</span></div>
 
       {/* Tab toggle */}
-      <div style={{display:"flex",gap:8,marginBottom:20}}>
+      <div style={{display:"flex",gap:8,marginBottom:20,flexWrap:"wrap"}}>
         {[
           {id:"submissions", label:"📋 Stat Submissions"},
           {id:"issues",      label:"🚩 Issue Tracking", count: issues.filter(i=>i.status!=="closed").length},

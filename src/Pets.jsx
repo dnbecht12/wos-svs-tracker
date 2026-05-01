@@ -801,29 +801,20 @@ export default function PetsPage({ inv, setInv, onCompleteSvs }) {
       })()}
 
       {/* ── Generation Filter ── */}
-      {!isGuest && <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:14 }}>
+      {!isGuest && <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:14, flexWrap:"wrap" }}>
         <span style={{ fontSize:11, fontWeight:700, color:C.textDim,
           fontFamily:"'Space Mono',monospace", textTransform:"uppercase",
           letterSpacing:"1px" }}>Generation Filter</span>
-        <div style={{ display:"flex", gap:6 }}>
+        <select
+          value={genFilter}
+          onChange={e => setGenFilter(Number(e.target.value))}
+          style={{ background:C.surface, border:`1px solid ${C.border}`, borderRadius:6,
+            color:C.textPri, fontFamily:"'Space Mono',monospace", fontSize:11,
+            padding:"4px 10px", cursor:"pointer", outline:"none" }}>
           {[1,2,3,4,5,6,7].map(g => (
-            <button key={g}
-              onClick={() => setGenFilter(g)}
-              style={{ padding:"4px 12px", borderRadius:6, fontSize:11,
-                fontWeight:700, cursor:"pointer",
-                fontFamily:"'Space Mono',monospace",
-                background: genFilter >= g ? C.accentBg : "transparent",
-                color:      genFilter >= g ? C.accent   : C.textDim,
-                border:`1px solid ${genFilter >= g ? C.accentDim : C.border}`,
-                transition:"all 0.15s" }}>
-              Gen {g}
-            </button>
+            <option key={g} value={g}>Up to Gen {g}</option>
           ))}
-        </div>
-        <span style={{ fontSize:10, color:C.textDim,
-          fontFamily:"'Space Mono',monospace" }}>
-          (showing up to Gen {genFilter})
-        </span>
+        </select>
       </div>}
 
       {/* ── Resource Summary Bar ── */}

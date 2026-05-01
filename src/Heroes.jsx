@@ -2230,8 +2230,8 @@ function HeroGearPagePro({ inv, genFilter, setGenFilter, heroStats, setHeroStats
       {/* ── Top bar: summary cards (horizontal) + team tabs + Add Team ── */}
       <div style={{display:"flex", alignItems:"flex-start", gap:16, marginBottom:20, flexWrap:"wrap"}}>
 
-        {/* Summary cards — explicit flex row, always horizontal */}
-        <div style={{display:"flex", gap:12, flexShrink:0}}>
+        {/* Summary cards — wrap on mobile */}
+        <div style={{display:"flex", gap:12, flexWrap:"wrap"}}>
           <StatCard label="Stones needed"  value={totals.stones}  sub={`have ${(inv.stones ?? 0).toLocaleString()}`}  color={totals.stones  > (inv.stones  ?? 0) ? "red" : undefined} />
           <StatCard label="Mithril needed" value={totals.mithril} sub={`have ${(inv.mithril ?? 0).toLocaleString()}`} color={totals.mithril > (inv.mithril ?? 0) ? "red" : undefined} />
           <StatCard label="Mythic needed"  value={totals.mythic}  sub={`have ${(inv.mythicGear ?? 0).toLocaleString()}`} color={totals.mythic > (inv.mythicGear ?? 0) ? "red" : undefined} />

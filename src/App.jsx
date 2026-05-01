@@ -1705,6 +1705,7 @@ function SpeedupInput({ label, icon, dField, hField, mField, dVal, hVal, mVal, o
       display:"flex",alignItems:"center",gap:10,
       background:"var(--c-surface)",border:"1px solid var(--c-border)",
       borderRadius:8,padding:"10px 14px",transition:"border-color .15s",
+      overflowX:"auto",
     }}
     onFocus={e=>e.currentTarget.style.borderColor="var(--c-accent)"}
     onBlur={e=>{ e.currentTarget.style.borderColor="var(--c-border)"; }}
