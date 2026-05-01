@@ -10,7 +10,8 @@
       "Bash(grep -n \"^\\\\s*\\\\];\\\\s*$\" \"C:\\\\Apps \\(dev\\)\\\\wos-svs-tracker\\\\wos-svs-tracker\\\\src\\\\Experts.jsx\")",
       "Bash(awk -F: '$1>1628 {print; exit}')",
       "Bash(grep -n \"return \\(\\\\s*$\\\\|return \\(<div\\\\|return \\(<>\" \"C:\\\\Apps \\(dev\\)\\\\wos-svs-tracker\\\\wos-svs-tracker\\\\src\\\\WarAcademy.jsx\")",
-      "Bash(grep -n \"return \\(\\\\s*$\" \"C:\\\\Apps \\(dev\\)\\\\wos-svs-tracker\\\\wos-svs-tracker\\\\src\\\\ResearchCenter.jsx\")"
+      "Bash(grep -n \"return \\(\\\\s*$\" \"C:\\\\Apps \\(dev\\)\\\\wos-svs-tracker\\\\wos-svs-tracker\\\\src\\\\ResearchCenter.jsx\")",
+      "Bash(node -e ' *)"
     ]
   },
   "enabledPlugins": {

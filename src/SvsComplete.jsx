@@ -1,6 +1,16 @@
 import React, { useState, useMemo } from "react";
 import { scheduleSync, _isGuest } from "./useLocalStorage.js";
 
+function useIsMobile() {
+  const [mobile, setMobile] = React.useState(() => window.innerWidth <= 768);
+  React.useEffect(() => {
+    const handler = () => setMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  return mobile;
+}
+
 const C = {
   bg:"var(--c-bg)", surface:"var(--c-surface)", card:"var(--c-card)",
   border:"var(--c-border)", borderHi:"var(--c-borderHi)",
@@ -443,6 +453,7 @@ function SectionDivider({ label }) {
 export function SvsCompleteModal({ open, onClose, scope, userId, charId }) {
   const initialChanges = useMemo(()=>buildChangeList(scope),[open,scope]);
   const [changes, setChanges] = useState(initialChanges);
+  const isMobile = useIsMobile();
   if (!open) return null;
 
   const updateAchieved = (key, val) =>
@@ -491,7 +502,7 @@ export function SvsCompleteModal({ open, onClose, scope, userId, charId }) {
           ) : (
             <>
               {/* Column headers */}
-              <div style={{display:"grid",gridTemplateColumns:"1fr 72px 72px 110px",
+              <div style={{display:"grid",gridTemplateColumns:isMobile?"1fr 54px 54px 80px":"1fr 72px 72px 110px",
                 gap:8,padding:"8px 0 4px",borderBottom:`1px solid ${C.border}`,marginBottom:4}}>
                 {["Field","Current","Goal","Achieved"].map((h,i)=>(
                   <div key={h} style={{fontSize:10,fontWeight:700,color:i===3?C.accent:C.textDim,
@@ -504,7 +515,7 @@ export function SvsCompleteModal({ open, onClose, scope, userId, charId }) {
                 <React.Fragment key={sectionName}>
                   <SectionDivider label={sectionName} />
                   {sections[sectionName].map(c => (
-                    <div key={c.key} style={{display:"grid",gridTemplateColumns:"1fr 72px 72px 110px",
+                    <div key={c.key} style={{display:"grid",gridTemplateColumns:isMobile?"1fr 54px 54px 80px":"1fr 72px 72px 110px",
                       gap:8,alignItems:"center",padding:"4px 0",borderBottom:`1px solid ${C.border}22`}}>
                       <div style={{fontSize:11,color:C.textSec,...mono,
                         overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{c.label}</div>

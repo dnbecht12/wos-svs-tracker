@@ -123,9 +123,20 @@ function getTroopStats(troopId, tierStr, fcLevel) {
   return rows.find(r => r[0] === tierNum) || null;
 }
 
+function useIsMobile() {
+  const [mobile, setMobile] = React.useState(() => window.innerWidth <= 768);
+  React.useEffect(() => {
+    const handler = () => setMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  return mobile;
+}
+
 function TroopsPage() {
   const C = COLORS;
   const { isGuest, isPro } = useTierContext();
+  const isMobile = useIsMobile();
 
   const defaultTroops = () => {
     const out = {};
@@ -352,7 +363,7 @@ function TroopsPage() {
 
               {/* Card body: tier rows + stats side by side */}
               <div style={{ padding:"16px 20px",
-                display:"grid", gridTemplateColumns:"1fr auto", gap:20,
+                display:"grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto", gap:20,
                 alignItems:"start" }}>
 
                 {/* Left: tier rows */}
@@ -430,7 +441,7 @@ function TroopsPage() {
 
                 {/* Right: highest tier stats */}
                 {topStats && (
-                  <div style={{ minWidth:220, background:C.surface,
+                  <div style={{ minWidth: isMobile ? 0 : 220, background:C.surface,
                     borderRadius:8, border:`1px solid ${C.border}`,
                     padding:"12px 14px" }}>
                     <div style={{ fontSize:10, fontWeight:700, color:tc,

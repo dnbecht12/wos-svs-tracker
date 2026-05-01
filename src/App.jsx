@@ -544,6 +544,27 @@ const GLOBAL_STYLE = `
     .page-header { padding: 14px 16px; }
     .stat-grid { grid-template-columns: repeat(2, 1fr); }
     .hamburger { display: flex !important; }
+
+    .page-title { font-size: 18px; }
+    .stat-value { font-size: 20px; }
+    .expert-grid { grid-template-columns: 1fr; }
+    .res-grid { grid-template-columns: 1fr; }
+    .modal { max-width: calc(100vw - 32px); }
+    th { white-space: normal; }
+    .info-tip::after { right: auto; left: 0; width: 200px; }
+    .svs-row { flex-wrap: wrap; gap: 8px; }
+    .svs-day { width: auto; }
+    .svs-pts { width: auto; text-align: left; }
+  }
+
+  @media (max-width: 480px) {
+    .stat-grid { grid-template-columns: 1fr; }
+    .page-body { padding: 12px; }
+    .page-header { padding: 12px 14px; }
+    .page-title { font-size: 16px; }
+    .card-body { padding: 14px; }
+    .card-header { padding: 12px 14px; }
+    .stat-value { font-size: 18px; }
   }
   .sidebar-overlay {
     display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5);

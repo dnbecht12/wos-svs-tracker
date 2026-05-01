@@ -514,12 +514,22 @@ const STYLE = `
 @media(max-width:900px){
   .bld-thead,.bld-row{grid-template-columns:120px 80px 80px 70px 70px 70px minmax(120px,1fr) minmax(120px,1fr)}
   .bld-cell,.th{padding:8px 8px}
+  .bld-table{overflow-x:auto}
+}
+@media(max-width:768px){
+  .settings-grid{grid-template-columns:1fr}
+  .time-lbl{min-width:100px}
 }
 @media(max-width:640px){
   .bld-thead{display:none}
   .bld-row{grid-template-columns:1fr 1fr;gap:6px}
   .cp-body{padding:14px 14px}
   .cp-topbar{padding:14px 16px}
+}
+@media(max-width:480px){
+  .summary-bar{grid-template-columns:repeat(2,1fr)}
+  .s-val{font-size:18px}
+  .svs-grid{grid-template-columns:repeat(2,1fr)}
 }
 `;
 
