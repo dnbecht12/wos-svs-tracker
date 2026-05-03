@@ -64,7 +64,7 @@ function keyIndex(level, sub) {
 
 // Compute upgrade cost from (fromLevel, fromSub) to (toLevel, toSub)
 // Sums all BLDG_DB rows strictly after fromKey up to and including toKey
-function computeUpgradeFull(building, fromLevel, fromSub, toLevel, toSub) {
+export function computeUpgradeFull(building, fromLevel, fromSub, toLevel, toSub) {
   // Legacy 3-arg call: computeUpgradeFull(building, from, to)
   if (toSub === undefined && toLevel === undefined) {
     toLevel = fromSub; toSub = 0; fromSub = 0;

@@ -3,6 +3,7 @@ import { _isGuest, useLocalStorage, scheduleSync } from "./useLocalStorage.js";
 import { buildCycles, getCurrentCycleNum, getCycleStartDate, toIso, fmtIso, fmtDate as fmtDateUtil, cycleLabelFull } from "./svsCalendar.js";
 import { supabase } from "./supabase.js";
 import { useTierContext, UpgradeBanner } from "./TierContext.jsx";
+import { computeUpgradeFull } from "./ConstructionPlanner.jsx";
 
 const ADMIN_UID = "c5c3392e-2399-4cc9-b2ab-f22a61e7b91c";
 
@@ -238,34 +239,23 @@ const EMPTY_ACTUALS = Array.from({length:28},()=>({
   refines:"", actualRfc:"", eventRfc:"", rfcUsed:"",
 }));
 
-// Read total RFC needed from Construction Planner localStorage
-function getConstructionRfcNeeded() {
+// Read total FC + RFC needed from Construction Planner localStorage using the
+// same computeUpgradeFull logic the Construction Planner itself uses.
+function getConstructionTotals() {
   try {
     const raw = localStorage.getItem("cp-buildings");
-    if (!raw) return 0;
-    // Import inline to avoid circular dep — same logic as getInventoryBuildingTotals
+    if (!raw) return { fc: 0, rfc: 0 };
     const buildings = JSON.parse(raw);
-    const FC_LEVELS = ["FC1","FC2","FC3","FC4","FC5","FC6","FC7","FC8","FC9","FC10"];
-    const RFC_COST = {
-      Furnace:     {FC6:80,FC7:110,FC8:160,FC9:300,FC10:350},
-      Embassy:     {FC5:8,FC6:20,FC7:32,FC8:50,FC9:88,FC10:87},
-      Infantry:    {FC5:16,FC6:45,FC7:76,FC8:114,FC9:166,FC10:157},
-      Marksman:    {FC5:16,FC6:45,FC7:76,FC8:114,FC9:166,FC10:157},
-      Lancer:      {FC5:16,FC6:45,FC7:76,FC8:114,FC9:166,FC10:157},
-      Command:     {FC5:8,FC6:20,FC7:32,FC8:50,FC9:84,FC10:70},
-      Infirmary:   {FC5:8,FC6:20,FC7:32,FC8:50,FC9:84,FC10:70},
-      "War Academy":{FC5:16,FC6:45,FC7:76,FC8:114,FC9:166,FC10:157},
-    };
-    let total = 0;
+    let fc = 0, rfc = 0;
     buildings.forEach(b => {
-      const fromIdx = FC_LEVELS.indexOf(b.current);
-      const toIdx   = FC_LEVELS.indexOf(b.goal);
-      if (fromIdx < 0 || toIdx <= fromIdx) return;
-      const rfc = RFC_COST[b.name] || {};
-      for (let i = fromIdx + 1; i <= toIdx; i++) total += rfc[FC_LEVELS[i]] || 0;
+      const result = computeUpgradeFull(
+        b.name, b.current, b.currentSub || 0, b.goal, b.goalSub || 0
+      );
+      fc  += result.fc  || 0;
+      rfc += result.rfc || 0;
     });
-    return total;
-  } catch { return 0; }
+    return { fc, rfc };
+  } catch { return { fc: 0, rfc: 0 }; }
 }
 
 // ─── Free Tier: Simplified 4-week RFC Calculator ─────────────────────────────
@@ -591,7 +581,7 @@ function RFCPlannerPro({ inv, setInv, savedPlans, onSavePlan, openSavePopup, cur
   }),[rows,inv.refinedFC]);
 
   // RFC accumulation card values
-  const constructionRfcNeeded = useMemo(()=>getConstructionRfcNeeded(),[selectedCycle, charSwitchCount]);
+  const { fc: constructionFcNeeded, rfc: constructionRfcNeeded } = useMemo(()=>getConstructionTotals(),[selectedCycle, charSwitchCount]);
   const projectedRfcAtSvS = rows[21]?.rollingRFC ?? inv.refinedFC;
   const rfcBalance = projectedRfcAtSvS - constructionRfcNeeded;
 
@@ -1043,6 +1033,12 @@ function RFCPlannerPro({ inv, setInv, savedPlans, onSavePlan, openSavePopup, cur
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,padding:"9px 0",borderBottom:"1px solid var(--c-border)",fontSize:14}}>
                 <span style={{color:"var(--c-textPri)",fontWeight:800,flex:1,minWidth:0}}>Projected at the start of SvS</span>
                 <span style={{fontFamily:"Space Mono,monospace",fontWeight:800,fontSize:18,color:projectedRfcAtSvS>=0?"var(--c-accent)":"var(--c-red)"}}>{fmtN(projectedRfcAtSvS)}</span>
+              </div>
+
+              {/* Total FC Needed */}
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:"1px solid var(--c-border)",fontSize:13}}>
+                <span style={{color:"var(--c-textSec)"}}>Total FC Needed</span>
+                <span style={{fontFamily:"Space Mono,monospace",fontWeight:700,color:"var(--c-textPri)"}}>{fmtN(constructionFcNeeded)}</span>
               </div>
 
               {/* Total RFC Needed */}
