@@ -1066,7 +1066,9 @@ function ProfileModal({ open, onClose, asPage=false, initialSection="account",
                         padding:"1px 6px",fontSize:10,fontWeight:800}}>{unreadNotifs.length}</span>
                     </div>
                     <div style={{display:"flex",flexDirection:"column",gap:8}}>
-                      {unreadNotifs.map(notif => (
+                      {unreadNotifs.map(notif => {
+                        const orig = myIssues.find(i => i.id === notif.issue_id);
+                        return (
                         <div key={notif.id} style={{background:C.accentBg,
                           border:`1px solid ${C.accentDim}`,borderRadius:8,padding:"10px 12px"}}>
                           <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:4,flexWrap:"wrap"}}>
@@ -1083,6 +1085,12 @@ function ProfileModal({ open, onClose, asPage=false, initialSection="account",
                               {fmtDT(notif.created_at)}
                             </span>
                           </div>
+                          {orig?.description && (
+                            <div style={{fontSize:11,color:C.textSec,marginBottom:6,fontStyle:"italic",lineHeight:1.4,
+                              fontFamily:"'Space Mono',monospace"}}>
+                              Your report: "{orig.description}"
+                            </div>
+                          )}
                           <div style={{fontSize:12,color:C.textPri,marginBottom:8,lineHeight:1.5}}>
                             {notif.admin_note}
                           </div>
@@ -1095,7 +1103,8 @@ function ProfileModal({ open, onClose, asPage=false, initialSection="account",
                             Mark as read
                           </button>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -1229,7 +1238,9 @@ function ProfileModal({ open, onClose, asPage=false, initialSection="account",
                     {closedFolderOpen && (
                       <div style={{display:"flex",flexDirection:"column",gap:8,marginTop:8,opacity:0.7}}>
                         {/* Read notifications */}
-                        {readNotifs.map(notif => (
+                        {readNotifs.map(notif => {
+                          const orig = myIssues.find(i => i.id === notif.issue_id);
+                          return (
                           <div key={notif.id} style={{background:C.surface,
                             border:`1px solid ${C.border}`,borderRadius:8,padding:"8px 12px"}}>
                             <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:3}}>
@@ -1244,9 +1255,16 @@ function ProfileModal({ open, onClose, asPage=false, initialSection="account",
                                 {fmtDT(notif.created_at)}
                               </span>
                             </div>
+                            {orig?.description && (
+                              <div style={{fontSize:10,color:C.textDim,marginBottom:2,fontStyle:"italic",
+                                fontFamily:"'Space Mono',monospace"}}>
+                                "{orig.description}"
+                              </div>
+                            )}
                             <div style={{fontSize:11,color:C.textSec}}>{notif.admin_note}</div>
                           </div>
-                        ))}
+                          );
+                        })}
                         {/* Closed issues */}
                         {closedIssues.map(issue => (
                           <div key={issue.id} style={{background:C.surface,

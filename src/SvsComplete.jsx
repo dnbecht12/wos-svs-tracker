@@ -294,6 +294,25 @@ function buildChangeList(scope) {
     });
   }
 
+  // Construction
+  if (inScope("construction")) {
+    const FC_ORDER = ["FC1","FC2","FC3","FC4","FC5","FC6","FC7","FC8","FC9","FC10"];
+    const buildings = getLS("cp-buildings") || [];
+    buildings.forEach(b => {
+      if (!b || !b.goal || !b.current) return;
+      const curIdx = FC_ORDER.indexOf(b.current);
+      const goalIdx = FC_ORDER.indexOf(b.goal);
+      if (goalIdx > curIdx) {
+        changes.push({
+          tab:"construction", section:"Construction", key:`bld:${b.name}`,
+          label:b.name, cur:b.current, goal:b.goal, achieved:b.goal,
+          isText:true, options:FC_ORDER.slice(curIdx, goalIdx+1),
+          materials:{},
+        });
+      }
+    });
+  }
+
   return changes;
 }
 
@@ -392,6 +411,17 @@ function applyChanges(finalList, userId, charId) {
       });
       setLS("hg-teams",ut); sync("hg-teams",ut);
     }
+  }
+  const cpChanged = finalList.some(c => c.tab === "construction");
+  if (cpChanged) {
+    const FC_ORDER = ["FC1","FC2","FC3","FC4","FC5","FC6","FC7","FC8","FC9","FC10"];
+    const bldgs = getLS("cp-buildings") || [];
+    const updated = bldgs.map(b => {
+      const a = map[`bld:${b.name}`];
+      return a !== undefined ? { ...b, current:a, goal:a, currentSub:0 } : b;
+    });
+    setLS("cp-buildings", updated);
+    sync("cp-buildings", updated);
   }
 
   // Deduct materials from inventory
@@ -526,8 +556,9 @@ export function SvsCompleteModal({ open, onClose, scope, userId, charId }) {
                           <select value={c.achieved} onChange={e=>updateAchieved(c.key,e.target.value)}
                             style={{background:C.surface,border:`1px solid ${C.border}`,borderRadius:5,
                               color:C.textPri,padding:"2px 4px",fontSize:10,...mono,outline:"none",cursor:"pointer"}}>
-                            <option value="Mythic">Mythic</option>
-                            <option value="Legendary">Legendary</option>
+                            {(c.options||["Mythic","Legendary"]).map(o=>(
+                              <option key={o} value={o}>{o}</option>
+                            ))}
                           </select>
                         ) : (
                           <input type="number" min={c.cur} max={c.goal} value={c.achieved}
