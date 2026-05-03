@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { scheduleSync, _isGuest } from "./useLocalStorage.js";
 
 function useIsMobile() {
@@ -527,9 +527,15 @@ function SectionDivider({ label }) {
 }
 
 export function SvsCompleteModal({ open, onClose, scope, userId, charId }) {
-  const initialChanges = useMemo(()=>buildChangeList(scope),[open,scope]);
-  const [changes, setChanges] = useState(initialChanges);
+  const [changes, setChanges] = useState(() => buildChangeList(scope));
   const isMobile = useIsMobile();
+
+  // Re-read localStorage every time the modal is opened so changes made
+  // since initial render are always reflected (useState ignores later useMemo updates)
+  useEffect(() => {
+    if (open) setChanges(buildChangeList(scope));
+  }, [open, scope]);
+
   if (!open) return null;
 
   const updateAchieved = (key, val) =>
