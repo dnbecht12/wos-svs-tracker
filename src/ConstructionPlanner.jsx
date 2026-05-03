@@ -493,7 +493,7 @@ const STYLE = `
 .accum-card{background:${C.card};border:1px solid ${C.border};border-radius:12px;padding:18px 20px}
 .accum-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid ${C.border};font-size:13px}
 .accum-row:last-child{border-bottom:none}
-.accum-label{color:${C.textPri}}
+.accum-label{color:${C.textPri};flex:1;min-width:0}
 .accum-val{font-family:'Space Mono',monospace;font-size:12px;color:${C.textPri};font-weight:700}
 .accum-val.pos{color:${C.green}}
 .accum-val.neg{color:${C.red}}
@@ -1031,7 +1031,7 @@ function ConstructionPlannerPro({ inv, setInv, planSnapshot, onSetSnapshot, onUp
   // RFC accumulation sourced from RFC Planner's saved actuals (days 1-21 of the cycle).
   // Falls back to the RFC Planner's estimate (monRefines × 50%-first-refine table) when
   // no actuals have been entered yet — identical to the RFC Planner rolling total.
-  const { rfcAccumulated, accumRows } = useMemo(() => {
+  const { rfcAccumulated, accumRows, rfcAtDay22 } = useMemo(() => {
     const actuals    = loadRFCActuals(selectedCycle);
     const monRefines = (() => { try { const v = localStorage.getItem("rfc-monref"); return v ? JSON.parse(v) : 1; } catch { return 1; } })();
     // Use the RFC Planner's per-cycle starting balance override if set,
@@ -1044,7 +1044,7 @@ function ConstructionPlannerPro({ inv, setInv, planSnapshot, onSetSnapshot, onUp
     let totalRfc   = 0;
     const rows = [];
 
-    for (let i = 0; i < 21; i++) {
+    for (let i = 0; i < 22; i++) {
       const isMon   = CP_WEEKDAYS[i % 7] === "Monday";
       const act     = actuals[i] || EMPTY_RFC_DAY;
       if (isMon) weekCum = 0;
@@ -1058,21 +1058,23 @@ function ConstructionPlannerPro({ inv, setInv, planSnapshot, onSetSnapshot, onUp
       const dayNetRfc    = effectiveRfc + eventRfc - rfcUsed;
 
       rollingRFC += dayNetRfc;
-      totalRfc   += dayNetRfc;
       weekCum     = endCumulative;
 
-      rows.push({
-        day: i + 1,
-        date: fmtDateCal(addDaysToDate(cycleStart, i)),
-        dailyFC: dailyFCIncome,
-        fcBurn,
-        dailyRFC: dayNetRfc,
-        runningRFC: rollingRFC,
-        isPast:  i < todayDayIndex,
-        isToday: i === todayDayIndex,
-      });
+      if (i < 21) {
+        totalRfc += dayNetRfc;
+        rows.push({
+          day: i + 1,
+          date: fmtDateCal(addDaysToDate(cycleStart, i)),
+          dailyFC: dailyFCIncome,
+          fcBurn,
+          dailyRFC: dayNetRfc,
+          runningRFC: rollingRFC,
+          isPast:  i < todayDayIndex,
+          isToday: i === todayDayIndex,
+        });
+      }
     }
-    return { rfcAccumulated: Math.round(totalRfc), accumRows: rows };
+    return { rfcAccumulated: Math.round(totalRfc), accumRows: rows, rfcAtDay22: Math.round(rollingRFC) };
   }, [rfc, selectedCycle, todayDayIndex, dailyFCIncome]);
 
   // FC accumulated over remaining days from daily income (unchanged — daily income is separate from refining)
@@ -1105,7 +1107,7 @@ function ConstructionPlannerPro({ inv, setInv, planSnapshot, onSetSnapshot, onUp
   const totalFCNeeded  = buildingCalcs.reduce((s, b) => s + b.fcCost,  0);
   const totalRFCNeeded = buildingCalcs.reduce((s, b) => s + b.rfcCost, 0);
   const projectedFC    = fc + fcAccumulated;
-  const projectedRFC   = rfc + rfcAccumulated;
+  const projectedRFC   = rfcAtDay22;
   const fcBalance      = projectedFC  - totalFCNeeded;
   const rfcBalance     = projectedRFC - totalRFCNeeded;
 
@@ -1530,7 +1532,7 @@ function ConstructionPlannerPro({ inv, setInv, planSnapshot, onSetSnapshot, onUp
                   <span className="accum-val pos">+{fmtFull(fcAccumulated)}</span>
                 </div>
                 <div className="accum-row" style={{borderTop:`2px solid ${C.borderHi}`}}>
-                  <span className="accum-label" style={{fontWeight:700,color:C.textPri}}>Projected FC at SVS</span>
+                  <span className="accum-label" style={{fontWeight:700,color:C.textPri}}>Projected at the start of SvS</span>
                   <span className="accum-val accent">{fmtFull(projectedFC)}</span>
                 </div>
                 <div className="accum-row">
@@ -1552,7 +1554,7 @@ function ConstructionPlannerPro({ inv, setInv, planSnapshot, onSetSnapshot, onUp
                   <span className="accum-val pos">+{fmtFull(rfcAccumulated)}</span>
                 </div>
                 <div className="accum-row" style={{borderTop:`2px solid ${C.borderHi}`}}>
-                  <span className="accum-label" style={{fontWeight:700,color:C.textPri}}>Projected RFC at SVS</span>
+                  <span className="accum-label" style={{fontWeight:700,color:C.textPri}}>Projected at the start of SvS</span>
                   <span className="accum-val accent">{fmtFull(projectedRFC)}</span>
                 </div>
                 <div className="accum-row">

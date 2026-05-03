@@ -592,7 +592,7 @@ function RFCPlannerPro({ inv, setInv, savedPlans, onSavePlan, openSavePopup, cur
 
   // RFC accumulation card values
   const constructionRfcNeeded = useMemo(()=>getConstructionRfcNeeded(),[selectedCycle, charSwitchCount]);
-  const projectedRfcAtSvS = rows[20]?.rollingRFC ?? inv.refinedFC;
+  const projectedRfcAtSvS = rows[21]?.rollingRFC ?? inv.refinedFC;
   const rfcBalance = projectedRfcAtSvS - constructionRfcNeeded;
 
   const hasVariances = rows.some(r=>r.variance!==null&&r.variance!==0);
@@ -1039,9 +1039,9 @@ function RFCPlannerPro({ inv, setInv, savedPlans, onSavePlan, openSavePopup, cur
                 <span style={{fontFamily:"Space Mono,monospace",fontWeight:700,color:"var(--c-blue)"}}>+{fmtN(estEventRfc)}</span>
               </div>
 
-              {/* Projected RFC at SvS */}
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"9px 0",borderBottom:"1px solid var(--c-border)",fontSize:14}}>
-                <span style={{color:"var(--c-textPri)",fontWeight:800}}>Projected RFC at SvS</span>
+              {/* Projected RFC at start of SvS */}
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,padding:"9px 0",borderBottom:"1px solid var(--c-border)",fontSize:14}}>
+                <span style={{color:"var(--c-textPri)",fontWeight:800,flex:1,minWidth:0}}>Projected at the start of SvS</span>
                 <span style={{fontFamily:"Space Mono,monospace",fontWeight:800,fontSize:18,color:projectedRfcAtSvS>=0?"var(--c-accent)":"var(--c-red)"}}>{fmtN(projectedRfcAtSvS)}</span>
               </div>
 
