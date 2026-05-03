@@ -39,6 +39,29 @@ const CG_LEVELS = [
   [43,"LT1",27,167,14750,3],[44,"LT1+1",27,167,14750,3],[45,"LT1+2",27,167,14750,3],
   [46,"LT1+3",29,169,14750,6],[47,"LT1 1★",28,175,15250,3],[48,"LT1 1★+1",28,175,15250,3],
   [49,"LT1 1★+2",28,175,15250,3],[50,"LT1 1★+3",31,175,15250,6],
+  [51,"LT1 2★",30,182,15750,3],[52,"LT1 2★+1",30,182,15750,3],[53,"LT1 2★+2",30,182,15750,3],[54,"LT1 2★+3",30,184,15750,6],
+  [55,"LT1 3★",31,190,16250,3],[56,"LT1 3★+1",31,190,16250,3],[57,"LT1 3★+2",31,190,16250,3],[58,"LT1 3★+3",32,190,16250,6],
+  [59,"LT2",33,202,17000,5],[60,"LT2+1",33,202,17000,5],[61,"LT2+2",33,202,17000,5],[62,"LT2+3",36,204,17000,5],
+  [63,"LT2 1★",35,210,17500,5],[64,"LT2 1★+1",35,210,17500,5],[65,"LT2 1★+2",35,210,17500,5],[66,"LT2 1★+3",35,210,17500,5],
+  [67,"LT2 2★",36,217,18000,5],[68,"LT2 2★+1",36,217,18000,5],[69,"LT2 2★+2",36,217,18000,5],[70,"LT2 2★+3",37,219,18000,5],
+  [71,"LT2 3★",37,225,18500,5],[72,"LT2 3★+1",37,225,18500,5],[73,"LT2 3★+2",37,225,18500,5],[74,"LT2 3★+3",39,225,18500,5],
+  [75,"LT3",40,237,19250,6],[76,"LT3+1",40,237,19250,6],[77,"LT3+2",40,237,19250,6],[78,"LT3+3",40,239,19250,7],
+  [79,"LT3 1★",41,247,20000,6],[80,"LT3 1★+1",41,247,20000,6],[81,"LT3 1★+2",41,247,20000,6],[82,"LT3 1★+3",42,249,20000,7],
+  [83,"LT3 2★",42,257,20750,6],[84,"LT3 2★+1",42,257,20750,6],[85,"LT3 2★+2",42,257,20750,6],[86,"LT3 2★+3",44,259,20750,7],
+  [87,"LT3 3★",50,300,24000,8],[88,"LT3 3★+1",50,300,24000,8],[89,"LT3 3★+2",50,300,24000,8],[90,"LT3 3★+3",50,300,24000,8],
+  [91,"LT4",50,300,24000,8],[92,"LT4+1",55,330,28000,8],[93,"LT4+2",55,330,28000,8],[94,"LT4+3",55,330,28000,8],[95,"LT4+4",55,330,28000,8],
+  [96,"LT4 1★",55,330,28000,8],[97,"LT4 1★+1",60,360,32000,8],[98,"LT4 1★+2",60,360,32000,8],[99,"LT4 1★+3",60,360,32000,8],[100,"LT4 1★+4",60,360,32000,8],
+  [101,"LT4 2★",60,360,32000,8],[102,"LT4 2★+1",65,390,36000,8],[103,"LT4 2★+2",65,390,36000,8],[104,"LT4 2★+3",65,390,36000,8],[105,"LT4 2★+4",65,390,36000,8],
+  [106,"LT4 3★",65,390,36000,8],
+];
+const CC_LABELS = [
+  "Lv. 1","Lv. 2","Lv. 3","Lv. 4","Lv. 4.1","Lv. 4.2","Lv. 4.3","Lv. 5",
+  "Lv. 5.1","Lv. 5.2","Lv. 5.3","Lv. 6","Lv. 6.1","Lv. 6.2","Lv. 6.3","Lv. 7",
+  "Lv. 7.1","Lv. 7.2","Lv. 7.3","Lv. 8","Lv. 8.1","Lv. 8.2","Lv. 8.3","Lv. 9",
+  "Lv. 9.1","Lv. 9.2","Lv. 9.3","Lv. 10","Lv. 10.1","Lv. 10.2","Lv. 10.3","Lv. 10.4","Lv. 11",
+  "Lv. 11.1","Lv. 11.2","Lv. 11.3","Lv. 11.4","Lv. 12","Lv. 12.1","Lv. 12.2","Lv. 12.3","Lv. 12.4","Lv. 13",
+  "Lv. 13.1","Lv. 13.2","Lv. 13.3","Lv. 13.4","Lv. 14","Lv. 14.1","Lv. 14.2","Lv. 14.3","Lv. 14.4","Lv. 15",
+  "Lv. 15.1","Lv. 15.2","Lv. 15.3","Lv. 15.4","Lv. 16",
 ];
 function cgCost(cur, goal) {
   let plans=0,polish=0,alloy=0,amber=0;
@@ -130,9 +153,14 @@ function buildChangeList(scope) {
     const slots = getLS("cg-slots") || [];
     slots.forEach(s => {
       if (s.goal > s.current) {
-        const cost = cgCost(s.current, s.achieved ?? s.goal);
+        const curLabel  = CG_LEVELS[s.current]?.[1] ?? String(s.current);
+        const goalLabel = CG_LEVELS[s.goal]?.[1]    ?? String(s.goal);
+        const opts = [];
+        for (let i = s.current; i <= s.goal; i++) { if (CG_LEVELS[i]) opts.push(CG_LEVELS[i][1]); }
+        const cost = cgCost(s.current, s.goal);
         changes.push({ tab:"chief-gear", section:"Chief Gear", key:`cg:${s.piece}`,
-          label:s.piece, cur:s.current, goal:s.goal, achieved:s.goal,
+          label:s.piece, cur:curLabel, goal:goalLabel, achieved:goalLabel,
+          isText:true, options:opts,
           materials:{ chiefPlans:cost.plans, chiefPolish:cost.polish, chiefAlloy:cost.alloy, chiefAmber:cost.amber } });
       }
     });
@@ -143,9 +171,13 @@ function buildChangeList(scope) {
     const slots = getLS("cc-slots") || [];
     slots.forEach(s => {
       if (s.goal > s.current) {
+        const curLabel  = CC_LABELS[s.current] ?? String(s.current);
+        const goalLabel = CC_LABELS[s.goal]    ?? String(s.goal);
+        const opts = CC_LABELS.slice(s.current, s.goal + 1);
         const cost = ccCost(s.current, s.goal);
         changes.push({ tab:"chief-charms", section:"Chief Charms", key:`cc:${s.charm}`,
-          label:`${s.gear} — ${s.charm}`, cur:s.current, goal:s.goal, achieved:s.goal,
+          label:`${s.gear} — ${s.charm}`, cur:curLabel, goal:goalLabel, achieved:goalLabel,
+          isText:true, options:opts,
           materials:{ charmGuides:cost.guides, charmDesigns:cost.designs, charmSecrets:cost.secrets } });
       }
     });
@@ -336,12 +368,24 @@ function applyChanges(finalList, userId, charId) {
 
   const cgChanged = finalList.some(c=>c.tab==="chief-gear");
   if (cgChanged) {
-    const slots=(getLS("cg-slots")||[]).map(s=>{const a=map[`cg:${s.piece}`];return a!==undefined?{...s,current:a,goal:a}:s;});
+    const cgLabelToIdx = Object.fromEntries(CG_LEVELS.map((r,i) => [r[1], i]));
+    const slots=(getLS("cg-slots")||[]).map(s=>{
+      const a=map[`cg:${s.piece}`];
+      if (a===undefined) return s;
+      const idx = cgLabelToIdx[a] ?? s.goal;
+      return {...s, current:idx, goal:idx};
+    });
     setLS("cg-slots",slots); sync("cg-slots",slots);
   }
   const ccChanged = finalList.some(c=>c.tab==="chief-charms");
   if (ccChanged) {
-    const slots=(getLS("cc-slots")||[]).map(s=>{const a=map[`cc:${s.charm}`];return a!==undefined?{...s,current:a,goal:a}:s;});
+    const ccLabelToIdx = Object.fromEntries(CC_LABELS.map((lbl,i) => [lbl, i]));
+    const slots=(getLS("cc-slots")||[]).map(s=>{
+      const a=map[`cc:${s.charm}`];
+      if (a===undefined) return s;
+      const idx = ccLabelToIdx[a] ?? s.goal;
+      return {...s, current:idx, goal:idx};
+    });
     setLS("cc-slots",slots); sync("cc-slots",slots);
   }
   const exChanged = finalList.some(c=>c.tab==="experts");
