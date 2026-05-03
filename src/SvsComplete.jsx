@@ -166,14 +166,15 @@ function buildChangeList(scope) {
     });
   }
 
-  // Chief Charms
+  // Chief Charms (cc-slots uses 1-based indices: s.current=1 = Lv. 1, s.current=0 = not started)
   if (inScope("chief-charms")) {
     const slots = getLS("cc-slots") || [];
     slots.forEach(s => {
       if (s.goal > s.current) {
-        const curLabel  = CC_LABELS[s.current] ?? String(s.current);
-        const goalLabel = CC_LABELS[s.goal]    ?? String(s.goal);
-        const opts = CC_LABELS.slice(s.current, s.goal + 1);
+        const curLabel  = s.current > 0 ? (CC_LABELS[s.current - 1] ?? String(s.current)) : "—";
+        const goalLabel = CC_LABELS[s.goal - 1] ?? String(s.goal);
+        const optsStart = s.current > 0 ? s.current - 1 : 0;
+        const opts = CC_LABELS.slice(optsStart, s.goal);
         const cost = ccCost(s.current, s.goal);
         changes.push({ tab:"chief-charms", section:"Chief Charms", key:`cc:${s.charm}`,
           label:`${s.gear} — ${s.charm}`, cur:curLabel, goal:goalLabel, achieved:goalLabel,
@@ -379,7 +380,8 @@ function applyChanges(finalList, userId, charId) {
   }
   const ccChanged = finalList.some(c=>c.tab==="chief-charms");
   if (ccChanged) {
-    const ccLabelToIdx = Object.fromEntries(CC_LABELS.map((lbl,i) => [lbl, i]));
+    // CC_LABELS is 0-based; cc-slots stores 1-based indices (+1 to convert back)
+    const ccLabelToIdx = Object.fromEntries(CC_LABELS.map((lbl,i) => [lbl, i + 1]));
     const slots=(getLS("cc-slots")||[]).map(s=>{
       const a=map[`cc:${s.charm}`];
       if (a===undefined) return s;
