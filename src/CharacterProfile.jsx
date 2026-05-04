@@ -129,6 +129,19 @@ const CATEGORY_COLOR = {
   event: "var(--c-textSec)",
 };
 
+// Releases always drop on a Monday. Given a milestone's calendar timestamp,
+// return the timestamp of the Monday on or before that date (UTC).
+function getMondayOnOrBefore(ms) {
+  const utcDay = new Date(ms).getUTCDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+  const daysBack = utcDay === 0 ? 6 : utcDay - 1;
+  return ms - daysBack * 86400000;
+}
+function fmtEstDate(ms) {
+  return new Date(ms).toLocaleDateString("en-US", {
+    month:"short", day:"numeric", year:"numeric", timeZone:"UTC",
+  });
+}
+
 // ─── Character Profile Page ───────────────────────────────────────────────────
 
 // Embassy Reinforcement Cap by level (F30 = index 0, FC1-FC10 = index 1-10)
@@ -348,6 +361,7 @@ function StateAgeSection({ stateNum, C }) {
                 <th style={thStyle}>
                   {isFuture ? "Days After Start" : "Days Away"}
                 </th>
+                <th style={{ ...thStyle, whiteSpace:"nowrap" }}>Est. Date</th>
                 <th style={thStyle}>Milestone</th>
                 <th style={{ ...thStyle, textAlign:"center" }}>Released Early?</th>
                 <th style={{ ...thStyle, textAlign:"left" }}>Marked At</th>
@@ -358,6 +372,9 @@ function StateAgeSection({ stateNum, C }) {
                 const mark = earlyMarks[m.day] || {};
                 const daysAway = isFuture ? m.day : (m.day - ageDays);
                 const catColor = CATEGORY_COLOR[m.category] || C.textSec;
+                const estDate = startMs != null
+                  ? fmtEstDate(getMondayOnOrBefore(startMs + m.day * 86400000))
+                  : "—";
                 return (
                   <tr key={m.day}>
                     <td style={{ ...tdStyle, fontFamily:"'Space Mono',monospace",
@@ -367,6 +384,10 @@ function StateAgeSection({ stateNum, C }) {
                     <td style={{ ...tdStyle, fontFamily:"'Space Mono',monospace",
                       color:C.textSec }}>
                       +{Math.ceil(daysAway)}d
+                    </td>
+                    <td style={{ ...tdStyle, fontFamily:"'Space Mono',monospace",
+                      color:C.textSec, whiteSpace:"nowrap" }}>
+                      {estDate}
                     </td>
                     <td style={{ ...tdStyle, color:C.textPri }}>{m.label}</td>
                     <td style={{ ...tdStyle, textAlign:"center" }}>
@@ -391,13 +412,13 @@ function StateAgeSection({ stateNum, C }) {
       )}
 
       {/* Show all milestones toggle */}
-      <AllMilestonesPanel ageDays={ageDays} isFuture={isFuture}
+      <AllMilestonesPanel ageDays={ageDays} isFuture={isFuture} startMs={startMs}
         earlyMarks={earlyMarks} toggleEarly={toggleEarly} C={C} />
     </SectionCard>
   );
 }
 
-function AllMilestonesPanel({ ageDays, isFuture, earlyMarks, toggleEarly, C }) {
+function AllMilestonesPanel({ ageDays, isFuture, startMs, earlyMarks, toggleEarly, C }) {
   const [expanded, setExpanded] = useState(false);
 
   const allMilestones = useMemo(() => {
@@ -427,6 +448,7 @@ function AllMilestonesPanel({ ageDays, isFuture, earlyMarks, toggleEarly, C }) {
               <tr>
                 <th style={thStyle}>Day</th>
                 <th style={thStyle}>Status</th>
+                <th style={{ ...thStyle, whiteSpace:"nowrap" }}>Est. Date</th>
                 <th style={thStyle}>Milestone</th>
                 <th style={{ ...thStyle, textAlign:"center" }}>Released Early?</th>
                 <th style={{ ...thStyle, textAlign:"left" }}>Marked At</th>
@@ -438,6 +460,9 @@ function AllMilestonesPanel({ ageDays, isFuture, earlyMarks, toggleEarly, C }) {
                 const isPast = !isFuture && ageDays >= m.day;
                 const catColor = CATEGORY_COLOR[m.category] || C.textSec;
                 const daysAway = isFuture ? m.day : (m.day - ageDays);
+                const estDate = startMs != null
+                  ? fmtEstDate(getMondayOnOrBefore(startMs + m.day * 86400000))
+                  : "—";
                 return (
                   <tr key={m.day} style={{ opacity: isPast ? 0.55 : 1 }}>
                     <td style={{ ...tdStyle, fontFamily:"'Space Mono',monospace",
@@ -447,6 +472,10 @@ function AllMilestonesPanel({ ageDays, isFuture, earlyMarks, toggleEarly, C }) {
                     <td style={{ ...tdStyle, fontFamily:"'Space Mono',monospace",
                       fontSize:10, color: isPast ? C.green : C.textSec }}>
                       {isPast ? "✓ past" : `+${Math.ceil(daysAway)}d`}
+                    </td>
+                    <td style={{ ...tdStyle, fontFamily:"'Space Mono',monospace",
+                      fontSize:10, color:C.textSec, whiteSpace:"nowrap" }}>
+                      {estDate}
                     </td>
                     <td style={{ ...tdStyle, color:C.textPri }}>{m.label}</td>
                     <td style={{ ...tdStyle, textAlign:"center" }}>
