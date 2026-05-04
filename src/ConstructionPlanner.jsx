@@ -650,6 +650,65 @@ function cascadePrereqs(buildings) {
   return result;
 }
 
+// Mirror of cascadePrereqs — clamps goals DOWN when a prerequisite's goal is
+// lowered below what a dependent building currently targets.
+// Example: Furnace goal FC8 → Embassy goal can't remain FC9 (requires Furnace FC9).
+function cascadeDown(buildings) {
+  const byName = {};
+  const result = buildings.map((b, i) => { byName[b.name] = i; return { ...b }; });
+
+  let changed = true;
+  let passes  = 0;
+  while (changed && passes < 10) {
+    changed = false;
+    passes++;
+    result.forEach(b => {
+      const goalIdx = FC_LEVELS.indexOf(b.goal);
+      if (goalIdx < 0) return;
+
+      // Walk each FC level up to this building's goal. Find the first level
+      // whose prerequisites are NOT met by other buildings' *goals*, then clamp
+      // this building's goal to one step below that level.
+      let maxValidIdx = goalIdx;
+      for (let lvlIdx = 0; lvlIdx <= goalIdx; lvlIdx++) {
+        const fcLevel     = FC_LEVELS[lvlIdx];
+        const prereqEntry = PREREQS[b.name]?.[fcLevel];
+        if (!prereqEntry) continue;
+
+        const reqs = Array.isArray(prereqEntry[0])
+          ? prereqEntry
+          : [[prereqEntry, fcLevel]];
+
+        const allMet = reqs.every(([reqName, reqLevel]) => {
+          const reqIdx = byName[reqName];
+          if (reqIdx === undefined) return true;
+          const needed     = keyIndex(reqLevel, 0);
+          const prereqGoal = keyIndex(result[reqIdx].goal, result[reqIdx].goalSub || 0);
+          return prereqGoal >= needed;
+        });
+
+        if (!allMet) {
+          maxValidIdx = lvlIdx - 1;
+          break;
+        }
+      }
+
+      if (maxValidIdx < goalIdx) {
+        // Floor: never clamp below what's already built (current level)
+        const curIdx     = FC_LEVELS.indexOf(b.current);
+        const floorIdx   = Math.max(curIdx, 0);
+        const clampedIdx = Math.max(maxValidIdx, floorIdx);
+        if (clampedIdx !== goalIdx) {
+          result[byName[b.name]].goal    = FC_LEVELS[clampedIdx];
+          result[byName[b.name]].goalSub = 0;
+          changed = true;
+        }
+      }
+    });
+  }
+  return result;
+}
+
 // ─── Building Power lookup table ─────────────────────────────────────────────
 // Power is a direct lookup (not summed) — use the value at the chosen level/sub
 const POWER_DB = {
@@ -1142,9 +1201,10 @@ function ConstructionPlannerPro({ inv, setInv, planSnapshot, onSetSnapshot, onUp
       if (field === "current" && val === "FC10") updated.currentSub = 0;
       return updated;
     });
-    const cascaded = cascadePrereqs(next);
-    setBuildings(cascaded);
-    saveState("cp-buildings", cascaded, activeCharId);
+    const up   = cascadePrereqs(next);
+    const down = cascadeDown(up);
+    setBuildings(down);
+    saveState("cp-buildings", down, activeCharId);
   }
 
   const persist = (setter, key) => (val) => { setter(val); saveState(key, val, activeCharId); };
