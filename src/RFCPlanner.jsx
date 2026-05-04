@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { _isGuest, useLocalStorage, scheduleSync } from "./useLocalStorage.js";
-import { buildCycles, getCurrentCycleNum, getCycleStartDate, toIso, fmtIso, fmtDate as fmtDateUtil, cycleLabelFull } from "./svsCalendar.js";
+import { buildCycles, getCurrentCycleNum, getCycleStartDate, toIso, fmtIso, fmtDate as fmtDateUtil, cycleLabelFull, todayUTC } from "./svsCalendar.js";
 import { supabase } from "./supabase.js";
 import { useTierContext, UpgradeBanner } from "./TierContext.jsx";
 import { computeUpgradeFull } from "./ConstructionPlanner.jsx";
@@ -87,16 +87,16 @@ function saveLS(k,v){
 function fmtDate(isoStr){return fmtIso(isoStr);}
 function addDays(isoStr,n){
   if(!isoStr)return"";
-  const d=new Date(isoStr+"T00:00:00");
+  const d=new Date(isoStr+"T00:00:00Z");
   if(isNaN(d))return"";
-  d.setDate(d.getDate()+n);
+  d.setUTCDate(d.getUTCDate()+n);
   return toIso(d);
 }
 function planBaseName(isoStr){
   if(!isoStr)return"";
-  const d=new Date(isoStr+"T00:00:00");
+  const d=new Date(isoStr+"T00:00:00Z");
   if(isNaN(d))return"";
-  return d.toLocaleDateString("en-US",{month:"long",year:"numeric"});
+  return d.toLocaleDateString("en-US",{month:"long",year:"numeric",timeZone:"UTC"});
 }
 function nextPlanKey(baseName,existingKeys){
   let seq=1;
@@ -463,8 +463,8 @@ function RFCPlannerPro({ inv, setInv, savedPlans, onSavePlan, openSavePopup, cur
   // Today's day index (0-27) within the selected cycle, or -1 if not current cycle
   const todayDayIdx = useMemo(()=>{
     if (selectedCycle !== currentCycle) return -1;
-    const today = new Date(); today.setHours(0,0,0,0);
-    const start = new Date(startDate + "T00:00:00"); start.setHours(0,0,0,0);
+    const today = todayUTC();
+    const start = new Date(startDate + "T00:00:00Z");
     const diff = Math.floor((today - start) / 86400000);
     return Math.min(Math.max(diff, 0), 27);
   },[selectedCycle, currentCycle, startDate]);

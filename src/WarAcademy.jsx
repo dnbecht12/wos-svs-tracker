@@ -1,6 +1,7 @@
 import React from "react";
 import { useLocalStorage } from "./useLocalStorage.js";
 import { useTierContext, GuestBanner } from "./TierContext.jsx";
+import { todayUTC } from "./svsCalendar.js";
 
 // ─── COLORS ──────────────────────────────────────────────────────────────────
 const COLORS = {
@@ -327,9 +328,9 @@ function WarAcademyPage({ inv, setInv, onCompleteSvs }) {
   const [dailyEarnShards, setDailyEarnShards] = useLocalStorage("wa-dailyshards", null);
   const effectiveDailyShards = dailyEarnShards !== null ? dailyEarnShards : (inv.dailyIntel ?? 0);
   const daysToSvSTuesday = React.useMemo(() => {
-    const today = new Date(); today.setHours(0,0,0,0);
-    // Find next Tuesday (day 2 = Tue, JS: 0=Sun, 2=Tue)
-    const day = today.getDay();
+    const today = todayUTC();
+    // Find next Tuesday (day 2 = Tue, UTC: 0=Sun, 2=Tue)
+    const day = today.getUTCDay();
     const daysUntilTue = day <= 2 ? 2 - day : 9 - day;
     return daysUntilTue === 0 ? 7 : daysUntilTue; // if today is Tuesday, next Tuesday
   }, []);

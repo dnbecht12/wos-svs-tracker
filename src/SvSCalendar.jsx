@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { buildCycles, getCurrentCycleNum, fmtDate, cycleLabelFull } from "./svsCalendar.js";
+import { buildCycles, getCurrentCycleNum, fmtDate, cycleLabelFull, todayUTC } from "./svsCalendar.js";
 
 const C = new Proxy({}, { get(_, key) { return `var(--c-${key})`; } });
 // Semantic week colors mapped to theme vars
@@ -64,7 +64,7 @@ const STYLE = `
 const DAY_AB = ["Mo","Tu","We","Th","Fr","Sa","Su"];
 
 export default function SvSCalendar() {
-  const today = useMemo(()=>{ const d=new Date(); d.setHours(0,0,0,0); return d; },[]);
+  const today = useMemo(()=>todayUTC(),[]);
   const currentCycle = useMemo(()=>getCurrentCycleNum(),[]);
   const [startCycle, setStartCycle] = useState(currentCycle);
 

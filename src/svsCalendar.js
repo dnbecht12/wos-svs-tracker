@@ -1,23 +1,30 @@
 // ─── Shared SvS Calendar Utility ─────────────────────────────────────────────
 // First SvS week starts Monday April 20, 2026
 // Cycle: Prep1 (wk1) → KOI (wk2) → Prep3 (wk3) → SvS (wk4), repeating forever
+// All day calculations use UTC so every user sees the same "day" boundary.
 
-export const FIRST_SVS_MONDAY = new Date("2026-04-20T00:00:00");
+export const FIRST_SVS_MONDAY = new Date(Date.UTC(2026, 3, 20)); // Apr 20 2026 00:00 UTC
+
+// Returns midnight UTC for today — use instead of new Date() for day math.
+export function todayUTC() {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+}
 
 export function addDaysToDate(date, n) {
   const d = new Date(date);
-  d.setDate(d.getDate() + n);
+  d.setUTCDate(d.getUTCDate() + n);
   return d;
 }
 
-// Format Date object as MM/DD/YY
+// Format Date object as MM/DD/YY using UTC date parts
 export function fmtDate(date) {
   if (!date) return "";
   const d = date instanceof Date ? date : new Date(date);
   if (isNaN(d)) return "";
-  const mo = String(d.getMonth() + 1).padStart(2, "0");
-  const dy = String(d.getDate()).padStart(2, "0");
-  const yr = String(d.getFullYear()).slice(2);
+  const mo = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const dy = String(d.getUTCDate()).padStart(2, "0");
+  const yr = String(d.getUTCFullYear()).slice(2);
   return `${mo}/${dy}/${yr}`;
 }
 
@@ -37,20 +44,20 @@ export function toIso(date) {
   return d.toISOString().slice(0, 10);
 }
 
-// Parse ISO string to Date (midnight local)
+// Parse ISO string to Date (midnight UTC)
 export function fromIso(isoStr) {
   if (!isoStr) return null;
   const [y, m, d] = isoStr.split("-").map(Number);
-  return new Date(y, m - 1, d);
+  return new Date(Date.UTC(y, m - 1, d));
 }
 
-// Given any date, find the Monday of that week
+// Given any date, find the Monday of that week (UTC day boundary)
 export function getMondayOf(date) {
   const d = new Date(date);
-  const day = d.getDay(); // 0=Sun, 1=Mon, ...
+  const day = d.getUTCDay(); // 0=Sun, 1=Mon, ...
   const diff = day === 0 ? -6 : 1 - day;
-  d.setDate(d.getDate() + diff);
-  d.setHours(0, 0, 0, 0);
+  d.setUTCDate(d.getUTCDate() + diff);
+  d.setUTCHours(0, 0, 0, 0);
   return d;
 }
 
@@ -115,8 +122,7 @@ export function buildCycles(startCycleNum, count = 12) {
 
 // Get the current cycle number (which SvS cycle are we in right now)
 export function getCurrentCycleNum() {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const today = todayUTC();
   const wIdx = weeksSinceAnchor(today);
   // FIRST_SVS_MONDAY is the SvS week of cycle 1 (weekIndex 0).
   // Each cycle is 4 weeks: prep1, KOI, prep3, SvS.

@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { _isGuest } from "./useLocalStorage.js";
 import { useTierContext, GuestBanner } from "./TierContext.jsx";
-import { buildCycles, getCurrentCycleNum, getCycleStartDate, fmtDate as fmtDateCal, cycleLabelFull, addDaysToDate, toIso, FIRST_SVS_MONDAY } from "./svsCalendar.js";
+import { buildCycles, getCurrentCycleNum, getCycleStartDate, fmtDate as fmtDateCal, cycleLabelFull, addDaysToDate, toIso, FIRST_SVS_MONDAY, todayUTC } from "./svsCalendar.js";
 import { supabase } from "./supabase.js";
 
 // ─── Exact building data from Misc. Data Tables AO3:BE399 ────────────────────
@@ -891,10 +891,8 @@ function ConstructionPlannerPro({ inv, setInv, planSnapshot, onSetSnapshot, onUp
   }, [selectedCycle]);
 
   const { daysToSVS, todayDayIndex } = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const cycleStart = getCycleStartDate(selectedCycle); // Prep1 Monday
-    cycleStart.setHours(0, 0, 0, 0);
+    const today = todayUTC();
+    const cycleStart = getCycleStartDate(selectedCycle); // Prep1 Monday (UTC midnight)
     const msPerDay = 86400000;
     // Days from cycle start (day 0 = Prep1 Monday)
     const daysSinceCycleStart = Math.floor((today - cycleStart) / msPerDay);
@@ -907,8 +905,8 @@ function ConstructionPlannerPro({ inv, setInv, planSnapshot, onSetSnapshot, onUp
 
   // Also compute today's 0-based index in the RFC planner's 28-day schedule
   const rfcTodayIndex = useMemo(() => {
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const cycleStart = getCycleStartDate(selectedCycle); cycleStart.setHours(0, 0, 0, 0);
+    const today = todayUTC();
+    const cycleStart = getCycleStartDate(selectedCycle);
     const diff = Math.floor((today - cycleStart) / 86400000);
     return Math.min(Math.max(diff, 0), 27);
   }, [selectedCycle]);
