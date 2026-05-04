@@ -330,16 +330,36 @@ function buildChangeList(scope) {
   // Construction
   if (inScope("construction")) {
     const FC_ORDER = ["FC1","FC2","FC3","FC4","FC5","FC6","FC7","FC8","FC9","FC10"];
+    // Collapse (major, sub) into a single number so FC8.2 > FC8.0 > FC7.4
+    const toNum   = (level, sub) => FC_ORDER.indexOf(level) * 5 + (sub || 0);
+    // Build display label: "FC8" or "FC8.2"
+    const fcLabel = (level, sub) => (!sub || sub === 0) ? level : `${level}.${sub}`;
+    // Generate every step label between two (level, sub) positions, inclusive
+    const buildSteps = (fromLevel, fromSub, toLevel, toSub) => {
+      const steps = [];
+      const fromMi = FC_ORDER.indexOf(fromLevel);
+      const toMi   = FC_ORDER.indexOf(toLevel);
+      for (let mi = fromMi; mi <= toMi; mi++) {
+        const lv   = FC_ORDER[mi];
+        const sMin = mi === fromMi ? (fromSub || 0) : 0;
+        const sMax = mi === toMi   ? (toSub   || 0) : 4;
+        for (let sub = sMin; sub <= sMax; sub++) steps.push(fcLabel(lv, sub));
+      }
+      return steps;
+    };
+
     const buildings = getLS("cp-buildings") || [];
     buildings.forEach(b => {
       if (!b || !b.goal || !b.current) return;
-      const curIdx = FC_ORDER.indexOf(b.current);
-      const goalIdx = FC_ORDER.indexOf(b.goal);
-      if (goalIdx > curIdx) {
+      const curNum  = toNum(b.current, b.currentSub || 0);
+      const goalNum = toNum(b.goal,    b.goalSub    || 0);
+      if (goalNum > curNum) {
+        const curLabel  = fcLabel(b.current, b.currentSub || 0);
+        const goalLabel = fcLabel(b.goal,    b.goalSub    || 0);
         changes.push({
           tab:"construction", section:"Construction", key:`bld:${b.name}`,
-          label:b.name, cur:b.current, goal:b.goal, achieved:b.goal,
-          isText:true, options:FC_ORDER.slice(curIdx, goalIdx+1),
+          label:b.name, cur:curLabel, goal:goalLabel, achieved:goalLabel,
+          isText:true, options:buildSteps(b.current, b.currentSub||0, b.goal, b.goalSub||0),
           materials:{},
         });
       }
@@ -460,11 +480,17 @@ function applyChanges(finalList, userId, charId) {
   }
   const cpChanged = finalList.some(c => c.tab === "construction");
   if (cpChanged) {
-    const FC_ORDER = ["FC1","FC2","FC3","FC4","FC5","FC6","FC7","FC8","FC9","FC10"];
+    // Parse "FC8.2" → {level:"FC8", sub:2}  |  "FC8" → {level:"FC8", sub:0}
+    const parseFCLbl = lbl => {
+      const [level, subStr] = String(lbl).split(".");
+      return { level, sub: subStr ? Number(subStr) : 0 };
+    };
     const bldgs = getLS("cp-buildings") || [];
     const updated = bldgs.map(b => {
       const a = map[`bld:${b.name}`];
-      return a !== undefined ? { ...b, current:a, goal:a, currentSub:0 } : b;
+      if (a === undefined) return b;
+      const { level, sub } = parseFCLbl(a);
+      return { ...b, current:level, currentSub:sub, goal:level, goalSub:sub };
     });
     setLS("cp-buildings", updated);
     sync("cp-buildings", updated);
