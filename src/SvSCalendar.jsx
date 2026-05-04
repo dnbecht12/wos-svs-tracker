@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { buildCycles, getCurrentCycleNum, fmtDate, cycleLabelFull, todayUTC } from "./svsCalendar.js";
+import { SERVER_MILESTONES, getStateStartMs } from "./CharacterProfile.jsx";
 
 const C = new Proxy({}, { get(_, key) { return `var(--c-${key})`; } });
 // Semantic week colors mapped to theme vars
@@ -57,19 +58,43 @@ const STYLE = `
 .pip.past{opacity:.3}
 .pip.svs-pip{background:var(--c-accentBg);border-color:var(--c-accentDim);color:var(--c-accent)}
 .pip.koi-pip{background:var(--c-blueBg);border-color:var(--c-blueDim);color:var(--c-blue)}
+.pip.milestone{background:var(--c-amberBg);border-color:var(--c-amber);color:var(--c-amber);font-weight:700;cursor:pointer;box-shadow:0 0 5px var(--c-amberBg)}
+.pip.milestone:hover,.pip.milestone.tip-open{box-shadow:0 0 8px var(--c-amber);border-color:var(--c-amber)}
 @media(max-width:700px){.week-row{grid-template-columns:1fr 1fr}}
 @media(max-width:420px){.week-row{grid-template-columns:1fr}}
 `;
 
 const DAY_AB = ["Mo","Tu","We","Th","Fr","Sa","Su"];
 
-export default function SvSCalendar() {
+// Returns the ms timestamp of the Monday on or before the given ms (UTC).
+function mondayBefore(ms) {
+  const utcDay = new Date(ms).getUTCDay(); // 0=Sun
+  return ms - (utcDay === 0 ? 6 : utcDay - 1) * 86400000;
+}
+
+export default function SvSCalendar({ stateNum }) {
   const today = useMemo(()=>todayUTC(),[]);
   const currentCycle = useMemo(()=>getCurrentCycleNum(),[]);
   const [startCycle, setStartCycle] = useState(currentCycle);
+  const [tooltip, setTooltip] = useState(null); // { x, y, labels[] }
 
   // Build 8 cycles from the selected start
   const cycles = useMemo(()=>buildCycles(startCycle, 8),[startCycle]);
+
+  // Build a map of ISO date string → milestone labels for the active character's state.
+  // Dates are the Monday on or before each milestone's calendar date.
+  const milestoneMap = useMemo(() => {
+    const startMs = getStateStartMs(stateNum);
+    if (!startMs) return new Map();
+    const map = new Map();
+    SERVER_MILESTONES.forEach(m => {
+      const monMs = mondayBefore(startMs + m.day * 86400000);
+      const key   = new Date(monMs).toISOString().slice(0, 10);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(m.label);
+    });
+    return map;
+  }, [stateNum]);
 
   // Options for dropdown: go back 2 cycles, forward 24
   const cycleOpts = useMemo(()=>{
@@ -80,7 +105,7 @@ export default function SvSCalendar() {
   return (
     <>
       <style dangerouslySetInnerHTML={{__html:STYLE}}/>
-      <div className="cal">
+      <div className="cal" onClick={()=>setTooltip(null)}>
         <div className="cal-top">
           <div>
             <div className="cal-title">SvS <span>Calendar</span></div>
@@ -103,6 +128,12 @@ export default function SvSCalendar() {
             <div className="leg-item"><div className="leg-dot leg-svs"/><span>SvS week</span></div>
             <div className="leg-item"><div className="leg-dot leg-koi"/><span>King of Icefield</span></div>
             <div className="leg-item"><div className="leg-dot leg-prep"/><span>Prep week</span></div>
+            {milestoneMap.size > 0 && (
+              <div className="leg-item">
+                <div className="leg-dot" style={{background:"var(--c-amberBg)",border:"1px solid var(--c-amber)",boxShadow:"0 0 5px var(--c-amberBg)"}}/>
+                <span>Content release{stateNum ? ` (State ${stateNum})` : ""}</span>
+              </div>
+            )}
           </div>
 
           {cycles.map(cycle=>{
@@ -132,11 +163,34 @@ export default function SvSCalendar() {
                         <div className={`wk-lbl ${wCls}`}>{label}</div>
                         <div className="day-pips">
                           {Array.from({length:7},(_,di)=>{
-                            const day = new Date(w.weekStart); day.setDate(day.getDate()+di);
-                            const isToday = day.getTime()===today.getTime();
-                            const isDayPast = day<today;
-                            const pipCls = isToday?"today":isDayPast?"past":w.isSvS?"svs-pip":w.isKOI?"koi-pip":"";
-                            return <div key={di} className={`pip ${pipCls}`} title={fmtDate(day)}>{DAY_AB[di]}</div>;
+                            const dayMs    = w.weekStart.getTime() + di * 86400000;
+                            const dayDate  = new Date(dayMs);
+                            const dayIso   = dayDate.toISOString().slice(0, 10);
+                            const isToday  = dayMs === today.getTime();
+                            const isDayPast = dayMs < today.getTime();
+                            const labels   = milestoneMap.get(dayIso) || [];
+                            const isMilestone = labels.length > 0;
+                            const tipOpen  = tooltip?.iso === dayIso;
+                            let pipCls = isToday ? "today" : isDayPast ? "past" : w.isSvS ? "svs-pip" : w.isKOI ? "koi-pip" : "";
+                            if (isMilestone && !isToday) pipCls = `milestone${tipOpen ? " tip-open" : ""}`;
+                            return (
+                              <div
+                                key={di}
+                                className={`pip ${pipCls}`}
+                                title={isMilestone ? undefined : fmtDate(dayDate)}
+                                onMouseEnter={isMilestone ? (e) => {
+                                  const r = e.currentTarget.getBoundingClientRect();
+                                  setTooltip({ x: r.left + r.width / 2, y: r.top, iso: dayIso, labels });
+                                } : undefined}
+                                onMouseLeave={isMilestone ? () => setTooltip(null) : undefined}
+                                onClick={isMilestone ? (e) => {
+                                  e.stopPropagation();
+                                  setTooltip(t => t?.iso === dayIso ? null : { x: e.currentTarget.getBoundingClientRect().left + e.currentTarget.getBoundingClientRect().width / 2, y: e.currentTarget.getBoundingClientRect().top, iso: dayIso, labels });
+                                } : undefined}
+                              >
+                                {DAY_AB[di]}
+                              </div>
+                            );
                           })}
                         </div>
                       </div>
@@ -148,6 +202,34 @@ export default function SvSCalendar() {
           })}
         </div>
       </div>
+
+      {tooltip && (
+        <div
+          onMouseEnter={() => {}} // keep alive while hovering tooltip
+          style={{
+            position:"fixed", left:tooltip.x, top:tooltip.y - 10,
+            transform:"translate(-50%, -100%)",
+            background:"var(--c-card)", border:"1px solid var(--c-amber)",
+            borderRadius:10, padding:"10px 14px", zIndex:9999,
+            pointerEvents:"none", maxWidth:280,
+            boxShadow:"0 6px 24px rgba(0,0,0,0.45)",
+            fontFamily:"'Syne',sans-serif",
+          }}
+        >
+          <div style={{fontSize:9,fontWeight:700,letterSpacing:"1.2px",textTransform:"uppercase",
+            color:"var(--c-amber)",fontFamily:"'Space Mono',monospace",marginBottom:6}}>
+            Est. Release
+          </div>
+          {tooltip.labels.map((lbl, i) => (
+            <div key={i} style={{fontSize:12,color:"var(--c-textPri)",lineHeight:1.5,
+              borderBottom: i < tooltip.labels.length-1 ? "1px solid var(--c-border)" : "none",
+              paddingBottom: i < tooltip.labels.length-1 ? 4 : 0,
+              marginBottom:  i < tooltip.labels.length-1 ? 4 : 0}}>
+              {lbl}
+            </div>
+          ))}
+        </div>
+      )}
     </>
   );
 }

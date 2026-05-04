@@ -2146,7 +2146,7 @@ const PAGES = [
   { id:"war-academy",      label:"War Academy",      icon:"[W]", section:"Construction & Technology", path:"/app/war-academy"   },
   // PLANNING
   { id:"rfc-planner",      label:"RFC Planner",      icon:"[R]", section:"Planning", guestHidden:true, path:"/app/rfc-planner"   },
-  { id:"svs-calendar",     label:"SvS Calendar",     icon:"[C]", section:"Planning",                  path:"/app/svs-calendar"  },
+  { id:"svs-calendar",     label:"Calendar",          icon:"[C]", section:"Planning",                  path:"/app/svs-calendar"  },
   { id:"battle-sim",       label:"Battle Simulator",  icon:"[B]", section:"Planning", guestHidden:true, proOnly:true, path:"/app/battle-sim" },
 ];
 
@@ -2164,7 +2164,7 @@ const PAGE_TITLES = {
   "war-academy":{ title: "War Academy", sub: "Research upgrade planner — track shards, steel, time costs and stat gains across all three troop types" },
   "research-center": { title: "Research Center", sub: "Growth, Economy & Battle research trees — track per-level costs, buffs and time across all tiers" },
   "troops":     { title: "Troops", sub: "Troop inventory — track your Infantry, Lancer and Marksman counts by tier" },
-  "svs-calendar":{ title: "SvS Calendar", sub: "Rolling 28-week schedule — SvS every 4th week, King of Icefield every 2nd week" },
+  "svs-calendar":{ title: "Calendar", sub: "Rolling event schedule — SvS every 4th week, King of Icefield every 2nd week" },
   "battle-sim":  { title: "Battle Simulator", sub: "Estimate troop casualties and battle outcomes using community-verified combat formulas" },
   "pets":          { title: "Pets", sub: "Pet levels, advancement costs, skill tracker and refinement stats" },
   "char-profile": { title: "Chief Profile", sub: "Total power summary — tech, gear, heroes, charms, military and growth stats" },
@@ -4240,7 +4240,7 @@ export default function App() {
             {page === "daybreak-island" && <ProGate><DaybreakIslandPage /></ProGate>}
             {page === "war-academy"  && <WarAcademyPage   inv={inv} setInv={setInv}  onCompleteSvs={completeSvs("war-academy")}/>}
             {page === "research-center" && <ResearchCenterPage inv={inv} rcLevels={rcLevels} setRcLevels={setRcLevels} rcCollapse={rcCollapse} setRcCollapse={setRcCollapse}  onCompleteSvs={completeSvs("research-center")}/>}
-            {page === "svs-calendar" && <SvSCalendar />}
+            {page === "svs-calendar" && <SvSCalendar stateNum={activeCharacter?.state_number} />}
             {page === "battle-sim"   && <ProGate><BattleSimPage inv={inv} /></ProGate>}
             {page === "char-profile" && <CharacterProfilePage hgHeroes={hgHeroes} inv={inv} onCompleteSvs={completeSvs("all")}
                 rcLevels={rcLevels} profileVersion={profileVersion}

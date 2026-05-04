@@ -71,7 +71,7 @@ const LAST_RATE_MS = (STATE_ANCHORS[STATE_ANCHORS.length-1].t - STATE_ANCHORS[ST
 // First segment rate (for states before anchor[0])
 const FIRST_RATE_MS = (STATE_ANCHORS[1].t - STATE_ANCHORS[0].t) / (STATE_ANCHORS[1].s - STATE_ANCHORS[0].s);
 
-function getStateStartMs(stateNum) {
+export function getStateStartMs(stateNum) {
   const n = Number(stateNum);
   if (!n || n < 1) return null;
   const anchors = STATE_ANCHORS;
@@ -88,7 +88,7 @@ function getStateStartMs(stateNum) {
 }
 
 // Consolidated server timeline milestones (sorted by day, multi-event days merged)
-const SERVER_MILESTONES = [
+export const SERVER_MILESTONES = [
   { day:0,    label:"Gen 1 Heroes (Natalia, Jeronimo, Molly, Zinman)", category:"hero" },
   { day:40,   label:"Gen 2 Heroes (Flint, Philly, Alonso)", category:"hero" },
   { day:53,   label:"Sunfire Castle", category:"event" },
